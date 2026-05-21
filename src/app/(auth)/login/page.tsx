@@ -10,13 +10,26 @@ export default function LoginPage() {
   const [message, setMessage] = useState("");
 
   const handleLogin = async () => {
-    if (
-      !email.endsWith("@diu.edu.bd") &&
-      email !== "admin@daffgle.com"
-    ) {
-      setMessage("Only DIU emails are allowed.");
-      return;
-    }
+
+  const cleanEmail = email.trim().toLowerCase();
+
+const allowedAdminEmail =
+  "madhurzamutsha@gmail.com";
+
+const isDiuEmail =
+  cleanEmail.endsWith("@diu.edu.bd");
+
+const isAdminEmail =
+  cleanEmail === allowedAdminEmail;
+
+if (!isDiuEmail && !isAdminEmail) {
+  setMessage(
+    "Only DIU emails or admin email are allowed."
+  );
+
+  return;
+}
+
 
     try {
       setLoading(true);
@@ -30,7 +43,7 @@ export default function LoginPage() {
       });
 
       if (error) {
-        setMessage(error.message);
+        setMessage(error?.message || "Login failed.");
       } else {
         setMessage("OTP login link sent to your email.");
       }

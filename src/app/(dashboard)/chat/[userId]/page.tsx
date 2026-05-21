@@ -1,6 +1,7 @@
 "use client";
 
 import { supabase } from "@/lib/supabase/client";
+import EmojiPicker from "emoji-picker-react";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -19,11 +20,27 @@ type Message = {
   delivered?: boolean;
   seen_at?: string | null;
   created_at: string;
+  edited?: boolean;
+  deleted?: boolean;
+  reply_to?: string | null;
 };
 
 type ConnectionStatus = "connecting" | "connected" | "disconnected";
 
 const TYPING_TIMEOUT_MS = 2000;
+const SPAM_COOLDOWN_MS = 2000;
+
+const bannedWords = [
+  "fuck",
+  "bitch",
+  "nigga",
+  "slut",
+  "bastard",
+  "sex",
+  "porn",
+  "dick",
+  "motherfucker",
+];
 
 export default function ChatPage() {
   const router = useRouter();
@@ -47,13 +64,28 @@ export default function ChatPage() {
   const [reportReason, setReportReason] = useState("");
   const [reportDetails, setReportDetails] = useState("");
 
+  const [replyTo, setReplyTo] = useState<Message | null>(null);
+  const [editingMessage, setEditingMessage] = useState<Message | null>(null);
+  const [showEmoji, setShowEmoji] = useState(false);
+
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const typingChannelRef = useRef<any>(null);
+  const lastMessageTimeRef = useRef(0);
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, []);
+
+  const containsProfanity = (value: string) => {
+    const lower = value.toLowerCase();
+    return bannedWords.some((word) => lower.includes(word));
+  };
+
+  const getReplyMessage = (replyId?: string | null) => {
+    if (!replyId) return null;
+    return messages.find((msg) => msg.id === replyId) || null;
+  };
 
   const markMessagesAsSeen = async (chatId: string, myId: string) => {
     await supabase
@@ -158,10 +190,7 @@ export default function ChatPage() {
       await markMessagesAsSeen(chatId, myId);
 
       setLoading(false);
-
-      setTimeout(() => {
-        scrollToBottom();
-      }, 100);
+      setTimeout(scrollToBottom, 100);
 
       messageChannel = supabase
         .channel(`messages-${chatId}`)
@@ -204,21 +233,14 @@ export default function ChatPage() {
           }
         )
         .subscribe((status) => {
-          if (status === "SUBSCRIBED") {
-            setConnectionStatus("connected");
-          } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+          if (status === "SUBSCRIBED") setConnectionStatus("connected");
+          else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT")
             setConnectionStatus("disconnected");
-          } else {
-            setConnectionStatus("connecting");
-          }
+          else setConnectionStatus("connecting");
         });
 
       typingChannel = supabase.channel(`typing-${chatId}`, {
-        config: {
-          broadcast: {
-            self: false,
-          },
-        },
+        config: { broadcast: { self: false } },
       });
 
       typingChannel
@@ -261,81 +283,69 @@ export default function ChatPage() {
     typingChannelRef.current.send({
       type: "broadcast",
       event: "typing",
-      payload: {
-        senderId: currentUserId,
-      },
+      payload: { senderId: currentUserId },
     });
   };
 
-
-  const bannedWords = [
-  "fuck",
-  "bitch",
-  "nigga",
-  "slut",
-  "bastard",
-  "sex",
-  "porn",
-  "dick",
-  "motherfucker",
-];
-
-const containsProfanity = (text: string) => {
-  const lower = text.toLowerCase();
-
-  return bannedWords.some((word) =>
-    lower.includes(word)
-  );
-};
-
-const spamCooldownMs = 2000;
-
-let lastMessageTime = 0;
   const sendMessage = async () => {
     const messageText = text.trim();
-    const now = Date.now();
-
-if (now - lastMessageTime < spamCooldownMs) {
-  setError(
-    "You are sending messages too fast."
-  );
-
-  return;
-}
-
-lastMessageTime = now;
 
     if (!messageText || !conversationId || !currentUserId || isBlocked) return;
-    
+
+    const now = Date.now();
+
+    if (now - lastMessageTimeRef.current < SPAM_COOLDOWN_MS) {
+      setError("You are sending messages too fast.");
+      return;
+    }
+
+    lastMessageTimeRef.current = now;
+
     const { data: myProfile } = await supabase
-  .from("profiles")
-  .select("is_muted")
-  .eq("id", currentUserId)
-  .single();
+      .from("profiles")
+      .select("is_muted")
+      .eq("id", currentUserId)
+      .single();
 
-if (myProfile?.is_muted) {
-  setError("You are muted by admin.");
-  return;
-}
+    if (myProfile?.is_muted) {
+      setError("You are muted by admin.");
+      return;
+    }
 
-if (containsProfanity(messageText)) {
-  setError(
-    "Message blocked بسبب inappropriate language."
-  );
+    if (containsProfanity(messageText)) {
+      setError("Message blocked because of inappropriate language.");
 
-  await supabase
-    .from("user_warnings")
-    .insert({
-      user_id: currentUserId,
-      reason: "PROFANITY",
-      message: messageText,
-    });
+      await supabase.from("user_warnings").insert({
+        user_id: currentUserId,
+        reason: "PROFANITY",
+        message: messageText,
+      });
 
-  return;
-}
+      return;
+    }
 
     setText("");
     setError("");
+
+    if (editingMessage) {
+      const { error: editError } = await supabase
+        .from("messages")
+        .update({
+          message: messageText,
+          edited: true,
+        })
+        .eq("id", editingMessage.id)
+        .eq("sender_id", currentUserId);
+
+      if (editError) {
+        setError("Failed to edit message.");
+        setText(messageText);
+        return;
+      }
+
+      setEditingMessage(null);
+      return;
+    }
 
     const { error: sendError } = await supabase.from("messages").insert({
       conversation_id: conversationId,
@@ -343,12 +353,49 @@ if (containsProfanity(messageText)) {
       message: messageText,
       delivered: true,
       seen: false,
+      reply_to: replyTo?.id || null,
     });
 
     if (sendError) {
       setError("Message failed to send.");
       setText(messageText);
+      return;
     }
+
+    setReplyTo(null);
+  };
+
+  const deleteMessage = async (msg: Message) => {
+    if (msg.sender_id !== currentUserId) return;
+
+    const confirmed = confirm("Delete this message for everyone?");
+    if (!confirmed) return;
+
+    const { error: deleteError } = await supabase
+      .from("messages")
+      .update({
+        deleted: true,
+        message: "This message was deleted",
+      })
+      .eq("id", msg.id)
+      .eq("sender_id", currentUserId);
+
+    if (deleteError) {
+      setError("Failed to delete message.");
+    }
+  };
+
+  const startEdit = (msg: Message) => {
+    if (msg.sender_id !== currentUserId || msg.deleted) return;
+    setEditingMessage(msg);
+    setReplyTo(null);
+    setText(msg.message);
+  };
+
+  const startReply = (msg: Message) => {
+    if (msg.deleted) return;
+    setReplyTo(msg);
+    setEditingMessage(null);
   };
 
   const blockUser = async () => {
@@ -400,11 +447,7 @@ if (containsProfanity(messageText)) {
 
   const renderMessageStatus = (msg: Message) => {
     if (msg.sender_id !== currentUserId) return null;
-
-    if (msg.seen) {
-      return <span className="text-[#2AABEE]">✓✓</span>;
-    }
-
+    if (msg.seen) return <span className="text-[#2AABEE]">✓✓</span>;
     return <span className="text-gray-400">✓</span>;
   };
 
@@ -486,24 +529,37 @@ if (containsProfanity(messageText)) {
               Loading messages...
             </p>
           ) : messages.length === 0 ? (
-            <p className="mt-10 text-center text-gray-500">
-              No messages yet.
-            </p>
+            <p className="mt-10 text-center text-gray-500">No messages yet.</p>
           ) : (
             messages.map((msg) => {
               const isMine = msg.sender_id === currentUserId;
+              const replied = getReplyMessage(msg.reply_to);
 
               return (
                 <div
                   key={msg.id}
-                  className={`flex ${isMine ? "justify-end" : "justify-start"}`}
+                  className={`group flex ${
+                    isMine ? "justify-end" : "justify-start"
+                  }`}
                 >
                   <div
                     className={`max-w-[75%] rounded-2xl px-4 py-2 text-sm ${
                       isMine ? "bg-[#2B5278]" : "bg-[#182533]"
-                    }`}
+                    } ${msg.deleted ? "opacity-60" : ""}`}
                   >
+                    {replied && (
+                      <div className="mb-2 rounded-xl border-l-4 border-[#2AABEE] bg-black/20 px-3 py-2 text-xs text-gray-300">
+                        <p className="font-semibold">
+                          {replied.sender_id === currentUserId
+                            ? "You"
+                            : targetUser?.anonymous_username}
+                        </p>
+                        <p className="truncate">{replied.message}</p>
+                      </div>
+                    )}
+
                     <p
+                      className={msg.deleted ? "italic text-gray-300" : ""}
                       style={{
                         wordBreak: "break-word",
                         overflowWrap: "anywhere",
@@ -513,6 +569,8 @@ if (containsProfanity(messageText)) {
                     </p>
 
                     <div className="mt-1 flex items-center justify-end gap-2 text-[10px] text-gray-300">
+                      {msg.edited && !msg.deleted && <span>edited</span>}
+
                       <span>
                         {new Date(msg.created_at).toLocaleTimeString([], {
                           hour: "2-digit",
@@ -522,6 +580,35 @@ if (containsProfanity(messageText)) {
 
                       {renderMessageStatus(msg)}
                     </div>
+
+                    {!msg.deleted && (
+                      <div className="mt-2 hidden gap-2 text-[11px] group-hover:flex">
+                        <button
+                          onClick={() => startReply(msg)}
+                          className="text-[#2AABEE] hover:underline"
+                        >
+                          Reply
+                        </button>
+
+                        {isMine && (
+                          <>
+                            <button
+                              onClick={() => startEdit(msg)}
+                              className="text-yellow-300 hover:underline"
+                            >
+                              Edit
+                            </button>
+
+                            <button
+                              onClick={() => deleteMessage(msg)}
+                              className="text-red-300 hover:underline"
+                            >
+                              Delete
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               );
@@ -539,13 +626,64 @@ if (containsProfanity(messageText)) {
           <div ref={messagesEndRef} />
         </div>
 
+        {replyTo && (
+          <div className="border-t border-[#22303D] bg-[#17212B] px-4 py-2 text-sm">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-[#2AABEE]">Replying to message</p>
+                <p className="truncate text-gray-400">{replyTo.message}</p>
+              </div>
+
+              <button onClick={() => setReplyTo(null)} className="text-red-300">
+                ✕
+              </button>
+            </div>
+          </div>
+        )}
+
+        {editingMessage && (
+          <div className="border-t border-[#22303D] bg-[#17212B] px-4 py-2 text-sm">
+            <div className="flex items-center justify-between">
+              <p className="text-yellow-300">Editing message</p>
+
+              <button
+                onClick={() => {
+                  setEditingMessage(null);
+                  setText("");
+                }}
+                className="text-red-300"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        )}
+
         {isBlocked && (
           <div className="border-t border-[#22303D] bg-red-900/30 px-4 py-3 text-center text-sm text-red-300">
             You blocked this user. Messaging disabled.
           </div>
         )}
 
-        <div className="flex gap-3 border-t border-[#22303D] bg-[#17212B] p-4">
+        <div className="relative flex gap-3 border-t border-[#22303D] bg-[#17212B] p-4">
+          {showEmoji && (
+            <div className="absolute bottom-20 left-4 z-50">
+              <EmojiPicker
+                onEmojiClick={(emojiData) => {
+                  setText((prev) => prev + emojiData.emoji);
+                }}
+              />
+            </div>
+          )}
+
+          <button
+            onClick={() => setShowEmoji(!showEmoji)}
+            disabled={isBlocked}
+            className="rounded-2xl bg-[#0F1A24] px-4 text-xl disabled:opacity-50"
+          >
+            😊
+          </button>
+
           <input
             value={text}
             disabled={isBlocked}
@@ -553,9 +691,7 @@ if (containsProfanity(messageText)) {
             onKeyDown={(e) => {
               if (e.key === "Enter") sendMessage();
             }}
-            placeholder={
-              isBlocked ? "Messaging disabled" : "Write a message..."
-            }
+            placeholder={isBlocked ? "Messaging disabled" : "Write a message..."}
             className="flex-1 rounded-2xl bg-[#0F1A24] px-4 py-3 text-white outline-none placeholder:text-gray-500 disabled:cursor-not-allowed disabled:opacity-50"
           />
 
@@ -564,7 +700,7 @@ if (containsProfanity(messageText)) {
             disabled={!text.trim() || isBlocked}
             className="rounded-2xl bg-[#2AABEE] px-5 font-semibold hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            Send
+            {editingMessage ? "Save" : "Send"}
           </button>
         </div>
       </section>

@@ -2,7 +2,7 @@
 
 import { supabase } from "@/lib/supabase/client";
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 type TargetUser = {
   id: string;
@@ -19,6 +19,10 @@ type Message = {
   created_at: string;
 };
 
+type ConnectionStatus = "connecting" | "connected" | "disconnected";
+
+const TYPING_TIMEOUT_MS = 2000;
+
 export default function ChatPage() {
   const router = useRouter();
   const params = useParams();
@@ -28,11 +32,31 @@ export default function ChatPage() {
   const [conversationId, setConversationId] = useState("");
   const [targetUser, setTargetUser] = useState<TargetUser | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
-  const [channel, setChannel] = useState<any>(null);
   const [text, setText] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [isTyping, setIsTyping] = useState(false);
+  const [connectionStatus, setConnectionStatus] =
+    useState<ConnectionStatus>("connecting");
+
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const typingChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(
+    null
+  );
+
+  const scrollToBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
+    messagesEndRef.current?.scrollIntoView({ behavior });
+  }, []);
 
   useEffect(() => {
+    let messageChannel: ReturnType<typeof supabase.channel> | null = null;
+    let typingChannel: ReturnType<typeof supabase.channel> | null = null;
+
     const loadChat = async () => {
+      setLoading(true);
+      setError("");
+
       const { data: userData } = await supabase.auth.getUser();
 
       if (!userData.user) {
@@ -41,13 +65,24 @@ export default function ChatPage() {
       }
 
       const myId = userData.user.id;
+
+      if (myId === targetUserId) {
+        router.push("/dashboard");
+        return;
+      }
+
       setCurrentUserId(myId);
 
-      const { data: target } = await supabase
+      const { data: target, error: targetError } = await supabase
         .from("profiles")
         .select("id, anonymous_username, department")
         .eq("id", targetUserId)
         .single();
+
+      if (targetError || !target) {
+        router.push("/dashboard");
+        return;
+      }
 
       setTargetUser(target);
 
@@ -62,106 +97,206 @@ export default function ChatPage() {
       let chatId = existingConversation?.id;
 
       if (!chatId) {
-        const { data: newConversation } = await supabase
-          .from("conversations")
-          .insert({
-            user_one: myId,
-            user_two: targetUserId,
-          })
-          .select("id")
-          .single();
+        const { data: newConversation, error: conversationError } =
+          await supabase
+            .from("conversations")
+            .insert({
+              user_one: myId,
+              user_two: targetUserId,
+            })
+            .select("id")
+            .single();
 
-        chatId = newConversation?.id;
+        if (conversationError || !newConversation) {
+          setError("Could not start conversation. Try again.");
+          setLoading(false);
+          return;
+        }
+
+        chatId = newConversation.id;
       }
-
-      if (!chatId) return;
 
       setConversationId(chatId);
 
-      const { data: loadedMessages } = await supabase
+      const { data: loadedMessages, error: messagesError } = await supabase
         .from("messages")
-        .select("id, conversation_id, sender_id, message, seen, created_at")
+        .select("*")
         .eq("conversation_id", chatId)
         .order("created_at", { ascending: true });
 
-      if (loadedMessages) {
-        setMessages(loadedMessages);
+      if (messagesError) {
+        setError("Could not load messages.");
+        setLoading(false);
+        return;
       }
-      const realtimeChannel = supabase
-  .channel(`chat-${chatId}`)
-  .on(
-    "postgres_changes",
-    {
-      event: "INSERT",
-      schema: "public",
-      table: "messages",
-      filter: `conversation_id=eq.${chatId}`,
-    },
-    (payload) => {
-      const newMessage = payload.new as Message;
 
-      setMessages((prev) => {
-        const exists = prev.find((msg) => msg.id === newMessage.id);
+      setMessages(loadedMessages || []);
+      setLoading(false);
 
-        if (exists) return prev;
+      setTimeout(() => scrollToBottom("auto"), 100);
 
-        return [...prev, newMessage];
+      messageChannel = supabase
+        .channel(`chat-messages-${chatId}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "messages",
+            filter: `conversation_id=eq.${chatId}`,
+          },
+          (payload) => {
+            const newMessage = payload.new as Message;
+
+            setMessages((prev) => {
+              const exists = prev.some((msg) => msg.id === newMessage.id);
+
+              if (exists) return prev;
+
+              return [...prev, newMessage];
+            });
+          }
+        )
+        .subscribe((status) => {
+          if (status === "SUBSCRIBED") {
+            setConnectionStatus("connected");
+          } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+            setConnectionStatus("disconnected");
+          } else {
+            setConnectionStatus("connecting");
+          }
+        });
+
+      typingChannel = supabase.channel(`chat-typing-${chatId}`, {
+        config: {
+          broadcast: {
+            self: false,
+          },
+        },
       });
-    }
-  )
-  .subscribe();
 
-setChannel(realtimeChannel);
+      typingChannel
+        .on("broadcast", { event: "typing" }, (payload) => {
+          if (payload.payload?.senderId !== targetUserId) return;
+
+          setIsTyping(true);
+
+          if (typingTimeoutRef.current) {
+            clearTimeout(typingTimeoutRef.current);
+          }
+
+          typingTimeoutRef.current = setTimeout(() => {
+            setIsTyping(false);
+          }, TYPING_TIMEOUT_MS);
+        })
+        .subscribe();
+
+      typingChannelRef.current = typingChannel;
     };
 
     loadChat();
-  return () => {
-  if (channel) {
-    supabase.removeChannel(channel);
-  }
-};
-}, [router, targetUserId, channel]);
 
-  const sendMessage = async () => {
-    if (!text.trim() || !conversationId || !currentUserId) return;
+    return () => {
+      if (messageChannel) {
+        supabase.removeChannel(messageChannel);
+      }
 
-    const messageText = text.trim();
-    setText("");
+      if (typingChannel) {
+        supabase.removeChannel(typingChannel);
+      }
 
-    const { data } = await supabase
-      .from("messages")
-      .insert({
-        conversation_id: conversationId,
-        sender_id: currentUserId,
-        message: messageText,
-      })
-      .select("id, conversation_id, sender_id, message, seen, created_at")
-      .single();
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+    };
+  }, [router, scrollToBottom, targetUserId]);
 
-    
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages, isTyping, scrollToBottom]);
+
+  const handleTyping = (value: string) => {
+    setText(value);
+
+    if (!typingChannelRef.current || !currentUserId) return;
+
+    typingChannelRef.current.send({
+      type: "broadcast",
+      event: "typing",
+      payload: {
+        senderId: currentUserId,
+      },
+    });
   };
 
-  return (
-    <main className="flex h-screen flex-col bg-[#0E1621] text-white">
+  const sendMessage = async () => {
+    const messageText = text.trim();
+
+    if (!messageText || !conversationId || !currentUserId) return;
+
+    setText("");
+    setError("");
+
+    const { error: sendError } = await supabase.from("messages").insert({
+      conversation_id: conversationId,
+      sender_id: currentUserId,
+      message: messageText,
+    });
+
+    if (sendError) {
+      setError("Message failed to send.");
+      setText(messageText);
+    }
+  };
+
+ return (
+  <main className="flex h-dvh flex-col overflow-hidden bg-[#0E1621] text-white">
       <header className="flex items-center gap-4 border-b border-[#22303D] bg-[#17212B] p-4">
         <button
           onClick={() => router.push("/dashboard")}
-          className="rounded-xl bg-[#2B5278] px-4 py-2 text-sm"
+          className="rounded-xl bg-[#2B5278] px-4 py-2 text-sm transition hover:opacity-80"
         >
           Back
         </button>
 
-        <div>
-          <h1 className="text-lg font-bold">
+        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#2B5278] font-bold">
+          {targetUser?.anonymous_username?.charAt(0).toUpperCase() || "?"}
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <h1 className="truncate text-lg font-bold">
             {targetUser?.anonymous_username || "Loading..."}
           </h1>
-          <p className="text-sm text-gray-400">{targetUser?.department}</p>
+
+          <p className="text-sm text-gray-400">
+            {isTyping ? (
+              <span className="text-[#2AABEE]">typing...</span>
+            ) : (
+              targetUser?.department
+            )}
+          </p>
+        </div>
+
+        <div className="hidden text-xs text-gray-400 sm:block">
+          {connectionStatus === "connected" && "● Live"}
+          {connectionStatus === "connecting" && "● Connecting"}
+          {connectionStatus === "disconnected" && "● Reconnecting"}
         </div>
       </header>
 
+      {error && (
+        <div className="bg-red-900/40 px-4 py-2 text-center text-sm text-red-300">
+          {error}
+        </div>
+      )}
+
       <section className="flex flex-1 flex-col bg-[#0F1A24]">
         <div className="flex-1 space-y-3 overflow-y-auto p-4">
-          {messages.length === 0 ? (
+          {loading ? (
+            <p className="mt-10 text-center text-gray-500">
+              Loading messages...
+            </p>
+          ) : messages.length === 0 ? (
             <p className="mt-10 text-center text-gray-500">
               No messages yet. Start the conversation.
             </p>
@@ -175,11 +310,22 @@ setChannel(realtimeChannel);
                   className={`flex ${isMine ? "justify-end" : "justify-start"}`}
                 >
                   <div
-                    className={`max-w-[75%] rounded-2xl px-4 py-2 text-sm ${
-                      isMine ? "bg-[#2B5278]" : "bg-[#182533]"
+                    className={`max-w-[78%] rounded-2xl px-4 py-2 text-sm shadow-lg sm:max-w-[65%] ${
+                      isMine
+                        ? "rounded-tr-sm bg-[#2B5278]"
+                        : "rounded-tl-sm bg-[#182533]"
                     }`}
                   >
-                    <p className="wrap-break-word">{msg.message}</p>
+                    <p
+                      className="leading-relaxed"
+                      style={{
+                        wordBreak: "break-word",
+                        overflowWrap: "anywhere",
+                      }}
+                    >
+                      {msg.message}
+                    </p>
+
                     <p className="mt-1 text-right text-[10px] text-gray-300">
                       {new Date(msg.created_at).toLocaleTimeString([], {
                         hour: "2-digit",
@@ -191,22 +337,35 @@ setChannel(realtimeChannel);
               );
             })
           )}
+
+          {isTyping && (
+            <div className="flex justify-start">
+              <div className="rounded-2xl rounded-tl-sm bg-[#182533] px-4 py-2 text-sm text-gray-400">
+                typing...
+              </div>
+            </div>
+          )}
+
+          <div ref={messagesEndRef} />
         </div>
 
         <div className="flex gap-3 border-t border-[#22303D] bg-[#17212B] p-4">
           <input
             value={text}
-            onChange={(e) => setText(e.target.value)}
+            onChange={(e) => handleTyping(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === "Enter") sendMessage();
+              if (e.key === "Enter") {
+                sendMessage();
+              }
             }}
             placeholder="Write a message..."
-            className="flex-1 rounded-2xl bg-[#0F1A24] px-4 py-3 text-white placeholder:text-gray-500"
+            className="flex-1 rounded-2xl bg-[#0F1A24] px-4 py-3 text-white outline-none placeholder:text-gray-500"
           />
 
           <button
             onClick={sendMessage}
-            className="rounded-2xl bg-[#2AABEE] px-5 font-semibold"
+            disabled={!text.trim()}
+            className="rounded-2xl bg-[#2AABEE] px-5 font-semibold transition hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-50"
           >
             Send
           </button>

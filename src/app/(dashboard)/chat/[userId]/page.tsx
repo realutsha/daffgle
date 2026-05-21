@@ -271,6 +271,17 @@ export default function ChatPage() {
     const messageText = text.trim();
 
     if (!messageText || !conversationId || !currentUserId || isBlocked) return;
+    
+    const { data: myProfile } = await supabase
+  .from("profiles")
+  .select("is_muted")
+  .eq("id", currentUserId)
+  .single();
+
+if (myProfile?.is_muted) {
+  setError("You are muted by admin.");
+  return;
+}
 
     setText("");
     setError("");

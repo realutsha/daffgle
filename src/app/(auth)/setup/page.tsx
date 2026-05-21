@@ -1,0 +1,179 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabase/client";
+import { useRouter } from "next/navigation";
+import { motion } from "framer-motion";
+
+const departments = [
+  "CSE",
+  "SWE",
+  "MCT",
+  "CIS",
+  "ITM",
+  "RME",
+
+  "ICE",
+  "TE",
+  "EEE",
+  "ARCH",
+  "CE",
+
+  "BBA",
+  "MGT",
+  "RE",
+  "THM",
+  "IE",
+  "ACC",
+  "F&B",
+  "MKT",
+
+  "AGS",
+  "FISH",
+
+  "ESDM",
+  "PHARM",
+  "NFE",
+  "PH",
+  "PESS",
+  "GEB",
+
+  "ENG",
+  "LAW",
+  "JMC",
+  "DS",
+];
+
+export default function SetupPage() {
+  const router = useRouter();
+
+  const [userId, setUserId] = useState("");
+
+  const [anonymousUsername, setAnonymousUsername] = useState("");
+
+  const [department, setDepartment] = useState("");
+
+  const [gender, setGender] = useState("");
+
+  const [loading, setLoading] = useState(false);
+
+  const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    const loadUser = async () => {
+      const { data } = await supabase.auth.getUser();
+
+      if (!data.user) {
+        router.push("/login");
+        return;
+      }
+
+      setUserId(data.user.id);
+    };
+
+    loadUser();
+  }, [router]);
+
+  const handleSetup = async () => {
+    if (!anonymousUsername || !department || !gender) {
+      setMessage("Please fill all fields.");
+      return;
+    }
+
+    if (anonymousUsername.length < 3) {
+      setMessage("Username must be at least 3 characters.");
+      return;
+    }
+
+    setLoading(true);
+
+    setMessage("");
+
+    const { error } = await supabase.from("profiles").insert({
+      id: userId,
+
+      anonymous_username: anonymousUsername.trim(),
+
+      department,
+
+      gender,
+
+      is_online: true,
+    });
+
+    if (error) {
+      setMessage(error.message);
+      setLoading(false);
+      return;
+    }
+
+    router.push("/dashboard");
+  };
+
+  return (
+    <main className="flex h-screen items-center justify-center bg-[#0E1621] px-4">
+      <motion.div
+        initial={{ opacity: 0, y: 24 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="w-full max-w-md rounded-3xl border border-[#22303D] bg-[#17212B] p-8"
+      >
+        <h1 className="text-center text-3xl font-bold text-[#2AABEE]">
+          Setup Anonymous Profile
+        </h1>
+
+        <p className="mt-2 text-center text-gray-400">
+          Your real email stays hidden from users.
+        </p>
+
+        <div className="mt-8 space-y-4">
+          <input
+            value={anonymousUsername}
+            onChange={(e) => setAnonymousUsername(e.target.value)}
+            placeholder="Anonymous username"
+            className="w-full rounded-2xl border border-[#22303D] bg-[#0F1A24] px-4 py-3 text-white"
+          />
+
+          <select
+            value={department}
+            onChange={(e) => setDepartment(e.target.value)}
+            className="w-full rounded-2xl border border-[#22303D] bg-[#0F1A24] px-4 py-3 text-white"
+          >
+            <option value="">Select department</option>
+
+            {departments.map((dept) => (
+              <option key={dept} value={dept}>
+                {dept}
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={gender}
+            onChange={(e) => setGender(e.target.value)}
+            className="w-full rounded-2xl border border-[#22303D] bg-[#0F1A24] px-4 py-3 text-white"
+          >
+            <option value="">Select gender</option>
+
+            <option value="Male">Male</option>
+
+            <option value="Female">Female</option>
+          </select>
+
+          <button
+            onClick={handleSetup}
+            disabled={loading}
+            className="w-full rounded-2xl bg-[#2AABEE] py-3 font-semibold text-white"
+          >
+            {loading ? "Saving..." : "Enter Daffgle"}
+          </button>
+
+          {message && (
+            <p className="text-center text-sm text-gray-400">
+              {message}
+            </p>
+          )}
+        </div>
+      </motion.div>
+    </main>
+  );
+}

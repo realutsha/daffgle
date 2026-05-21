@@ -267,8 +267,43 @@ export default function ChatPage() {
     });
   };
 
+
+  const bannedWords = [
+  "fuck",
+  "bitch",
+  "nigga",
+  "slut",
+  "bastard",
+  "sex",
+  "porn",
+  "dick",
+  "motherfucker",
+];
+
+const containsProfanity = (text: string) => {
+  const lower = text.toLowerCase();
+
+  return bannedWords.some((word) =>
+    lower.includes(word)
+  );
+};
+
+const spamCooldownMs = 2000;
+
+let lastMessageTime = 0;
   const sendMessage = async () => {
     const messageText = text.trim();
+    const now = Date.now();
+
+if (now - lastMessageTime < spamCooldownMs) {
+  setError(
+    "You are sending messages too fast."
+  );
+
+  return;
+}
+
+lastMessageTime = now;
 
     if (!messageText || !conversationId || !currentUserId || isBlocked) return;
     
@@ -280,6 +315,22 @@ export default function ChatPage() {
 
 if (myProfile?.is_muted) {
   setError("You are muted by admin.");
+  return;
+}
+
+if (containsProfanity(messageText)) {
+  setError(
+    "Message blocked بسبب inappropriate language."
+  );
+
+  await supabase
+    .from("user_warnings")
+    .insert({
+      user_id: currentUserId,
+      reason: "PROFANITY",
+      message: messageText,
+    });
+
   return;
 }
 

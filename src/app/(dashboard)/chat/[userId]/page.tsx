@@ -28,6 +28,7 @@ export default function ChatPage() {
   const [conversationId, setConversationId] = useState("");
   const [targetUser, setTargetUser] = useState<TargetUser | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
+  const [channel, setChannel] = useState<any>(null);
   const [text, setText] = useState("");
 
   useEffect(() => {
@@ -86,10 +87,40 @@ export default function ChatPage() {
       if (loadedMessages) {
         setMessages(loadedMessages);
       }
+      const realtimeChannel = supabase
+  .channel(`chat-${chatId}`)
+  .on(
+    "postgres_changes",
+    {
+      event: "INSERT",
+      schema: "public",
+      table: "messages",
+      filter: `conversation_id=eq.${chatId}`,
+    },
+    (payload) => {
+      const newMessage = payload.new as Message;
+
+      setMessages((prev) => {
+        const exists = prev.find((msg) => msg.id === newMessage.id);
+
+        if (exists) return prev;
+
+        return [...prev, newMessage];
+      });
+    }
+  )
+  .subscribe();
+
+setChannel(realtimeChannel);
     };
 
     loadChat();
-  }, [router, targetUserId]);
+  return () => {
+  if (channel) {
+    supabase.removeChannel(channel);
+  }
+};
+}, [router, targetUserId, channel]);
 
   const sendMessage = async () => {
     if (!text.trim() || !conversationId || !currentUserId) return;
@@ -107,9 +138,7 @@ export default function ChatPage() {
       .select("id, conversation_id, sender_id, message, seen, created_at")
       .single();
 
-    if (data) {
-      setMessages((prev) => [...prev, data]);
-    }
+    
   };
 
   return (

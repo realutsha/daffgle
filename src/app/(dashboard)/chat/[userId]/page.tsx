@@ -356,6 +356,19 @@ export default function ChatPage() {
       reply_to: replyTo?.id || null,
     });
 
+
+  await fetch("/api/send-notification", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    receiverId: targetUserId,
+    senderName: "Daffgle User",
+    message: messageText,
+  }),
+});
+
     if (sendError) {
       setError("Message failed to send.");
       setText(messageText);

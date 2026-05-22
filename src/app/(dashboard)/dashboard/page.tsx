@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase/client";
+import { setupPushNotifications } from "@/lib/notifications";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 
@@ -122,6 +123,7 @@ export default function DashboardPage() {
     const myId = userData.user.id;
 
     setCurrentUserId(myId);
+    await setupPushNotifications(myId);
 
     await updatePresence(myId, true);
 
@@ -135,6 +137,12 @@ export default function DashboardPage() {
       router.push("/setup");
       return;
     }
+
+    if (profileData.is_banned) {
+  await supabase.auth.signOut();
+  router.push("/login");
+  return;
+  }
 
     setProfile(profileData);
 

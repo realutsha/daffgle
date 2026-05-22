@@ -29,6 +29,8 @@ type ConnectionStatus = "connecting" | "connected" | "disconnected";
 
 const TYPING_TIMEOUT_MS = 2000;
 const SPAM_COOLDOWN_MS = 2000;
+const MESSAGES_PER_PAGE = 30;
+const MAX_MESSAGE_LENGTH = 1000;
 
 const bannedWords = [
   "fuck",
@@ -51,12 +53,13 @@ export default function ChatPage() {
   const [conversationId, setConversationId] = useState("");
   const [targetUser, setTargetUser] = useState<TargetUser | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
-  const [page, setPage] = useState(0);
-  const [hasMore, setHasMore] = useState(true);
-  const MESSAGES_PER_PAGE = 30;
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(true);
+  const [loadingOlder, setLoadingOlder] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [page, setPage] = useState(0);
   const [error, setError] = useState("");
+  const [sending, setSending] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
   const [connectionStatus, setConnectionStatus] =
     useState<ConnectionStatus>("connecting");
@@ -111,6 +114,38 @@ export default function ChatPage() {
       .maybeSingle();
 
     setIsBlocked(!!data);
+  };
+
+  const loadOlderMessages = async () => {
+    if (!conversationId || loadingOlder || !hasMore) return;
+
+    setLoadingOlder(true);
+
+    const nextPage = page + 1;
+    const from = nextPage * MESSAGES_PER_PAGE;
+    const to = from + MESSAGES_PER_PAGE - 1;
+
+    const { data } = await supabase
+      .from("messages")
+      .select("*")
+      .eq("conversation_id", conversationId)
+      .order("created_at", { ascending: false })
+      .range(from, to);
+
+    const olderMessages = (data || []).reverse();
+
+    if (!data || data.length < MESSAGES_PER_PAGE) {
+      setHasMore(false);
+    }
+
+    setMessages((prev) => {
+      const existingIds = new Set(prev.map((msg) => msg.id));
+      const uniqueOlder = olderMessages.filter((msg) => !existingIds.has(msg.id));
+      return [...uniqueOlder, ...prev];
+    });
+
+    setPage(nextPage);
+    setLoadingOlder(false);
   };
 
   useEffect(() => {
@@ -182,35 +217,23 @@ export default function ChatPage() {
 
       setConversationId(chatId);
 
-    
-        
+      const { data: loadedMessages } = await supabase
+        .from("messages")
+        .select("*")
+        .eq("conversation_id", chatId)
+        .order("created_at", { ascending: false })
+        .range(0, MESSAGES_PER_PAGE - 1);
 
-      const from = page * MESSAGES_PER_PAGE;
-const to = from + MESSAGES_PER_PAGE - 1;
+      const reversedMessages = (loadedMessages || []).reverse();
 
-const { data: loadedMessages } = await supabase
-  .from("messages")
-  .select("*")
-  .eq("conversation_id", chatId)
-  .order("created_at", {
-    ascending: false,
-  })
-  .range(from, to);
+      setMessages(reversedMessages);
+      setPage(0);
 
-const reversedMessages =
-  (loadedMessages || []).reverse();
-
-setMessages(reversedMessages);
-
-if (
-  !loadedMessages ||
-  loadedMessages.length <
-    MESSAGES_PER_PAGE
-) {
-  setHasMore(false);
-}
-
-      setMessages(loadedMessages || []);
+      if (!loadedMessages || loadedMessages.length < MESSAGES_PER_PAGE) {
+        setHasMore(false);
+      } else {
+        setHasMore(true);
+      }
 
       await markMessagesAsSeen(chatId, myId);
 
@@ -258,14 +281,21 @@ if (
           }
         )
         .subscribe((status) => {
-          if (status === "SUBSCRIBED") setConnectionStatus("connected");
-          else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT")
+          if (status === "SUBSCRIBED") {
+            setConnectionStatus("connected");
+          } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
             setConnectionStatus("disconnected");
-          else setConnectionStatus("connecting");
+          } else {
+            setConnectionStatus("connecting");
+          }
         });
 
       typingChannel = supabase.channel(`typing-${chatId}`, {
-        config: { broadcast: { self: false } },
+        config: {
+          broadcast: {
+            self: false,
+          },
+        },
       });
 
       typingChannel
@@ -308,14 +338,34 @@ if (
     typingChannelRef.current.send({
       type: "broadcast",
       event: "typing",
-      payload: { senderId: currentUserId },
+      payload: {
+        senderId: currentUserId,
+      },
     });
   };
 
   const sendMessage = async () => {
     const messageText = text.trim();
 
-    if (!messageText || !conversationId || !currentUserId || isBlocked) return;
+    if (messageText.length > MAX_MESSAGE_LENGTH) {
+      setError("Message is too long. Maximum 1000 characters allowed.");
+      return;
+    }
+
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      setError("You are offline. Check your internet connection.");
+      return;
+    }
+
+    if (
+      !messageText ||
+      !conversationId ||
+      !currentUserId ||
+      isBlocked ||
+      sending
+    ) {
+      return;
+    }
 
     const now = Date.now();
 
@@ -326,6 +376,9 @@ if (
 
     lastMessageTimeRef.current = now;
 
+    setSending(true);
+    setError("");
+
     const { data: myProfile } = await supabase
       .from("profiles")
       .select("is_muted")
@@ -334,6 +387,7 @@ if (
 
     if (myProfile?.is_muted) {
       setError("You are muted by admin.");
+      setSending(false);
       return;
     }
 
@@ -346,11 +400,11 @@ if (
         message: messageText,
       });
 
+      setSending(false);
       return;
     }
 
     setText("");
-    setError("");
 
     if (editingMessage) {
       const { error: editError } = await supabase
@@ -365,10 +419,12 @@ if (
       if (editError) {
         setError("Failed to edit message.");
         setText(messageText);
+        setSending(false);
         return;
       }
 
       setEditingMessage(null);
+      setSending(false);
       return;
     }
 
@@ -381,26 +437,29 @@ if (
       reply_to: replyTo?.id || null,
     });
 
-
-  await fetch("/api/send-notification", {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/json",
-  },
-  body: JSON.stringify({
-    receiverId: targetUserId,
-    senderName: "Daffgle User",
-    message: messageText,
-  }),
-});
-
     if (sendError) {
       setError("Message failed to send.");
       setText(messageText);
+      setSending(false);
       return;
     }
 
+    await fetch("/api/send-notification", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        receiverId: targetUserId,
+        senderName: "Daffgle User",
+        message: messageText,
+      }),
+    }).catch(() => {
+      console.warn("Notification request failed.");
+    });
+
     setReplyTo(null);
+    setSending(false);
   };
 
   const deleteMessage = async (msg: Message) => {
@@ -425,6 +484,7 @@ if (
 
   const startEdit = (msg: Message) => {
     if (msg.sender_id !== currentUserId || msg.deleted) return;
+
     setEditingMessage(msg);
     setReplyTo(null);
     setText(msg.message);
@@ -432,6 +492,7 @@ if (
 
   const startReply = (msg: Message) => {
     if (msg.deleted) return;
+
     setReplyTo(msg);
     setEditingMessage(null);
   };
@@ -485,7 +546,11 @@ if (
 
   const renderMessageStatus = (msg: Message) => {
     if (msg.sender_id !== currentUserId) return null;
-    if (msg.seen) return <span className="text-[#2AABEE]">✓✓</span>;
+
+    if (msg.seen) {
+      return <span className="text-[#2AABEE]">✓✓</span>;
+    }
+
     return <span className="text-gray-400">✓</span>;
   };
 
@@ -562,6 +627,18 @@ if (
 
       <section className="flex flex-1 flex-col bg-[#0F1A24]">
         <div className="flex-1 space-y-3 overflow-y-auto p-4">
+          {hasMore && !loading && (
+            <div className="flex justify-center">
+              <button
+                onClick={loadOlderMessages}
+                disabled={loadingOlder}
+                className="rounded-xl bg-[#17212B] px-4 py-2 text-xs text-gray-300 hover:bg-[#22303D] disabled:opacity-50"
+              >
+                {loadingOlder ? "Loading..." : "Load older messages"}
+              </button>
+            </div>
+          )}
+
           {loading ? (
             <p className="mt-10 text-center text-gray-500">
               Loading messages...
@@ -703,6 +780,12 @@ if (
           </div>
         )}
 
+        {text.length > 900 && (
+          <div className="border-t border-[#22303D] bg-[#17212B] px-4 py-1 text-right text-xs text-gray-400">
+            {text.length}/{MAX_MESSAGE_LENGTH}
+          </div>
+        )}
+
         <div className="relative flex gap-3 border-t border-[#22303D] bg-[#17212B] p-4">
           {showEmoji && (
             <div className="absolute bottom-20 left-4 z-50">
@@ -716,7 +799,7 @@ if (
 
           <button
             onClick={() => setShowEmoji(!showEmoji)}
-            disabled={isBlocked}
+            disabled={isBlocked || sending}
             className="rounded-2xl bg-[#0F1A24] px-4 text-xl disabled:opacity-50"
           >
             😊
@@ -724,7 +807,7 @@ if (
 
           <input
             value={text}
-            disabled={isBlocked}
+            disabled={isBlocked || sending}
             onChange={(e) => handleTyping(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Enter") sendMessage();
@@ -735,10 +818,15 @@ if (
 
           <button
             onClick={sendMessage}
-            disabled={!text.trim() || isBlocked}
+            disabled={
+              !text.trim() ||
+              isBlocked ||
+              sending ||
+              text.length > MAX_MESSAGE_LENGTH
+            }
             className="rounded-2xl bg-[#2AABEE] px-5 font-semibold hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {editingMessage ? "Save" : "Send"}
+            {sending ? "..." : editingMessage ? "Save" : "Send"}
           </button>
         </div>
       </section>

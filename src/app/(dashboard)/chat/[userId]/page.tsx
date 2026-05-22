@@ -51,6 +51,9 @@ export default function ChatPage() {
   const [conversationId, setConversationId] = useState("");
   const [targetUser, setTargetUser] = useState<TargetUser | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
+  const [page, setPage] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  const MESSAGES_PER_PAGE = 30;
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -179,11 +182,33 @@ export default function ChatPage() {
 
       setConversationId(chatId);
 
-      const { data: loadedMessages } = await supabase
-        .from("messages")
-        .select("*")
-        .eq("conversation_id", chatId)
-        .order("created_at", { ascending: true });
+    
+        
+
+      const from = page * MESSAGES_PER_PAGE;
+const to = from + MESSAGES_PER_PAGE - 1;
+
+const { data: loadedMessages } = await supabase
+  .from("messages")
+  .select("*")
+  .eq("conversation_id", chatId)
+  .order("created_at", {
+    ascending: false,
+  })
+  .range(from, to);
+
+const reversedMessages =
+  (loadedMessages || []).reverse();
+
+setMessages(reversedMessages);
+
+if (
+  !loadedMessages ||
+  loadedMessages.length <
+    MESSAGES_PER_PAGE
+) {
+  setHasMore(false);
+}
 
       setMessages(loadedMessages || []);
 

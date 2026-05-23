@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase/client";
+import { setUserOnline, setUserOffline } from "@/lib/presence";
 import { setupPushNotifications } from "@/lib/notifications";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
@@ -13,6 +14,7 @@ type Profile = {
   gender: string;
   is_online: boolean;
   last_seen: string;
+  is_banned?: boolean;
 };
 
 type OnlineUser = {
@@ -44,23 +46,15 @@ function formatLastSeen(date: string, online: boolean) {
 
   const now = new Date().getTime();
   const last = new Date(date).getTime();
-
   const diffMinutes = Math.floor((now - last) / 1000 / 60);
 
   if (diffMinutes < 1) return "Last seen just now";
-
-  if (diffMinutes < 60) {
-    return `Last seen ${diffMinutes} min ago`;
-  }
+  if (diffMinutes < 60) return `Last seen ${diffMinutes} min ago`;
 
   const diffHours = Math.floor(diffMinutes / 60);
-
-  if (diffHours < 24) {
-    return `Last seen ${diffHours}h ago`;
-  }
+  if (diffHours < 24) return `Last seen ${diffHours}h ago`;
 
   const diffDays = Math.floor(diffHours / 24);
-
   return `Last seen ${diffDays}d ago`;
 }
 
@@ -69,19 +63,13 @@ export default function DashboardPage() {
 
   const [currentUserId, setCurrentUserId] = useState("");
   const [profile, setProfile] = useState<Profile | null>(null);
-
   const [onlineUsers, setOnlineUsers] = useState<OnlineUser[]>([]);
   const [suggestedUsers, setSuggestedUsers] = useState<OnlineUser[]>([]);
-
   const [recentChats, setRecentChats] = useState<RecentChat[]>([]);
-
   const [userSearch, setUserSearch] = useState("");
   const [chatSearch, setChatSearch] = useState("");
-
   const [activeTab, setActiveTab] = useState<"chats" | "online">("chats");
-
   const [loading, setLoading] = useState(true);
-
   const [refreshing, setRefreshing] = useState(false);
 
   const filteredUsers = useMemo(() => {
@@ -100,16 +88,6 @@ export default function DashboardPage() {
     );
   }, [recentChats, chatSearch]);
 
-  const updatePresence = async (userId: string, online: boolean) => {
-    await supabase
-      .from("profiles")
-      .update({
-        is_online: online,
-        last_seen: new Date().toISOString(),
-      })
-      .eq("id", userId);
-  };
-
   const loadDashboard = async () => {
     setRefreshing(true);
 
@@ -121,11 +99,10 @@ export default function DashboardPage() {
     }
 
     const myId = userData.user.id;
-
     setCurrentUserId(myId);
-    await setupPushNotifications(myId);
 
-    await updatePresence(myId, true);
+    await setupPushNotifications(myId);
+    await setUserOnline(myId);
 
     const { data: profileData } = await supabase
       .from("profiles")
@@ -139,28 +116,28 @@ export default function DashboardPage() {
     }
 
     if (profileData.is_banned) {
-  await supabase.auth.signOut();
-  router.push("/login");
-  return;
-  }
+      await setUserOffline(myId);
+      await supabase.auth.signOut();
+      router.push("/login");
+      return;
+    }
 
     setProfile(profileData);
 
+    const activeSince = new Date(Date.now() - 60000).toISOString();
+
     const { data: users } = await supabase
       .from("profiles")
-      .select(
-        "id, anonymous_username, department, is_online, last_seen"
-      )
+      .select("id, anonymous_username, department, is_online, last_seen")
       .neq("id", myId)
-      .order("is_online", { ascending: false });
+      .eq("is_online", true)
+      .gt("last_seen", activeSince)
+      .order("last_seen", { ascending: false });
 
     setOnlineUsers(users || []);
 
     const suggested =
-      users
-        ?.filter((user) => user.is_online)
-        .sort(() => 0.5 - Math.random())
-        .slice(0, 3) || [];
+      users?.sort(() => 0.5 - Math.random()).slice(0, 3) || [];
 
     setSuggestedUsers(suggested);
 
@@ -214,41 +191,91 @@ export default function DashboardPage() {
             otherProfile?.anonymous_username || "Unknown User",
           department: otherProfile?.department || "Unknown",
           last_message: lastMessage?.message || "No messages yet",
-          last_time:
-            lastMessage?.created_at || conversation.created_at,
+          last_time: lastMessage?.created_at || conversation.created_at,
         };
       })
     );
 
     setRecentChats(chatList);
-
     setLoading(false);
     setRefreshing(false);
   };
 
   useEffect(() => {
-    loadDashboard();
+    let userId = "";
+    let interval: NodeJS.Timeout;
 
-    const handleUnload = async () => {
-      if (currentUserId) {
-        await updatePresence(currentUserId, false);
+    const setupPresence = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        router.push("/login");
+        return;
+      }
+
+      userId = user.id;
+      setCurrentUserId(user.id);
+
+      await setUserOnline(user.id);
+      await loadDashboard();
+
+      interval = setInterval(async () => {
+        await setUserOnline(user.id);
+        await loadDashboard();
+      }, 30000);
+    };
+
+    const handleBeforeUnload = () => {
+      if (userId) {
+        navigator.sendBeacon(
+          `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/profiles?id=eq.${userId}`,
+          JSON.stringify({
+            is_online: false,
+            last_seen: new Date().toISOString(),
+          })
+        );
       }
     };
 
-    window.addEventListener("beforeunload", handleUnload);
+    const handleVisibilityChange = async () => {
+      if (!userId) return;
+
+      if (document.hidden) {
+        await setUserOffline(userId);
+      } else {
+        await setUserOnline(userId);
+        await loadDashboard();
+      }
+    };
+
+    setupPresence();
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
-      window.removeEventListener("beforeunload", handleUnload);
+      if (interval) clearInterval(interval);
+
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      document.removeEventListener(
+        "visibilitychange",
+        handleVisibilityChange
+      );
+
+      if (userId) {
+        setUserOffline(userId);
+      }
     };
   }, []);
 
   const handleLogout = async () => {
     if (currentUserId) {
-      await updatePresence(currentUserId, false);
+      await setUserOffline(currentUserId);
     }
 
     await supabase.auth.signOut();
-
     router.push("/login");
   };
 
@@ -286,17 +313,9 @@ export default function DashboardPage() {
 
         <div className="space-y-4 p-4">
           <div className="rounded-2xl bg-[#0F1A24] p-4">
-            <p className="font-semibold">
-              {profile?.anonymous_username}
-            </p>
-
-            <p className="text-sm text-gray-400">
-              {profile?.department}
-            </p>
-
-            <p className="mt-2 text-xs text-green-400">
-              ● Online
-            </p>
+            <p className="font-semibold">{profile?.anonymous_username}</p>
+            <p className="text-sm text-gray-400">{profile?.department}</p>
+            <p className="mt-2 text-xs text-green-400">● Online</p>
           </div>
 
           <div className="rounded-2xl bg-[#0F1A24] p-4">
@@ -305,35 +324,37 @@ export default function DashboardPage() {
                 Suggested Users
               </h3>
 
-              <span className="text-xs text-gray-500">
-                Online now
-              </span>
+              <span className="text-xs text-gray-500">Online now</span>
             </div>
 
             <div className="space-y-3">
-              {suggestedUsers.map((user) => (
-                <button
-                  key={user.id}
-                  onClick={() =>
-                    router.push(`/chat/${user.id}`)
-                  }
-                  className="flex w-full items-center justify-between rounded-xl bg-[#17212B] p-3 text-left hover:bg-[#1D2A36]"
-                >
-                  <div>
-                    <p className="font-medium">
-                      {user.anonymous_username}
-                    </p>
+              {suggestedUsers.length > 0 ? (
+                suggestedUsers.map((user) => (
+                  <button
+                    key={user.id}
+                    onClick={() => router.push(`/chat/${user.id}`)}
+                    className="flex w-full items-center justify-between rounded-xl bg-[#17212B] p-3 text-left hover:bg-[#1D2A36]"
+                  >
+                    <div>
+                      <p className="font-medium">
+                        {user.anonymous_username}
+                      </p>
 
-                    <p className="text-xs text-gray-400">
-                      {user.department}
-                    </p>
-                  </div>
+                      <p className="text-xs text-gray-400">
+                        {user.department}
+                      </p>
+                    </div>
 
-                  <span className="text-xs text-green-400">
-                    ● Online
-                  </span>
-                </button>
-              ))}
+                    <span className="text-xs text-green-400">
+                      ● Online
+                    </span>
+                  </button>
+                ))
+              ) : (
+                <p className="rounded-xl bg-[#17212B] p-3 text-center text-xs text-gray-500">
+                  No active users now.
+                </p>
+              )}
             </div>
           </div>
 
@@ -341,9 +362,7 @@ export default function DashboardPage() {
             <button
               onClick={() => setActiveTab("chats")}
               className={`rounded-xl py-2 text-sm font-semibold ${
-                activeTab === "chats"
-                  ? "bg-[#2AABEE]"
-                  : "bg-[#0F1A24]"
+                activeTab === "chats" ? "bg-[#2AABEE]" : "bg-[#0F1A24]"
               }`}
             >
               Chats
@@ -352,9 +371,7 @@ export default function DashboardPage() {
             <button
               onClick={() => setActiveTab("online")}
               className={`rounded-xl py-2 text-sm font-semibold ${
-                activeTab === "online"
-                  ? "bg-[#2AABEE]"
-                  : "bg-[#0F1A24]"
+                activeTab === "online" ? "bg-[#2AABEE]" : "bg-[#0F1A24]"
               }`}
             >
               Online
@@ -365,9 +382,7 @@ export default function DashboardPage() {
             <>
               <input
                 value={chatSearch}
-                onChange={(e) =>
-                  setChatSearch(e.target.value)
-                }
+                onChange={(e) => setChatSearch(e.target.value)}
                 placeholder="Search recent chats..."
                 className="w-full rounded-2xl border border-[#22303D] bg-[#0F1A24] px-4 py-3 text-sm text-white placeholder:text-gray-500"
               />
@@ -377,9 +392,7 @@ export default function DashboardPage() {
                   filteredChats.map((chat) => (
                     <button
                       key={chat.conversation_id}
-                      onClick={() =>
-                        router.push(`/chat/${chat.user_id}`)
-                      }
+                      onClick={() => router.push(`/chat/${chat.user_id}`)}
                       className="w-full rounded-2xl bg-[#0F1A24] p-4 text-left hover:bg-[#182533]"
                     >
                       <div className="flex items-center justify-between">
@@ -388,9 +401,7 @@ export default function DashboardPage() {
                         </p>
 
                         <p className="text-[10px] text-gray-500">
-                          {new Date(
-                            chat.last_time
-                          ).toLocaleTimeString([], {
+                          {new Date(chat.last_time).toLocaleTimeString([], {
                             hour: "2-digit",
                             minute: "2-digit",
                           })}
@@ -417,9 +428,7 @@ export default function DashboardPage() {
             <>
               <input
                 value={userSearch}
-                onChange={(e) =>
-                  setUserSearch(e.target.value)
-                }
+                onChange={(e) => setUserSearch(e.target.value)}
                 placeholder="Search users..."
                 className="w-full rounded-2xl border border-[#22303D] bg-[#0F1A24] px-4 py-3 text-sm text-white placeholder:text-gray-500"
               />
@@ -440,24 +449,13 @@ export default function DashboardPage() {
                           {user.department}
                         </p>
 
-                        <p
-                          className={`mt-1 text-xs ${
-                            user.is_online
-                              ? "text-green-400"
-                              : "text-gray-500"
-                          }`}
-                        >
-                          {formatLastSeen(
-                            user.last_seen,
-                            user.is_online
-                          )}
+                        <p className="mt-1 text-xs text-green-400">
+                          {formatLastSeen(user.last_seen, user.is_online)}
                         </p>
                       </div>
 
                       <button
-                        onClick={() =>
-                          router.push(`/chat/${user.id}`)
-                        }
+                        onClick={() => router.push(`/chat/${user.id}`)}
                         className="rounded-xl bg-[#2AABEE] px-4 py-2 text-sm font-semibold hover:opacity-90"
                       >
                         Chat
@@ -466,7 +464,7 @@ export default function DashboardPage() {
                   ))
                 ) : (
                   <p className="rounded-2xl bg-[#0F1A24] p-4 text-center text-sm text-gray-400">
-                    No users found.
+                    No online users found.
                   </p>
                 )}
               </div>
@@ -499,16 +497,10 @@ export default function DashboardPage() {
           <div className="mt-8 grid grid-cols-2 gap-4 text-left">
             <div className="rounded-2xl bg-[#17212B] p-4">
               <p className="text-2xl font-bold text-[#2AABEE]">
-                {
-                  onlineUsers.filter(
-                    (user) => user.is_online
-                  ).length
-                }
+                {onlineUsers.length}
               </p>
 
-              <p className="text-sm text-gray-400">
-                Online users
-              </p>
+              <p className="text-sm text-gray-400">Online users</p>
             </div>
 
             <div className="rounded-2xl bg-[#17212B] p-4">
@@ -516,9 +508,7 @@ export default function DashboardPage() {
                 {recentChats.length}
               </p>
 
-              <p className="text-sm text-gray-400">
-                Recent chats
-              </p>
+              <p className="text-sm text-gray-400">Recent chats</p>
             </div>
           </div>
         </motion.div>

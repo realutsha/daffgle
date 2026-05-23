@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 
-type Profile = {
+type UserRow = {
   id: string;
   anonymous_username: string;
   department: string;
@@ -13,15 +13,9 @@ type Profile = {
   is_admin: boolean;
   is_banned: boolean;
   is_muted: boolean;
+  real_email?: string | null;
   last_seen: string;
-  created_at: string;
-};
-
-type PrivateUser = {
-  id: string;
-  real_email: string;
-  role: string;
-  last_login: string;
+  last_login_at?: string | null;
   created_at: string;
 };
 
@@ -44,11 +38,7 @@ type Log = {
   created_at: string;
 };
 
-type UserRow = Profile & {
-  real_email?: string;
-};
-
-function formatDate(date?: string) {
+function formatDate(date?: string | null) {
   if (!date) return "Unknown";
   return new Date(date).toLocaleString();
 }
@@ -68,12 +58,12 @@ export default function AdminPage() {
   const [message, setMessage] = useState("");
 
   const filteredUsers = useMemo(() => {
-    return users.filter((user) => {
-      const q = search.toLowerCase();
+    const q = search.toLowerCase();
 
+    return users.filter((user) => {
       return (
-        user.anonymous_username.toLowerCase().includes(q) ||
-        user.department.toLowerCase().includes(q) ||
+        user.anonymous_username?.toLowerCase().includes(q) ||
+        user.department?.toLowerCase().includes(q) ||
         user.real_email?.toLowerCase().includes(q)
       );
     });
@@ -106,26 +96,22 @@ export default function AdminPage() {
       return;
     }
 
-    const { data: profileData } = await supabase
+    const { data: profileData, error: profileError } = await supabase
       .from("profiles")
       .select("*")
       .order("created_at", { ascending: false });
 
-    const { data: privateData } = await supabase
-      .from("private_users")
-      .select("*");
+    if (profileError) {
+      setMessage("Failed to load users.");
+      setLoading(false);
+      return;
+    }
 
     const mergedUsers =
-      profileData?.map((profile: Profile) => {
-        const privateUser = privateData?.find(
-          (item: PrivateUser) => item.id === profile.id
-        );
-
-        return {
-          ...profile,
-          real_email: privateUser?.real_email || "Not stored",
-        };
-      }) || [];
+      profileData?.map((profile: UserRow) => ({
+        ...profile,
+        real_email: profile.real_email || "Not stored",
+      })) || [];
 
     setUsers(mergedUsers);
 
@@ -402,10 +388,7 @@ export default function AdminPage() {
 
             <div className="space-y-3">
               {filteredUsers.map((user) => (
-                <div
-                  key={user.id}
-                  className="rounded-2xl bg-[#0F1A24] p-4"
-                >
+                <div key={user.id} className="rounded-2xl bg-[#0F1A24] p-4">
                   <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                     <div>
                       <div className="flex flex-wrap items-center gap-2">
@@ -440,7 +423,9 @@ export default function AdminPage() {
 
                       <p className="mt-1 text-sm text-gray-400">
                         Real email:{" "}
-                        <span className="text-white">{user.real_email}</span>
+                        <span className="text-white">
+                          {user.real_email || "Not stored"}
+                        </span>
                       </p>
 
                       <p className="text-sm text-gray-400">
@@ -448,7 +433,15 @@ export default function AdminPage() {
                       </p>
 
                       <p className="text-xs text-gray-500">
+                        Last login: {formatDate(user.last_login_at)}
+                      </p>
+
+                      <p className="text-xs text-gray-500">
                         Last seen: {formatDate(user.last_seen)}
+                      </p>
+
+                      <p className="text-xs text-gray-500">
+                        Joined: {formatDate(user.created_at)}
                       </p>
                     </div>
 
@@ -484,9 +477,7 @@ export default function AdminPage() {
 
         {tab === "reports" && (
           <div className="rounded-2xl bg-[#17212B] p-5">
-            <h2 className="mb-4 text-xl font-bold text-[#2AABEE]">
-              Reports
-            </h2>
+            <h2 className="mb-4 text-xl font-bold text-[#2AABEE]">Reports</h2>
 
             <div className="space-y-3">
               {reports.map((report) => {
@@ -498,10 +489,7 @@ export default function AdminPage() {
                 );
 
                 return (
-                  <div
-                    key={report.id}
-                    className="rounded-2xl bg-[#0F1A24] p-4"
-                  >
+                  <div key={report.id} className="rounded-2xl bg-[#0F1A24] p-4">
                     <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                       <div>
                         <p className="font-bold text-red-300">
@@ -510,12 +498,12 @@ export default function AdminPage() {
 
                         <p className="text-sm text-gray-400">
                           Reporter: {reporter?.anonymous_username || "Unknown"} |{" "}
-                          {reporter?.real_email}
+                          {reporter?.real_email || "Not stored"}
                         </p>
 
                         <p className="text-sm text-gray-400">
                           Reported: {reported?.anonymous_username || "Unknown"} |{" "}
-                          {reported?.real_email}
+                          {reported?.real_email || "Not stored"}
                         </p>
 
                         {report.details && (
@@ -525,7 +513,8 @@ export default function AdminPage() {
                         )}
 
                         <p className="mt-1 text-xs text-gray-500">
-                          Status: {report.status} | {formatDate(report.created_at)}
+                          Status: {report.status} |{" "}
+                          {formatDate(report.created_at)}
                         </p>
                       </div>
 
@@ -571,15 +560,15 @@ export default function AdminPage() {
                 );
 
                 return (
-                  <div
-                    key={log.id}
-                    className="rounded-2xl bg-[#0F1A24] p-4"
-                  >
+                  <div key={log.id} className="rounded-2xl bg-[#0F1A24] p-4">
                     <p className="font-bold">{log.action}</p>
+
                     <p className="text-sm text-gray-400">
                       Target: {target?.anonymous_username || log.target_user_id}
                     </p>
+
                     <p className="text-sm text-gray-300">{log.details}</p>
+
                     <p className="text-xs text-gray-500">
                       {formatDate(log.created_at)}
                     </p>

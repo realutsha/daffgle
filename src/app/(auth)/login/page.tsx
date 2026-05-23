@@ -5,47 +5,25 @@ import { supabase } from "@/lib/supabase/client";
 import { motion } from "framer-motion";
 
 export default function LoginPage() {
-  const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
 
-  const handleLogin = async () => {
-
-  const cleanEmail = email.trim().toLowerCase();
-
-const allowedAdminEmail =
-  "madhurzamutsha@gmail.com";
-
-const isDiuEmail =
-  cleanEmail.endsWith("@diu.edu.bd");
-
-const isAdminEmail =
-  cleanEmail === allowedAdminEmail;
-
-if (!isDiuEmail && !isAdminEmail) {
-  setMessage(
-    "Only DIU emails or admin email are allowed."
-  );
-
-  return;
-}
-
+  const handleGoogleLogin = async () => {
+    if (loading) return;
 
     try {
       setLoading(true);
       setMessage("");
 
-      const { error } = await supabase.auth.signInWithOtp({
-        email,
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
         options: {
-          emailRedirectTo: "https://daffgle.vercel.app/dashboard",
+          redirectTo: "https://daffgle.vercel.app/auth/callback",
         },
       });
 
       if (error) {
-        setMessage(error?.message || "Login failed.");
-      } else {
-        setMessage("OTP login link sent to your email.");
+        setMessage(error.message || "Google login failed.");
       }
     } catch {
       setMessage("Something went wrong.");
@@ -69,29 +47,25 @@ if (!isDiuEmail && !isAdminEmail) {
           Anonymous Realtime Chat for DIU Students
         </p>
 
-        <div className="space-y-4">
-          <input
-            type="email"
-            placeholder="Enter your DIU email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="w-full rounded-2xl border border-[#22303D] bg-[#0F1A24] px-4 py-3 text-white placeholder:text-gray-500"
-          />
+        <button
+          onClick={handleGoogleLogin}
+          disabled={loading}
+          className="w-full rounded-2xl bg-[#2AABEE] py-3 font-semibold text-white transition hover:opacity-90 disabled:opacity-60"
+        >
+          {loading
+            ? "Opening Google..."
+            : "Continue with DIU Google"}
+        </button>
 
-          <button
-            onClick={handleLogin}
-            disabled={loading}
-            className="w-full rounded-2xl bg-[#2AABEE] py-3 font-semibold text-white transition hover:opacity-90"
-          >
-            {loading ? "Sending..." : "Continue"}
-          </button>
+        <p className="mt-4 text-center text-xs text-gray-500">
+          Only @diu.edu.bd students are allowed
+        </p>
 
-          {message && (
-            <p className="text-center text-sm text-gray-400">
-              {message}
-            </p>
-          )}
-        </div>
+        {message && (
+          <p className="mt-4 text-center text-sm text-gray-400">
+            {message}
+          </p>
+        )}
       </motion.div>
     </main>
   );

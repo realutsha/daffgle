@@ -10,31 +10,34 @@ export default function AuthCallbackPage() {
   const router = useRouter();
 
   useEffect(() => {
-    const checkUser = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+    const verifyUser = async () => {
+      const { data, error } = await supabase.auth.getUser();
 
-      const email = user?.email?.toLowerCase() || "";
+      if (error || !data.user) {
+        router.replace("/login");
+        return;
+      }
 
-      const isDiuEmail = email.endsWith("@diu.edu.bd");
-      const isAdminEmail = email === ADMIN_EMAIL;
+      const email = data.user.email?.toLowerCase() || "";
 
-      if (!user || (!isDiuEmail && !isAdminEmail)) {
+      const allowed =
+        email.endsWith("@diu.edu.bd") || email === ADMIN_EMAIL;
+
+      if (!allowed) {
         await supabase.auth.signOut();
-        router.replace("/login?error=unauthorized");
+        router.replace("/login");
         return;
       }
 
       router.replace("/dashboard");
     };
 
-    checkUser();
+    verifyUser();
   }, [router]);
 
   return (
     <main className="flex h-screen items-center justify-center bg-[#0E1621] text-white">
-      <p className="text-gray-400">Verifying your DIU account...</p>
+      Verifying your Daffgle account...
     </main>
   );
 }

@@ -1,899 +1,373 @@
 "use client";
 
-import { supabase } from "@/lib/supabase/client";
-import EmojiPicker from "emoji-picker-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { motion } from "framer-motion";
+import { supabase } from "@/lib/supabase/client";
+import { setUserOnline, setUserOffline } from "@/lib/presence";
 
-type TargetUser = {
+type Profile = {
   id: string;
   anonymous_username: string;
   department: string;
+  is_online?: boolean;
+  last_seen?: string;
 };
 
 type Message = {
   id: string;
-  conversation_id: string;
   sender_id: string;
-  message: string;
-  seen: boolean;
-  delivered?: boolean;
-  seen_at?: string | null;
+  receiver_id: string;
+  content: string;
   created_at: string;
-  edited?: boolean;
-  deleted?: boolean;
-  reply_to?: string | null;
+  seen?: boolean;
 };
 
-type ConnectionStatus = "connecting" | "connected" | "disconnected";
+function formatTime(date: string) {
+  return new Date(date).toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
 
-const TYPING_TIMEOUT_MS = 2000;
-const SPAM_COOLDOWN_MS = 2000;
-const MESSAGES_PER_PAGE = 30;
-const MAX_MESSAGE_LENGTH = 1000;
-
-const bannedWords = [
-  "fuck",
-  "bitch",
-  "nigga",
-  "slut",
-  "bastard",
-  "sex",
-  "porn",
-  "dick",
-  "motherfucker",
-];
-
-export default function ChatPage() {
+export default function PrivateChatPage() {
   const router = useRouter();
   const params = useParams();
+  const otherUserId = params.userId as string;
 
-  const targetUserId = (params.userId || params.id) as string;
+  const bottomRef = useRef<HTMLDivElement | null>(null);
 
   const [currentUserId, setCurrentUserId] = useState("");
-  const [conversationId, setConversationId] = useState("");
-  const [targetUser, setTargetUser] = useState<TargetUser | null>(null);
+  const [otherUser, setOtherUser] = useState<Profile | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(true);
-  const [loadingOlder, setLoadingOlder] = useState(false);
-  const [hasMore, setHasMore] = useState(true);
-  const [page, setPage] = useState(0);
-  const [error, setError] = useState("");
   const [sending, setSending] = useState(false);
-  const [isTyping, setIsTyping] = useState(false);
-  const [connectionStatus, setConnectionStatus] =
-    useState<ConnectionStatus>("connecting");
 
-  const [isBlocked, setIsBlocked] = useState(false);
-  const [showActions, setShowActions] = useState(false);
-  const [showReportModal, setShowReportModal] = useState(false);
-  const [reportReason, setReportReason] = useState("");
-  const [reportDetails, setReportDetails] = useState("");
+  const canSend = useMemo(() => text.trim().length > 0 && !sending, [text, sending]);
 
-  const [replyTo, setReplyTo] = useState<Message | null>(null);
-  const [editingMessage, setEditingMessage] = useState<Message | null>(null);
-  const [showEmoji, setShowEmoji] = useState(false);
-
-  const messagesEndRef = useRef<HTMLDivElement | null>(null);
-  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const typingChannelRef = useRef<any>(null);
-  const lastMessageTimeRef = useRef(0);
-
-  const scrollToBottom = useCallback(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, []);
-
-  const containsProfanity = (value: string) => {
-    const lower = value.toLowerCase();
-    return bannedWords.some((word) => lower.includes(word));
+  const scrollToBottom = () => {
+    setTimeout(() => {
+      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, 100);
   };
 
-  const getReplyMessage = (replyId?: string | null) => {
-    if (!replyId) return null;
-    return messages.find((msg) => msg.id === replyId) || null;
-  };
+  const loadChat = async () => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
-  const markMessagesAsSeen = async (chatId: string, myId: string) => {
-    await supabase
-      .from("messages")
-      .update({
-        seen: true,
-        seen_at: new Date().toISOString(),
-      })
-      .eq("conversation_id", chatId)
-      .neq("sender_id", myId)
-      .eq("seen", false);
-  };
-
-  const checkBlockStatus = async (myId: string, otherId: string) => {
-    const { data } = await supabase
-      .from("blocked_users")
-      .select("id")
-      .eq("blocker_id", myId)
-      .eq("blocked_id", otherId)
-      .maybeSingle();
-
-    setIsBlocked(!!data);
-  };
-
-  const loadOlderMessages = async () => {
-    if (!conversationId || loadingOlder || !hasMore) return;
-
-    setLoadingOlder(true);
-
-    const nextPage = page + 1;
-    const from = nextPage * MESSAGES_PER_PAGE;
-    const to = from + MESSAGES_PER_PAGE - 1;
-
-    const { data } = await supabase
-      .from("messages")
-      .select("*")
-      .eq("conversation_id", conversationId)
-      .order("created_at", { ascending: false })
-      .range(from, to);
-
-    const olderMessages = (data || []).reverse();
-
-    if (!data || data.length < MESSAGES_PER_PAGE) {
-      setHasMore(false);
+    if (!user) {
+      router.replace("/login");
+      return;
     }
 
-    setMessages((prev) => {
-      const existingIds = new Set(prev.map((msg) => msg.id));
-      const uniqueOlder = olderMessages.filter(
-        (msg) => !existingIds.has(msg.id)
-      );
-      return [...uniqueOlder, ...prev];
-    });
+    setCurrentUserId(user.id);
+    await setUserOnline(user.id);
 
-    setPage(nextPage);
-    setLoadingOlder(false);
+    const { data: profileData } = await supabase
+      .from("profiles")
+      .select("id, anonymous_username, department, is_online, last_seen")
+      .eq("id", otherUserId)
+      .single();
+
+    if (!profileData) {
+      router.replace("/dashboard");
+      return;
+    }
+
+    setOtherUser(profileData);
+
+    const { data: messageData, error } = await supabase
+      .from("messages")
+      .select("id, sender_id, receiver_id, content, created_at, seen")
+      .or(
+        `and(sender_id.eq.${user.id},receiver_id.eq.${otherUserId}),and(sender_id.eq.${otherUserId},receiver_id.eq.${user.id})`
+      )
+      .order("created_at", { ascending: true });
+
+    if (!error) {
+      setMessages(messageData || []);
+    }
+
+    await supabase
+      .from("messages")
+      .update({ seen: true })
+      .eq("sender_id", otherUserId)
+      .eq("receiver_id", user.id)
+      .eq("seen", false);
+
+    setLoading(false);
+    scrollToBottom();
   };
 
   useEffect(() => {
-    if (!targetUserId) return;
+    let userId = "";
+    let interval: NodeJS.Timeout;
 
-    let messageChannel: any = null;
-    let typingChannel: any = null;
+    const init = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
 
-    const loadChat = async () => {
-      setLoading(true);
-      setError("");
-      setConnectionStatus("connecting");
-
-      const { data: userData } = await supabase.auth.getUser();
-
-      if (!userData.user) {
-        router.push("/login");
+      if (!user) {
+        router.replace("/login");
         return;
       }
 
-      const myId = userData.user.id;
+      userId = user.id;
+      setCurrentUserId(user.id);
 
-      if (myId === targetUserId) {
-        router.push("/dashboard");
-        return;
-      }
+      await setUserOnline(user.id);
+      await loadChat();
 
-      setCurrentUserId(myId);
-      await checkBlockStatus(myId, targetUserId);
-
-      const { data: target } = await supabase
-        .from("profiles")
-        .select("id, anonymous_username, department")
-        .eq("id", targetUserId)
-        .single();
-
-      if (!target) {
-        router.push("/dashboard");
-        return;
-      }
-
-      setTargetUser(target);
-
-      const { data: existingConversation } = await supabase
-        .from("conversations")
-        .select("id")
-        .or(
-          `and(user_one.eq.${myId},user_two.eq.${targetUserId}),and(user_one.eq.${targetUserId},user_two.eq.${myId})`
-        )
-        .maybeSingle();
-
-      let chatId = existingConversation?.id;
-
-      if (!chatId) {
-        const { data: newConversation, error: conversationError } =
-          await supabase
-            .from("conversations")
-            .insert({
-              user_one: myId,
-              user_two: targetUserId,
-            })
-            .select("id")
-            .single();
-
-        if (conversationError || !newConversation) {
-          setError("Could not start conversation.");
-          setLoading(false);
-          return;
-        }
-
-        chatId = newConversation.id;
-      }
-
-      setConversationId(chatId);
-
-      const { data: loadedMessages } = await supabase
-        .from("messages")
-        .select("*")
-        .eq("conversation_id", chatId)
-        .order("created_at", { ascending: false })
-        .range(0, MESSAGES_PER_PAGE - 1);
-
-      const reversedMessages = (loadedMessages || []).reverse();
-
-      setMessages(reversedMessages);
-      setPage(0);
-      setHasMore(!!loadedMessages && loadedMessages.length >= MESSAGES_PER_PAGE);
-
-      await markMessagesAsSeen(chatId, myId);
-
-      setLoading(false);
-      setTimeout(scrollToBottom, 100);
-
-      messageChannel = supabase
-        .channel(`chat-messages-${chatId}`)
-        .on(
-          "postgres_changes",
-          {
-            event: "INSERT",
-            schema: "public",
-            table: "messages",
-          },
-          async (payload) => {
-            console.log("Realtime INSERT:", payload);
-
-            const newMessage = payload.new as Message;
-
-            if (newMessage.conversation_id !== chatId) return;
-
-            setMessages((prev) => {
-              const exists = prev.some((msg) => msg.id === newMessage.id);
-              if (exists) return prev;
-              return [...prev, newMessage];
-            });
-
-            if (newMessage.sender_id !== myId) {
-              await markMessagesAsSeen(chatId, myId);
-            }
-
-            setTimeout(scrollToBottom, 50);
-          }
-        )
-        .on(
-          "postgres_changes",
-          {
-            event: "UPDATE",
-            schema: "public",
-            table: "messages",
-          },
-          (payload) => {
-            console.log("Realtime UPDATE:", payload);
-
-            const updated = payload.new as Message;
-
-            if (updated.conversation_id !== chatId) return;
-
-            setMessages((prev) =>
-              prev.map((msg) => (msg.id === updated.id ? updated : msg))
-            );
-          }
-        )
-        .subscribe((status) => {
-          console.log("Realtime status:", status);
-
-          if (status === "SUBSCRIBED") {
-            setConnectionStatus("connected");
-          } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
-            setConnectionStatus("disconnected");
-          } else {
-            setConnectionStatus("connecting");
-          }
-        });
-
-      typingChannel = supabase.channel(`typing-${chatId}`, {
-        config: {
-          broadcast: {
-            self: false,
-          },
-        },
-      });
-
-      typingChannel
-        .on("broadcast", { event: "typing" }, (payload: any) => {
-          if (payload.payload?.senderId !== targetUserId) return;
-
-          setIsTyping(true);
-
-          if (typingTimeoutRef.current) {
-            clearTimeout(typingTimeoutRef.current);
-          }
-
-          typingTimeoutRef.current = setTimeout(() => {
-            setIsTyping(false);
-          }, TYPING_TIMEOUT_MS);
-        })
-        .subscribe();
-
-      typingChannelRef.current = typingChannel;
+      interval = setInterval(async () => {
+        await setUserOnline(user.id);
+      }, 30000);
     };
 
-    loadChat();
+    init();
+
+    const channel = supabase
+      .channel(`private-chat-${otherUserId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "messages",
+        },
+        () => {
+          loadChat();
+        }
+      )
+      .subscribe();
+
+    const profileChannel = supabase
+      .channel(`profile-status-${otherUserId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "profiles",
+          filter: `id=eq.${otherUserId}`,
+        },
+        () => {
+          loadChat();
+        }
+      )
+      .subscribe();
+
+    const handleVisibilityChange = async () => {
+      if (!userId) return;
+
+      if (document.hidden) {
+        await setUserOffline(userId);
+      } else {
+        await setUserOnline(userId);
+        await loadChat();
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
-      if (messageChannel) supabase.removeChannel(messageChannel);
-      if (typingChannel) supabase.removeChannel(typingChannel);
-      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+      if (interval) clearInterval(interval);
+
+      supabase.removeChannel(channel);
+      supabase.removeChannel(profileChannel);
+
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+
+      if (userId) {
+        setUserOffline(userId);
+      }
     };
-  }, [router, targetUserId, scrollToBottom]);
+  }, [otherUserId]);
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages, isTyping, scrollToBottom]);
-
-  const handleTyping = (value: string) => {
-    setText(value);
-
-    if (!typingChannelRef.current || !currentUserId || isBlocked) return;
-
-    typingChannelRef.current.send({
-      type: "broadcast",
-      event: "typing",
-      payload: {
-        senderId: currentUserId,
-      },
-    });
-  };
+  }, [messages]);
 
   const sendMessage = async () => {
-    const messageText = text.trim();
+    const cleanText = text.trim();
 
-    if (messageText.length > MAX_MESSAGE_LENGTH) {
-      setError("Message is too long. Maximum 1000 characters allowed.");
-      return;
-    }
-
-    if (typeof navigator !== "undefined" && !navigator.onLine) {
-      setError("You are offline. Check your internet connection.");
-      return;
-    }
-
-    if (
-      !messageText ||
-      !conversationId ||
-      !currentUserId ||
-      isBlocked ||
-      sending
-    ) {
-      return;
-    }
-
-    const now = Date.now();
-
-    if (now - lastMessageTimeRef.current < SPAM_COOLDOWN_MS) {
-      setError("You are sending messages too fast.");
-      return;
-    }
-
-    lastMessageTimeRef.current = now;
+    if (!cleanText || !currentUserId || !otherUserId) return;
 
     setSending(true);
-    setError("");
-
-    const { data: myProfile } = await supabase
-      .from("profiles")
-      .select("is_muted")
-      .eq("id", currentUserId)
-      .single();
-
-    if (myProfile?.is_muted) {
-      setError("You are muted by admin.");
-      setSending(false);
-      return;
-    }
-
-    if (containsProfanity(messageText)) {
-      setError("Message blocked because of inappropriate language.");
-
-      await supabase.from("user_warnings").insert({
-        user_id: currentUserId,
-        reason: "PROFANITY",
-        message: messageText,
-      });
-
-      setSending(false);
-      return;
-    }
-
     setText("");
 
-    if (editingMessage) {
-      const { error: editError } = await supabase
-        .from("messages")
-        .update({
-          message: messageText,
-          edited: true,
-        })
-        .eq("id", editingMessage.id)
-        .eq("sender_id", currentUserId);
-
-      if (editError) {
-        setError("Failed to edit message.");
-        setText(messageText);
-        setSending(false);
-        return;
-      }
-
-      setEditingMessage(null);
-      setSending(false);
-      return;
-    }
-
-    const { data: insertedMessage, error: sendError } = await supabase
-      .from("messages")
-      .insert({
-        conversation_id: conversationId,
-        sender_id: currentUserId,
-        message: messageText,
-        delivered: true,
-        seen: false,
-        reply_to: replyTo?.id || null,
-      })
-      .select("*")
-      .single();
-
-    if (sendError) {
-      console.error("Send message error:", sendError);
-      setError("Message failed to send.");
-      setText(messageText);
-      setSending(false);
-      return;
-    }
-
-    if (insertedMessage) {
-      setMessages((prev) => {
-        const exists = prev.some((msg) => msg.id === insertedMessage.id);
-        if (exists) return prev;
-        return [...prev, insertedMessage as Message];
-      });
-    }
-
-    await fetch("/api/send-notification", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        receiverId: targetUserId,
-        senderName: "Daffgle User",
-        message: messageText,
-      }),
-    }).catch(() => {
-      console.warn("Notification request failed.");
+    const { error } = await supabase.from("messages").insert({
+      sender_id: currentUserId,
+      receiver_id: otherUserId,
+      content: cleanText,
+      seen: false,
     });
 
-    setReplyTo(null);
+    if (error) {
+      console.error("Send message error:", error);
+      setText(cleanText);
+    } else {
+      await loadChat();
+    }
+
     setSending(false);
   };
 
-  const deleteMessage = async (msg: Message) => {
-    if (msg.sender_id !== currentUserId) return;
+  const deleteMessage = async (messageId: string) => {
+    const confirmDelete = window.confirm("Delete this message?");
+    if (!confirmDelete) return;
 
-    const confirmed = confirm("Delete this message for everyone?");
-    if (!confirmed) return;
-
-    const { error: deleteError } = await supabase
+    await supabase
       .from("messages")
-      .update({
-        deleted: true,
-        message: "This message was deleted",
-      })
-      .eq("id", msg.id)
+      .delete()
+      .eq("id", messageId)
       .eq("sender_id", currentUserId);
 
-    if (deleteError) {
-      setError("Failed to delete message.");
-    }
+    await loadChat();
   };
 
-  const startEdit = (msg: Message) => {
-    if (msg.sender_id !== currentUserId || msg.deleted) return;
-
-    setEditingMessage(msg);
-    setReplyTo(null);
-    setText(msg.message);
-  };
-
-  const startReply = (msg: Message) => {
-    if (msg.deleted) return;
-
-    setReplyTo(msg);
-    setEditingMessage(null);
-  };
-
-  const blockUser = async () => {
-    if (!currentUserId || !targetUserId) return;
-
-    const confirmed = confirm("Are you sure you want to block this user?");
-    if (!confirmed) return;
-
-    const { error: blockError } = await supabase.from("blocked_users").insert({
-      blocker_id: currentUserId,
-      blocked_id: targetUserId,
-    });
-
-    if (blockError) {
-      alert("Failed to block user.");
-      return;
-    }
-
-    setIsBlocked(true);
-    setShowActions(false);
-    alert("User blocked successfully.");
-  };
-
-  const submitReport = async () => {
-    if (!currentUserId || !targetUserId) return;
-
-    if (!reportReason.trim()) {
-      alert("Please enter report reason.");
-      return;
-    }
-
-    const { error: reportError } = await supabase.from("reports").insert({
-      reporter_id: currentUserId,
-      reported_id: targetUserId,
-      reason: reportReason.trim(),
-      details: reportDetails.trim() || null,
-    });
-
-    if (reportError) {
-      alert("Failed to submit report.");
-      return;
-    }
-
-    setShowReportModal(false);
-    setReportReason("");
-    setReportDetails("");
-    alert("Report submitted.");
-  };
-
-  const renderMessageStatus = (msg: Message) => {
-    if (msg.sender_id !== currentUserId) return null;
-
-    if (msg.seen) {
-      return <span className="text-[#2AABEE]">✓✓</span>;
-    }
-
-    return <span className="text-gray-400">✓</span>;
-  };
+  if (loading) {
+    return (
+      <main className="flex h-dvh items-center justify-center bg-[#0E1621] text-white">
+        <div className="text-center">
+          <div className="mx-auto mb-4 h-12 w-12 animate-pulse rounded-3xl bg-[#2AABEE]" />
+          <p className="text-sm text-gray-400">Opening private chat...</p>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="flex h-dvh flex-col overflow-hidden bg-[#0E1621] text-white">
-      <header className="flex items-center gap-4 border-b border-[#22303D] bg-[#17212B] p-4">
-        <button
-          onClick={() => router.push("/dashboard")}
-          className="rounded-xl bg-[#2B5278] px-4 py-2 text-sm hover:opacity-80"
-        >
-          Back
-        </button>
-
-        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#2B5278] font-bold">
-          {targetUser?.anonymous_username?.charAt(0).toUpperCase() || "?"}
-        </div>
-
-        <div className="min-w-0 flex-1">
-          <h1 className="truncate text-lg font-bold">
-            {targetUser?.anonymous_username || "Loading..."}
-          </h1>
-
-          <p className="text-sm text-gray-400">
-            {isTyping ? (
-              <span className="text-[#2AABEE]">typing...</span>
-            ) : (
-              targetUser?.department
-            )}
-          </p>
-        </div>
-
-        <div className="relative">
+      <header className="z-30 border-b border-[#22303D] bg-[#17212B]/95 px-4 py-3 backdrop-blur">
+        <div className="mx-auto flex max-w-5xl items-center gap-3">
           <button
-            onClick={() => setShowActions(!showActions)}
-            className="rounded-xl bg-[#0F1A24] px-3 py-2 text-sm hover:bg-[#182533]"
+            onClick={() => router.push("/chat")}
+            className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#0F1A24] text-xl font-black transition hover:bg-[#182533]"
           >
-            ⋮
+            ‹
           </button>
 
-          {showActions && (
-            <div className="absolute right-0 top-12 z-50 w-48 rounded-2xl border border-[#22303D] bg-[#17212B] p-2 shadow-xl">
-              <button
-                onClick={() => {
-                  setShowReportModal(true);
-                  setShowActions(false);
-                }}
-                className="w-full rounded-xl px-4 py-3 text-left text-sm hover:bg-[#0F1A24]"
-              >
-                Report User
-              </button>
+          <div className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#2B5278] text-lg font-black">
+            {otherUser?.anonymous_username?.charAt(0).toUpperCase() || "U"}
 
-              <button
-                onClick={blockUser}
-                className="w-full rounded-xl px-4 py-3 text-left text-sm text-red-400 hover:bg-[#0F1A24]"
-              >
-                Block User
-              </button>
-            </div>
-          )}
-        </div>
+            {otherUser?.is_online && (
+              <span className="absolute -right-0.5 -top-0.5 h-4 w-4 rounded-full border-2 border-[#17212B] bg-green-400" />
+            )}
+          </div>
 
-        <div className="hidden text-xs text-gray-400 sm:block">
-          {connectionStatus === "connected" && "● Live"}
-          {connectionStatus === "connecting" && "● Connecting"}
-          {connectionStatus === "disconnected" && "● Reconnecting"}
+          <div className="min-w-0 flex-1">
+            <h1 className="truncate text-base font-black">
+              {otherUser?.anonymous_username}
+            </h1>
+            <p className="truncate text-xs text-gray-400">
+              {otherUser?.is_online ? "Online now" : otherUser?.department}
+            </p>
+          </div>
+
+          <button
+            onClick={() => router.push("/dashboard")}
+            className="rounded-2xl bg-[#2AABEE] px-4 py-2 text-xs font-black"
+          >
+            Online
+          </button>
         </div>
       </header>
 
-      {error && (
-        <div className="bg-red-900/40 px-4 py-2 text-center text-sm text-red-300">
-          {error}
-        </div>
-      )}
-
-      <section className="flex flex-1 flex-col bg-[#0F1A24]">
-        <div className="flex-1 space-y-3 overflow-y-auto p-4">
-          {hasMore && !loading && (
-            <div className="flex justify-center">
-              <button
-                onClick={loadOlderMessages}
-                disabled={loadingOlder}
-                className="rounded-xl bg-[#17212B] px-4 py-2 text-xs text-gray-300 hover:bg-[#22303D] disabled:opacity-50"
-              >
-                {loadingOlder ? "Loading..." : "Load older messages"}
-              </button>
+      <section className="flex-1 overflow-y-auto bg-[#0F1A24] px-4 py-5">
+        <div className="mx-auto max-w-5xl">
+          <div className="mb-5 flex justify-center">
+            <div className="rounded-2xl border border-[#22303D] bg-[#17212B] px-4 py-2 text-center text-xs text-gray-400">
+              Messages auto-delete after 7 days. Keep Daffgle safe and
+              respectful.
             </div>
-          )}
+          </div>
 
-          {loading ? (
-            <p className="mt-10 text-center text-gray-500">
-              Loading messages...
-            </p>
-          ) : messages.length === 0 ? (
-            <p className="mt-10 text-center text-gray-500">No messages yet.</p>
+          {messages.length === 0 ? (
+            <div className="mt-24 text-center">
+              <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-[2rem] bg-[#17212B] text-4xl">
+                👻
+              </div>
+              <h2 className="text-xl font-black">Start the conversation</h2>
+              <p className="mt-2 text-sm text-gray-400">
+                Send the first anonymous message.
+              </p>
+            </div>
           ) : (
-            messages.map((msg) => {
-              const isMine = msg.sender_id === currentUserId;
-              const replied = getReplyMessage(msg.reply_to);
+            <div className="space-y-3">
+              {messages.map((message, index) => {
+                const isMine = message.sender_id === currentUserId;
 
-              return (
-                <div
-                  key={msg.id}
-                  className={`group flex ${
-                    isMine ? "justify-end" : "justify-start"
-                  }`}
-                >
-                  <div
-                    className={`max-w-[75%] rounded-2xl px-4 py-2 text-sm ${
-                      isMine ? "bg-[#2B5278]" : "bg-[#182533]"
-                    } ${msg.deleted ? "opacity-60" : ""}`}
+                return (
+                  <motion.div
+                    key={message.id}
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.01 }}
+                    className={`flex ${isMine ? "justify-end" : "justify-start"}`}
                   >
-                    {replied && (
-                      <div className="mb-2 rounded-xl border-l-4 border-[#2AABEE] bg-black/20 px-3 py-2 text-xs text-gray-300">
-                        <p className="font-semibold">
-                          {replied.sender_id === currentUserId
-                            ? "You"
-                            : targetUser?.anonymous_username}
-                        </p>
-                        <p className="truncate">{replied.message}</p>
-                      </div>
-                    )}
-
-                    <p
-                      className={msg.deleted ? "italic text-gray-300" : ""}
-                      style={{
-                        wordBreak: "break-word",
-                        overflowWrap: "anywhere",
-                      }}
+                    <div
+                      onDoubleClick={() => isMine && deleteMessage(message.id)}
+                      className={`max-w-[82%] rounded-3xl px-4 py-3 shadow-lg md:max-w-[60%] ${
+                        isMine
+                          ? "rounded-br-md bg-[#2B5278] text-white"
+                          : "rounded-bl-md bg-[#182533] text-white"
+                      }`}
                     >
-                      {msg.message}
-                    </p>
+                      <p className="whitespace-pre-wrap break-words text-[15px] leading-6">
+                        {message.content}
+                      </p>
 
-                    <div className="mt-1 flex items-center justify-end gap-2 text-[10px] text-gray-300">
-                      {msg.edited && !msg.deleted && <span>edited</span>}
-
-                      <span>
-                        {new Date(msg.created_at).toLocaleTimeString([], {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </span>
-
-                      {renderMessageStatus(msg)}
-                    </div>
-
-                    {!msg.deleted && (
-                      <div className="mt-2 hidden gap-2 text-[11px] group-hover:flex">
-                        <button
-                          onClick={() => startReply(msg)}
-                          className="text-[#2AABEE] hover:underline"
-                        >
-                          Reply
-                        </button>
-
-                        {isMine && (
-                          <>
-                            <button
-                              onClick={() => startEdit(msg)}
-                              className="text-yellow-300 hover:underline"
-                            >
-                              Edit
-                            </button>
-
-                            <button
-                              onClick={() => deleteMessage(msg)}
-                              className="text-red-300 hover:underline"
-                            >
-                              Delete
-                            </button>
-                          </>
-                        )}
+                      <div
+                        className={`mt-1 flex items-center gap-1 text-[10px] ${
+                          isMine ? "justify-end text-blue-100" : "text-gray-400"
+                        }`}
+                      >
+                        <span>{formatTime(message.created_at)}</span>
+                        {isMine && <span>{message.seen ? "Seen" : "Sent"}</span>}
                       </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })
-          )}
-
-          {isTyping && (
-            <div className="flex justify-start">
-              <div className="rounded-2xl bg-[#182533] px-4 py-2 text-sm text-gray-400">
-                typing...
-              </div>
+                    </div>
+                  </motion.div>
+                );
+              })}
             </div>
           )}
 
-          <div ref={messagesEndRef} />
+          <div ref={bottomRef} />
         </div>
+      </section>
 
-        {replyTo && (
-          <div className="border-t border-[#22303D] bg-[#17212B] px-4 py-2 text-sm">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-[#2AABEE]">Replying to message</p>
-                <p className="truncate text-gray-400">{replyTo.message}</p>
-              </div>
-
-              <button onClick={() => setReplyTo(null)} className="text-red-300">
-                ✕
-              </button>
-            </div>
-          </div>
-        )}
-
-        {editingMessage && (
-          <div className="border-t border-[#22303D] bg-[#17212B] px-4 py-2 text-sm">
-            <div className="flex items-center justify-between">
-              <p className="text-yellow-300">Editing message</p>
-
-              <button
-                onClick={() => {
-                  setEditingMessage(null);
-                  setText("");
-                }}
-                className="text-red-300"
-              >
-                ✕
-              </button>
-            </div>
-          </div>
-        )}
-
-        {isBlocked && (
-          <div className="border-t border-[#22303D] bg-red-900/30 px-4 py-3 text-center text-sm text-red-300">
-            You blocked this user. Messaging disabled.
-          </div>
-        )}
-
-        {text.length > 900 && (
-          <div className="border-t border-[#22303D] bg-[#17212B] px-4 py-1 text-right text-xs text-gray-400">
-            {text.length}/{MAX_MESSAGE_LENGTH}
-          </div>
-        )}
-
-        <div className="relative flex gap-3 border-t border-[#22303D] bg-[#17212B] p-4">
-          {showEmoji && (
-            <div className="absolute bottom-20 left-4 z-50">
-              <EmojiPicker
-                onEmojiClick={(emojiData) => {
-                  setText((prev) => prev + emojiData.emoji);
-                }}
-              />
-            </div>
-          )}
-
-          <button
-            onClick={() => setShowEmoji(!showEmoji)}
-            disabled={isBlocked || sending}
-            className="rounded-2xl bg-[#0F1A24] px-4 text-xl disabled:opacity-50"
-          >
-            😊
-          </button>
-
-          <input
+      <footer className="border-t border-[#22303D] bg-[#17212B]/95 px-4 py-3 backdrop-blur">
+        <div className="mx-auto flex max-w-5xl items-end gap-3">
+          <textarea
             value={text}
-            disabled={isBlocked || sending}
-            onChange={(e) => handleTyping(e.target.value)}
+            onChange={(e) => setText(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === "Enter") sendMessage();
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+              }
             }}
-            placeholder={isBlocked ? "Messaging disabled" : "Write a message..."}
-            className="flex-1 rounded-2xl bg-[#0F1A24] px-4 py-3 text-white outline-none placeholder:text-gray-500 disabled:cursor-not-allowed disabled:opacity-50"
+            placeholder="Write a message..."
+            rows={1}
+            className="max-h-32 min-h-12 flex-1 resize-none rounded-3xl border border-[#22303D] bg-[#0E1621] px-5 py-3 text-sm text-white outline-none placeholder:text-gray-500 focus:border-[#2AABEE]"
           />
 
           <button
             onClick={sendMessage}
-            disabled={
-              !text.trim() ||
-              isBlocked ||
-              sending ||
-              text.length > MAX_MESSAGE_LENGTH
-            }
-            className="rounded-2xl bg-[#2AABEE] px-5 font-semibold hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-50"
+            disabled={!canSend}
+            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#2AABEE] text-lg font-black shadow-lg shadow-[#2AABEE]/20 transition hover:scale-[1.04] disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {sending ? "..." : editingMessage ? "Save" : "Send"}
+            ➤
           </button>
         </div>
-      </section>
 
-      {showReportModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-md rounded-3xl bg-[#17212B] p-6">
-            <h2 className="text-xl font-bold text-[#2AABEE]">Report User</h2>
-
-            <input
-              value={reportReason}
-              onChange={(e) => setReportReason(e.target.value)}
-              placeholder="Reason"
-              className="mt-4 w-full rounded-2xl bg-[#0F1A24] px-4 py-3 text-white outline-none placeholder:text-gray-500"
-            />
-
-            <textarea
-              value={reportDetails}
-              onChange={(e) => setReportDetails(e.target.value)}
-              placeholder="Extra details"
-              rows={4}
-              className="mt-4 w-full rounded-2xl bg-[#0F1A24] px-4 py-3 text-white outline-none placeholder:text-gray-500"
-            />
-
-            <div className="mt-4 flex gap-3">
-              <button
-                onClick={() => setShowReportModal(false)}
-                className="flex-1 rounded-2xl bg-[#0F1A24] py-3"
-              >
-                Cancel
-              </button>
-
-              <button
-                onClick={submitReport}
-                className="flex-1 rounded-2xl bg-[#2AABEE] py-3 font-semibold"
-              >
-                Submit
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+        <p className="mx-auto mt-2 max-w-5xl px-2 text-[10px] text-gray-500">
+          Tip: double click your own message to delete it.
+        </p>
+      </footer>
     </main>
   );
 }

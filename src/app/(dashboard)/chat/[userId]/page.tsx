@@ -47,7 +47,8 @@ const bannedWords = [
 export default function ChatPage() {
   const router = useRouter();
   const params = useParams();
-  const targetUserId = params.userId as string;
+
+  const targetUserId = (params.userId || params.id) as string;
 
   const [currentUserId, setCurrentUserId] = useState("");
   const [conversationId, setConversationId] = useState("");
@@ -140,7 +141,9 @@ export default function ChatPage() {
 
     setMessages((prev) => {
       const existingIds = new Set(prev.map((msg) => msg.id));
-      const uniqueOlder = olderMessages.filter((msg) => !existingIds.has(msg.id));
+      const uniqueOlder = olderMessages.filter(
+        (msg) => !existingIds.has(msg.id)
+      );
       return [...uniqueOlder, ...prev];
     });
 
@@ -149,12 +152,15 @@ export default function ChatPage() {
   };
 
   useEffect(() => {
+    if (!targetUserId) return;
+
     let messageChannel: any = null;
     let typingChannel: any = null;
 
     const loadChat = async () => {
       setLoading(true);
       setError("");
+      setConnectionStatus("connecting");
 
       const { data: userData } = await supabase.auth.getUser();
 
@@ -197,16 +203,17 @@ export default function ChatPage() {
       let chatId = existingConversation?.id;
 
       if (!chatId) {
-        const { data: newConversation } = await supabase
-          .from("conversations")
-          .insert({
-            user_one: myId,
-            user_two: targetUserId,
-          })
-          .select("id")
-          .single();
+        const { data: newConversation, error: conversationError } =
+          await supabase
+            .from("conversations")
+            .insert({
+              user_one: myId,
+              user_two: targetUserId,
+            })
+            .select("id")
+            .single();
 
-        if (!newConversation) {
+        if (conversationError || !newConversation) {
           setError("Could not start conversation.");
           setLoading(false);
           return;
@@ -228,12 +235,7 @@ export default function ChatPage() {
 
       setMessages(reversedMessages);
       setPage(0);
-
-      if (!loadedMessages || loadedMessages.length < MESSAGES_PER_PAGE) {
-        setHasMore(false);
-      } else {
-        setHasMore(true);
-      }
+      setHasMore(!!loadedMessages && loadedMessages.length >= MESSAGES_PER_PAGE);
 
       await markMessagesAsSeen(chatId, myId);
 
@@ -241,17 +243,20 @@ export default function ChatPage() {
       setTimeout(scrollToBottom, 100);
 
       messageChannel = supabase
-        .channel(`messages-${chatId}`)
+        .channel(`chat-messages-${chatId}`)
         .on(
           "postgres_changes",
           {
             event: "INSERT",
             schema: "public",
             table: "messages",
-            filter: `conversation_id=eq.${chatId}`,
           },
           async (payload) => {
+            console.log("Realtime INSERT:", payload);
+
             const newMessage = payload.new as Message;
+
+            if (newMessage.conversation_id !== chatId) return;
 
             setMessages((prev) => {
               const exists = prev.some((msg) => msg.id === newMessage.id);
@@ -262,6 +267,8 @@ export default function ChatPage() {
             if (newMessage.sender_id !== myId) {
               await markMessagesAsSeen(chatId, myId);
             }
+
+            setTimeout(scrollToBottom, 50);
           }
         )
         .on(
@@ -270,10 +277,13 @@ export default function ChatPage() {
             event: "UPDATE",
             schema: "public",
             table: "messages",
-            filter: `conversation_id=eq.${chatId}`,
           },
           (payload) => {
+            console.log("Realtime UPDATE:", payload);
+
             const updated = payload.new as Message;
+
+            if (updated.conversation_id !== chatId) return;
 
             setMessages((prev) =>
               prev.map((msg) => (msg.id === updated.id ? updated : msg))
@@ -281,6 +291,8 @@ export default function ChatPage() {
           }
         )
         .subscribe((status) => {
+          console.log("Realtime status:", status);
+
           if (status === "SUBSCRIBED") {
             setConnectionStatus("connected");
           } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
@@ -428,20 +440,33 @@ export default function ChatPage() {
       return;
     }
 
-    const { error: sendError } = await supabase.from("messages").insert({
-      conversation_id: conversationId,
-      sender_id: currentUserId,
-      message: messageText,
-      delivered: true,
-      seen: false,
-      reply_to: replyTo?.id || null,
-    });
+    const { data: insertedMessage, error: sendError } = await supabase
+      .from("messages")
+      .insert({
+        conversation_id: conversationId,
+        sender_id: currentUserId,
+        message: messageText,
+        delivered: true,
+        seen: false,
+        reply_to: replyTo?.id || null,
+      })
+      .select("*")
+      .single();
 
     if (sendError) {
+      console.error("Send message error:", sendError);
       setError("Message failed to send.");
       setText(messageText);
       setSending(false);
       return;
+    }
+
+    if (insertedMessage) {
+      setMessages((prev) => {
+        const exists = prev.some((msg) => msg.id === insertedMessage.id);
+        if (exists) return prev;
+        return [...prev, insertedMessage as Message];
+      });
     }
 
     await fetch("/api/send-notification", {

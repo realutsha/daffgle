@@ -126,7 +126,7 @@ export default function ChatPage() {
       }
 
       finalChats.push({
-        id: otherProfile.id,
+        id: req.conversation_id,
         anonymous_username: otherProfile.anonymous_username,
         department: otherProfile.department,
         last_message: lastMsgText,

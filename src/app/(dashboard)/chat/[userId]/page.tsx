@@ -44,13 +44,12 @@ function isUserActuallyOnline(isOnline: boolean | undefined, lastSeen: string | 
 export default function PrivateChatPage() {
   const router = useRouter();
   const params = useParams();
-  const otherUserId = params.userId as string;
+  const conversationId = params.userId as string; // Treated directly as conversation_id from URL
 
   const bottomRef = useRef<HTMLDivElement | null>(null);
 
   const [currentUserId, setCurrentUserId] = useState("");
   const [otherUser, setOtherUser] = useState<Profile | null>(null);
-  const [conversationId, setConversationId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(true);
@@ -80,80 +79,56 @@ export default function PrivateChatPage() {
     setCurrentUserId(user.id);
     await setUserOnline(user.id);
 
-    const { data: profileData } = await supabase
-      .from("profiles")
-      .select("id, anonymous_username, department, is_online, last_seen")
-      .eq("id", otherUserId)
+    // 1. Fetch the active help request matching this conversationId
+    const { data: activeRequest, error: reqError } = await supabase
+      .from("help_requests")
+      .select("*, requester:profiles!requester_id(id, anonymous_username, department, is_online, last_seen), helper:profiles!helper_id(id, anonymous_username, department, is_online, last_seen)")
+      .eq("conversation_id", conversationId)
       .single();
 
-    if (!profileData) {
-      router.replace("/dashboard");
-      return;
-    }
-
-    // Verify active help interaction exists between current user and other user
-    const { data: activeRequests, error: reqError } = await supabase
-      .from("help_requests")
-      .select("*")
-      .or(`and(requester_id.eq.${user.id},helper_id.eq.${otherUserId}),and(requester_id.eq.${otherUserId},helper_id.eq.${user.id})`)
-      .in("status", ["accepted", "solved"]);
-
-    if (reqError || !activeRequests || activeRequests.length === 0) {
+    if (reqError || !activeRequest) {
+      console.warn("Active help request matching conversation_id not found:", reqError?.message);
       toast.error("Private chat is only accessible after accepting a help request.");
       router.replace("/dashboard");
       return;
     }
 
-    const activeReq = activeRequests[0];
-    let convId = activeReq.conversation_id;
-
-    // Fallback: If conversation_id doesn't exist yet on active help request, create it and link it
-    if (!convId) {
-      const { data: convData, error: convError } = await supabase
-        .from("conversations")
-        .insert({})
-        .select("id")
-        .single();
-        
-      if (!convError && convData) {
-        convId = convData.id;
-        await supabase
-          .from("help_requests")
-          .update({ conversation_id: convId })
-          .eq("id", activeReq.id);
-      }
+    // 2. Identify the other participant's profile
+    const otherProfile = activeRequest.requester_id === user.id ? activeRequest.helper : activeRequest.requester;
+    if (!otherProfile) {
+      toast.error("Participant profile not found.");
+      router.replace("/dashboard");
+      return;
     }
 
-    setConversationId(convId);
-    setOtherUser(profileData);
+    setOtherUser(otherProfile);
 
-    if (convId) {
-      // Fetch messages by conversation_id with correct database columns
-      const { data: messageData, error } = await supabase
-        .from("messages")
-        .select("id, sender_id, conversation_id, message, created_at, seen")
-        .eq("conversation_id", convId)
-        .order("created_at", { ascending: true });
+    // 3. Fetch messages for this conversation using correct database columns
+    const { data: messageData, error } = await supabase
+      .from("messages")
+      .select("id, sender_id, conversation_id, message, created_at, seen")
+      .eq("conversation_id", conversationId)
+      .order("created_at", { ascending: true });
 
-      if (error) {
-        console.error("Error loading chat messages:", error.message, error.details);
-      } else if (messageData) {
-        setMessages(messageData);
-      }
-
-      // Mark messages as seen
-      await supabase
-        .from("messages")
-        .update({ seen: true })
-        .eq("conversation_id", convId)
-        .eq("sender_id", otherUserId)
-        .eq("seen", false);
+    if (error) {
+      console.error("Error loading chat messages:", error.message, error.details);
+    } else if (messageData) {
+      setMessages(messageData);
     }
+
+    // 4. Mark incoming messages as seen
+    await supabase
+      .from("messages")
+      .update({ seen: true })
+      .eq("conversation_id", conversationId)
+      .eq("sender_id", otherProfile.id)
+      .eq("seen", false);
 
     setLoading(false);
     scrollToBottom();
-  }, [otherUserId, router, scrollToBottom]);
+  }, [conversationId, router, scrollToBottom]);
 
+  // Handle initial page load, presence, and status looping
   useEffect(() => {
     let userId = "";
     let interval: NodeJS.Timeout;
@@ -181,22 +156,6 @@ export default function PrivateChatPage() {
 
     init();
 
-    const profileChannel = supabase
-      .channel(`profile-status-${otherUserId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "profiles",
-          filter: `id=eq.${otherUserId}`,
-        },
-        () => {
-          loadChat();
-        }
-      )
-      .subscribe();
-
     const handleVisibilityChange = async () => {
       if (!userId) return;
 
@@ -212,18 +171,40 @@ export default function PrivateChatPage() {
 
     return () => {
       if (interval) clearInterval(interval);
-
-      supabase.removeChannel(profileChannel);
-
       document.removeEventListener("visibilitychange", handleVisibilityChange);
 
       if (userId) {
         setUserOffline(userId);
       }
     };
-  }, [otherUserId, loadChat, router, currentUserId]);
+  }, [loadChat, router]);
 
-  // Realtime subscription specifically for the conversation messages
+  // Subscribe to other user's presence/profile updates
+  useEffect(() => {
+    if (!otherUser?.id) return;
+
+    const profileChannel = supabase
+      .channel(`profile-status-${otherUser.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "profiles",
+          filter: `id=eq.${otherUser.id}`,
+        },
+        () => {
+          loadChat();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(profileChannel);
+    };
+  }, [otherUser?.id, loadChat]);
+
+  // Realtime subscription specifically for conversation messages
   useEffect(() => {
     if (!conversationId) return;
 
@@ -256,7 +237,7 @@ export default function PrivateChatPage() {
   const sendMessage = async () => {
     const cleanText = text.trim();
 
-    if (!cleanText || !currentUserId || !otherUserId || !conversationId) return;
+    if (!cleanText || !currentUserId || !otherUser?.id || !conversationId) return;
 
     setSending(true);
     setText("");
@@ -288,32 +269,6 @@ export default function PrivateChatPage() {
       })
       .select("id, sender_id, conversation_id, message, created_at, seen")
       .single();
-
-    // Detailed diagnostic logging
-    const insertPayload = {
-      sender_id: currentUserId,
-      conversation_id: conversationId,
-      message: cleanText,
-      seen: false,
-    };
-    
-    // Execute a test diagnostic select query immediately
-    const { data: testFetchResult, error: testFetchError } = await supabase
-      .from("messages")
-      .select("id, sender_id, conversation_id, message, created_at, seen")
-      .eq("conversation_id", conversationId)
-      .order("created_at", { ascending: true });
-
-    console.log("--- RUNTIME DIAGNOSTICS LOGS ---");
-    console.log("1. Current conversation id from URL (userId param):", params.userId);
-    console.log("2. Active conversationId state variable:", conversationId);
-    console.log("3. Insert payload:", insertPayload);
-    console.log("4. Insert response data (inserted row):", data);
-    console.log("5. Insert response error:", error);
-    console.log("6. Fetch query filter:", `conversation_id = ${conversationId}`);
-    console.log("7. Fetch test query result:", testFetchResult);
-    console.log("8. Fetch test query error:", testFetchError);
-    console.log("---------------------------------");
 
     if (error) {
       console.error("Send message error:", error);

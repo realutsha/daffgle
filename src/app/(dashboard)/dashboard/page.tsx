@@ -28,6 +28,7 @@ type HelpRequest = {
   status: 'open' | 'accepted' | 'solved' | 'cancelled';
   helper_id: string | null;
   requester_hall: string;
+  conversation_id?: string | null;
   created_at: string;
   updated_at: string;
   // Join objects
@@ -356,7 +357,7 @@ export default function HelpHubDashboardPage() {
       });
 
       toast.success("Help Request Accepted! Opening chat...");
-      router.push(`/chat/${request.requester_id}`);
+      router.push(`/chat/${convData.id}`);
     } catch {
       toast.error("Failed to accept request.");
     }
@@ -703,7 +704,7 @@ export default function HelpHubDashboardPage() {
                           {req.status === "accepted" && (
                             <>
                               <button
-                                onClick={() => router.push(`/chat/${req.helper_id}`)}
+                                onClick={() => router.push(`/chat/${req.conversation_id}`)}
                                 className="rounded-xl bg-[#2AABEE] px-4 py-2.5 text-xs font-bold text-white hover:opacity-90 transition cursor-pointer"
                               >
                                 Open Chat
@@ -767,7 +768,7 @@ export default function HelpHubDashboardPage() {
                         <div className="flex gap-2 shrink-0">
                           {req.status === "accepted" && (
                             <button
-                              onClick={() => router.push(`/chat/${req.requester_id}`)}
+                               onClick={() => router.push(`/chat/${req.conversation_id}`)}
                               className="rounded-xl bg-[#2AABEE] px-5 py-2.5 text-xs font-bold text-white hover:opacity-90 transition cursor-pointer"
                             >
                               Open Chat

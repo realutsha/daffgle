@@ -244,20 +244,66 @@ export default function PrivateChatPage() {
     setMessages((prev) => [...prev, optimisticMessage]);
     scrollToBottom();
 
-    // 3. Insert to database
+    // 3. Prepare payload for insertion
+    const payload = {
+      sender_id: currentUserId,
+      receiver_id: otherUserId,
+      content: cleanText,
+      seen: false,
+    };
+
+    // 4. Insert to database
     const { data, error } = await supabase
       .from("messages")
-      .insert({
-        sender_id: currentUserId,
-        receiver_id: otherUserId,
-        content: cleanText,
-        seen: false,
-      })
+      .insert(payload)
       .select("id, sender_id, receiver_id, content, created_at, seen")
       .single();
 
     if (error) {
-      console.error("Send message error:", error);
+      // Fetch details dynamically for deep logging
+      const conversationIdFromUrl = params.userId; // the userId param from the URL
+      
+      const { data: activeReqs } = await supabase
+        .from("help_requests")
+        .select("*")
+        .or(`and(requester_id.eq.${currentUserId},helper_id.eq.${otherUserId}),and(requester_id.eq.${otherUserId},helper_id.eq.${currentUserId})`)
+        .in("status", ["accepted", "solved"]);
+        
+      const activeRequestRow = activeReqs && activeReqs.length > 0 ? activeReqs[0] : null;
+      const currentConvId = activeRequestRow ? activeRequestRow.conversation_id : null;
+      
+      let loadedConv = null;
+      if (currentConvId) {
+        const { data: convData } = await supabase
+          .from("conversations")
+          .select("*")
+          .eq("id", currentConvId)
+          .single();
+        loadedConv = convData;
+      }
+      
+      let relatedHelpReqByConv = null;
+      if (currentConvId) {
+        const { data: helpReqByConv } = await supabase
+          .from("help_requests")
+          .select("*")
+          .eq("conversation_id", currentConvId)
+          .single();
+        relatedHelpReqByConv = helpReqByConv;
+      }
+
+      console.log("--- DETAILED SUPABASE INSERT FAILURE LOG ---");
+      console.log("1. Insert Payload:", payload);
+      console.log("2. Error Message:", error.message);
+      console.log("3. Error Details:", error.details);
+      console.log("4. Error Hint:", error.hint);
+      console.log("5. Error Code:", error.code);
+      console.log("6. Current User ID:", currentUserId);
+      console.log("7. Conversation ID from URL (userId param):", conversationIdFromUrl);
+      console.log("8. Loaded Conversation Object:", loadedConv);
+      console.log("9. Related Help Request Row where conversation_id = current conversation id:", relatedHelpReqByConv);
+      console.log("--------------------------------------------");
+
       // Rollback optimistic state and restore text field
       setMessages((prev) => prev.filter((m) => m.id !== tempId));
       setText(cleanText);

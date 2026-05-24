@@ -16,6 +16,11 @@ function LoginContent() {
 
   useEffect(() => {
     const checkSession = async () => {
+      const errorParam = searchParams.get("error");
+      if (errorParam === "domain_restricted") {
+        setMessage("Access denied: Only @diu.edu.bd emails are allowed.");
+      }
+
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         if (isEmailAllowed(user.email)) {
@@ -29,11 +34,6 @@ function LoginContent() {
         setCheckingSession(false);
       }
     };
-
-    const errorParam = searchParams.get("error");
-    if (errorParam === "domain_restricted") {
-      setMessage("Access denied: Only @diu.edu.bd emails are allowed.");
-    }
 
     checkSession();
   }, [router, searchParams]);

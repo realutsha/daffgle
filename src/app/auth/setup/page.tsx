@@ -49,16 +49,15 @@ export default function SetupPage() {
   const router = useRouter();
 
   const [userId, setUserId] = useState("");
-
   const [anonymousUsername, setAnonymousUsername] = useState("");
-
   const [department, setDepartment] = useState("");
-
   const [gender, setGender] = useState("");
-
+  const [hall, setHall] = useState("");
   const [loading, setLoading] = useState(false);
-
   const [message, setMessage] = useState("");
+
+  const maleHalls = ["YKSG 1", "YKSG 2", "YKSG 3"];
+  const femaleHalls = ["RASG 1", "RASG 2"];
 
   useEffect(() => {
     const loadUser = async () => {
@@ -79,7 +78,7 @@ export default function SetupPage() {
   }, [router]);
 
   const handleSetup = async () => {
-    if (!anonymousUsername || !department || !gender) {
+    if (!anonymousUsername || !department || !gender || !hall) {
       setMessage("Please fill all fields.");
       return;
     }
@@ -89,19 +88,25 @@ export default function SetupPage() {
       return;
     }
 
-    setLoading(true);
+    if (gender === "Male" && !maleHalls.includes(hall)) {
+      setMessage("Invalid hall selected for Male.");
+      return;
+    }
 
+    if (gender === "Female" && !femaleHalls.includes(hall)) {
+      setMessage("Invalid hall selected for Female.");
+      return;
+    }
+
+    setLoading(true);
     setMessage("");
 
-    const { error } = await supabase.from("profiles").insert({
+    const { error } = await supabase.from("profiles").upsert({
       id: userId,
-
       anonymous_username: anonymousUsername.trim(),
-
       department,
-
       gender,
-
+      hall,
       is_online: true,
     });
 
@@ -153,20 +158,42 @@ export default function SetupPage() {
 
           <select
             value={gender}
-            onChange={(e) => setGender(e.target.value)}
+            onChange={(e) => {
+              setGender(e.target.value);
+              setHall("");
+            }}
             className="w-full rounded-2xl border border-[#22303D] bg-[#0F1A24] px-4 py-3 text-white"
           >
             <option value="">Select gender</option>
-
             <option value="Male">Male</option>
-
             <option value="Female">Female</option>
+          </select>
+
+          <select
+            value={hall}
+            onChange={(e) => setHall(e.target.value)}
+            disabled={!gender}
+            className="w-full rounded-2xl border border-[#22303D] bg-[#0F1A24] px-4 py-3 text-white disabled:opacity-50"
+          >
+            <option value="">Select hall</option>
+            {gender === "Male" &&
+              maleHalls.map((h) => (
+                <option key={h} value={h}>
+                  {h}
+                </option>
+              ))}
+            {gender === "Female" &&
+              femaleHalls.map((h) => (
+                <option key={h} value={h}>
+                  {h}
+                </option>
+              ))}
           </select>
 
           <button
             onClick={handleSetup}
             disabled={loading}
-            className="w-full rounded-2xl bg-[#2AABEE] py-3 font-semibold text-white"
+            className="w-full rounded-2xl bg-[#2AABEE] py-3 font-semibold text-white cursor-pointer"
           >
             {loading ? "Saving..." : "Enter Daffgle"}
           </button>

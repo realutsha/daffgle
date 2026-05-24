@@ -146,7 +146,10 @@ export default function AdminPage() {
   }, [router]);
 
   useEffect(() => {
-    loadAdmin();
+    const init = async () => {
+      await loadAdmin();
+    };
+    init();
   }, [loadAdmin]);
 
   const writeLog = async (

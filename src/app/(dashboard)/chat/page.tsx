@@ -111,7 +111,27 @@ export default function ChatPage() {
       }
     }
 
-    const userIds = Array.from(latestMap.keys());
+    const userIdsAll = Array.from(latestMap.keys());
+
+    if (userIdsAll.length === 0) {
+      setConversations([]);
+      setLoading(false);
+      return;
+    }
+
+    const { data: activeRequests } = await supabase
+      .from("help_requests")
+      .select("requester_id, helper_id")
+      .or(`requester_id.eq.${user.id},helper_id.eq.${user.id}`)
+      .in("status", ["accepted", "solved"]);
+
+    const allowedUserIds = new Set<string>();
+    for (const req of activeRequests || []) {
+      if (req.requester_id !== user.id) allowedUserIds.add(req.requester_id);
+      if (req.helper_id && req.helper_id !== user.id) allowedUserIds.add(req.helper_id);
+    }
+
+    const userIds = userIdsAll.filter((uid) => allowedUserIds.has(uid));
 
     if (userIds.length === 0) {
       setConversations([]);
@@ -131,6 +151,8 @@ export default function ChatPage() {
     const finalChats: Conversation[] = [];
 
     for (const [otherId, message] of latestMap.entries()) {
+      if (!allowedUserIds.has(otherId)) continue;
+
       const profile = profileMap.get(otherId);
 
       if (!profile) continue;
@@ -165,7 +187,10 @@ export default function ChatPage() {
   }, [router]);
 
   useEffect(() => {
-    loadChats();
+    const init = async () => {
+      await loadChats();
+    };
+    init();
   }, [loadChats]);
 
   useEffect(() => {
@@ -236,7 +261,7 @@ export default function ChatPage() {
             <div className="flex items-center justify-between">
               <div>
                 <h1 className="text-3xl font-black text-[#2AABEE]">
-                  Chats
+                  My Chats
                 </h1>
 
                 <p className="mt-1 text-sm text-gray-400">
@@ -246,9 +271,9 @@ export default function ChatPage() {
 
               <button
                 onClick={() => router.push("/dashboard")}
-                className="rounded-2xl bg-[#2B5278] px-4 py-2 text-sm font-bold transition hover:opacity-90"
+                className="rounded-2xl bg-[#2B5278] px-4 py-2 text-sm font-bold transition hover:opacity-90 cursor-pointer"
               >
-                Online
+                Help Hub
               </button>
             </div>
 
@@ -274,14 +299,14 @@ export default function ChatPage() {
               <h2 className="text-2xl font-black">No conversations yet</h2>
 
               <p className="mt-3 text-sm text-gray-400">
-                Start chatting from the online users page.
+                Start helping others or create a request in the Help Hub.
               </p>
 
               <button
                 onClick={() => router.push("/dashboard")}
-                className="mt-6 rounded-2xl bg-[#2AABEE] px-6 py-3 text-sm font-black"
+                className="mt-6 rounded-2xl bg-[#2AABEE] px-6 py-3 text-sm font-black cursor-pointer"
               >
-                Open Online Users
+                Open Help Hub
               </button>
             </div>
           ) : (
@@ -293,7 +318,7 @@ export default function ChatPage() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: index * 0.02 }}
                   onClick={() => router.push(`/chat/${chat.id}`)}
-                  className="w-full rounded-3xl border border-transparent bg-[#17212B] p-4 text-left transition hover:border-[#2AABEE]/40 hover:bg-[#1C2B3A]"
+                  className="w-full rounded-3xl border border-transparent bg-[#17212B] p-4 text-left transition hover:border-[#2AABEE]/40 hover:bg-[#1C2B3A] cursor-pointer"
                 >
                   <div className="flex items-center gap-4">
                     <div className="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[#2B5278] text-lg font-black">
@@ -350,21 +375,21 @@ export default function ChatPage() {
           <div className="mx-auto grid max-w-2xl grid-cols-3 gap-2">
             <button
               onClick={() => router.push("/dashboard")}
-              className="rounded-2xl bg-[#0F1A24] py-3 text-sm font-bold text-gray-300 transition duration-200 hover:bg-[#182533]"
+              className="rounded-2xl bg-[#0F1A24] py-3 text-sm font-bold text-gray-300 transition duration-200 hover:bg-[#182533] cursor-pointer"
             >
-              Online
+              Help Hub
             </button>
 
             <button
               onClick={() => router.push("/chat")}
-              className="rounded-2xl bg-[#2AABEE] py-3 text-sm font-black text-white shadow-lg shadow-[#2AABEE]/20"
+              className="rounded-2xl bg-[#2AABEE] py-3 text-sm font-black text-white shadow-lg shadow-[#2AABEE]/20 cursor-pointer"
             >
-              Chats
+              My Chats
             </button>
 
             <button
               onClick={() => router.push("/profile")}
-              className="rounded-2xl bg-[#0F1A24] py-3 text-sm font-bold text-gray-300 transition duration-200 hover:bg-[#182533]"
+              className="rounded-2xl bg-[#0F1A24] py-3 text-sm font-bold text-gray-300 transition duration-200 hover:bg-[#182533] cursor-pointer"
             >
               Profile
             </button>

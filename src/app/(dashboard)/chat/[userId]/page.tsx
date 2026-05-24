@@ -90,6 +90,19 @@ export default function PrivateChatPage() {
       return;
     }
 
+    // Verify active help interaction exists between current user and other user
+    const { data: activeRequests, error: reqError } = await supabase
+      .from("help_requests")
+      .select("*")
+      .or(`and(requester_id.eq.${user.id},helper_id.eq.${otherUserId}),and(requester_id.eq.${otherUserId},helper_id.eq.${user.id})`)
+      .in("status", ["accepted", "solved"]);
+
+    if (reqError || !activeRequests || activeRequests.length === 0) {
+      toast.error("Private chat is only accessible after accepting a help request.");
+      router.replace("/dashboard");
+      return;
+    }
+
     setOtherUser(profileData);
 
     const { data: messageData, error } = await supabase
@@ -201,7 +214,7 @@ export default function PrivateChatPage() {
         setUserOffline(userId);
       }
     };
-  }, [otherUserId, loadChat, router]);
+  }, [otherUserId, loadChat, router, currentUserId]);
 
   useEffect(() => {
     scrollToBottom();
@@ -333,7 +346,7 @@ export default function PrivateChatPage() {
         <div className="mx-auto flex max-w-5xl items-center gap-3">
           <button
             onClick={() => router.push("/chat")}
-            className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#0F1A24] text-xl font-black transition hover:bg-[#182533]"
+            className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#0F1A24] text-xl font-black transition hover:bg-[#182533] cursor-pointer"
           >
             ‹
           </button>
@@ -357,9 +370,9 @@ export default function PrivateChatPage() {
 
           <button
             onClick={() => router.push("/dashboard")}
-            className="rounded-2xl bg-[#2AABEE] px-4 py-2 text-xs font-black"
+            className="rounded-2xl bg-[#2AABEE] px-4 py-2 text-xs font-black cursor-pointer"
           >
-            Online
+            Help Hub
           </button>
         </div>
       </header>

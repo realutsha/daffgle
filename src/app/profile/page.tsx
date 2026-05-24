@@ -12,6 +12,7 @@ type Profile = {
   anonymous_username: string;
   department: string;
   gender?: string;
+  hall?: string;
   is_online: boolean;
 };
 
@@ -41,7 +42,7 @@ export default function ProfilePage() {
         // Fetch user anonymous profile details
         const { data: profileData, error } = await supabase
           .from("profiles")
-          .select("anonymous_username, department, gender, is_online")
+          .select("anonymous_username, department, gender, hall, is_online")
           .eq("id", myId)
           .single();
 
@@ -104,7 +105,7 @@ export default function ProfilePage() {
             onClick={() => router.push("/dashboard")}
             className="rounded-2xl bg-[#2B5278] px-4 py-2 text-xs font-bold transition hover:scale-[1.02] hover:opacity-90 cursor-pointer"
           >
-            ← Back to Chat
+            ← Help Hub
           </button>
         </header>
 
@@ -151,11 +152,10 @@ export default function ProfilePage() {
 
             <div className="rounded-2xl border border-[#22303D]/60 bg-[#0F1A24] p-4">
               <span className="text-xs font-semibold text-gray-500 block mb-1">
-                PRESENCE STATUS
+                CAMPUS HALL
               </span>
-              <span className="flex items-center gap-1.5 text-base font-bold text-green-400">
-                <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
-                Online Now
+              <span className="text-base font-bold text-white">
+                {profile?.hall || "Not set"}
               </span>
             </div>
 
@@ -177,7 +177,7 @@ export default function ProfilePage() {
             <p className="text-sm text-gray-400 leading-6">
               Your real identity and student email are completely shielded. 
               Only your anonymous username (<span className="text-white font-medium">{profile?.anonymous_username}</span>), 
-              department, and gender are displayed to other students on the online list or inside chats.
+              department, gender, and hall are displayed to other students inside chats or active help requests.
             </p>
           </div>
 
@@ -212,14 +212,14 @@ export default function ProfilePage() {
               onClick={() => router.push("/dashboard")}
               className="rounded-2xl bg-[#0F1A24] py-3 text-sm font-bold text-gray-300 transition duration-200 hover:bg-[#182533] cursor-pointer"
             >
-              Online
+              Help Hub
             </button>
 
             <button
               onClick={() => router.push("/chat")}
               className="rounded-2xl bg-[#0F1A24] py-3 text-sm font-bold text-gray-300 transition duration-200 hover:bg-[#182533] cursor-pointer"
             >
-              Chats
+              My Chats
             </button>
 
             <button

@@ -7,6 +7,7 @@ import { setupPushNotifications } from "@/lib/notifications";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
+import { isEmailAllowed } from "@/lib/validations/auth";
 
 type Profile = {
   id: string;
@@ -81,8 +82,11 @@ export default function DashboardPage() {
 
     const { data: userData } = await supabase.auth.getUser();
 
-    if (!userData.user) {
-      router.replace("/login");
+    if (!userData.user || !isEmailAllowed(userData.user.email)) {
+      if (userData.user) {
+        await supabase.auth.signOut();
+      }
+      router.replace("/login?error=domain_restricted");
       return;
     }
 
@@ -145,8 +149,11 @@ export default function DashboardPage() {
         data: { user },
       } = await supabase.auth.getUser();
 
-      if (!user) {
-        router.replace("/login");
+      if (!user || !isEmailAllowed(user.email)) {
+        if (user) {
+          await supabase.auth.signOut();
+        }
+        router.replace("/login?error=domain_restricted");
         return;
       }
 

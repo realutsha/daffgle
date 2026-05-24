@@ -3,15 +3,23 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
-
-// Obfuscated to hide admin email in public JS bundles
-const ADMIN_EMAIL = typeof window !== "undefined" ? atob("bWFkaHVyemFtdXRzaGFAZ21haWwuY29t") : "madhurzamutsha@gmail.com";
+import { isEmailAllowed } from "@/lib/validations/auth";
 
 export default function AuthCallbackPage() {
   const router = useRouter();
 
   useEffect(() => {
     const verifyUser = async () => {
+      try {
+        const searchParams = new URL(window.location.href).searchParams;
+        const code = searchParams.get("code");
+        if (code) {
+          await supabase.auth.exchangeCodeForSession(code);
+        }
+      } catch (err) {
+        console.error("Code exchange failed:", err);
+      }
+
       const { data, error } = await supabase.auth.getUser();
 
       if (error || !data.user) {
@@ -19,18 +27,15 @@ export default function AuthCallbackPage() {
         return;
       }
 
-      const email = data.user.email?.toLowerCase() || "";
+      const email = data.user.email || "";
 
-      const allowed =
-        email.endsWith("@diu.edu.bd") || email === ADMIN_EMAIL;
-
-      if (!allowed) {
+      if (!isEmailAllowed(email)) {
         await supabase.auth.signOut();
-        router.replace("/login");
+        window.location.href = "/login?error=domain_restricted";
         return;
       }
 
-      router.replace("/dashboard");
+      window.location.href = "/dashboard";
     };
 
     verifyUser();

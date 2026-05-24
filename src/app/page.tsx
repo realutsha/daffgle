@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../lib/supabase/client";
+import { isEmailAllowed } from "@/lib/validations/auth";
 
 export default function HomePage() {
   const router = useRouter();
@@ -10,11 +11,11 @@ export default function HomePage() {
   useEffect(() => {
     const checkUser = async () => {
       const {
-        data: { session },
-      } = await supabase.auth.getSession();
+        data: { user },
+      } = await supabase.auth.getUser();
 
-      if (session?.user) {
-        router.replace("/chat");
+      if (user && isEmailAllowed(user.email)) {
+        router.replace("/dashboard");
       } else {
         router.replace("/login");
       }

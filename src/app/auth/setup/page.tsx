@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
+import { isEmailAllowed } from "@/lib/validations/auth";
 
 const departments = [
   "CSE",
@@ -63,8 +64,11 @@ export default function SetupPage() {
     const loadUser = async () => {
       const { data } = await supabase.auth.getUser();
 
-      if (!data.user) {
-        router.push("/login");
+      if (!data.user || !isEmailAllowed(data.user.email)) {
+        if (data.user) {
+          await supabase.auth.signOut();
+        }
+        router.push("/login?error=domain_restricted");
         return;
       }
 

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { supabase } from "@/lib/supabase/client";
+import { isEmailAllowed } from "@/lib/validations/auth";
 
 type Conversation = {
   id: string;
@@ -73,8 +74,11 @@ export default function ChatPage() {
       data: { user },
     } = await supabase.auth.getUser();
 
-    if (!user) {
-      router.push("/login");
+    if (!user || !isEmailAllowed(user.email)) {
+      if (user) {
+        await supabase.auth.signOut();
+      }
+      router.push("/login?error=domain_restricted");
       return;
     }
 

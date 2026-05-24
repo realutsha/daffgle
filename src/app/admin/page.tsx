@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
+import { isEmailAllowed } from "@/lib/validations/auth";
 
 type UserRow = {
   id: string;
@@ -85,8 +86,11 @@ export default function AdminPage() {
 
     const { data: userData } = await supabase.auth.getUser();
 
-    if (!userData.user) {
-      router.push("/login");
+    if (!userData.user || !isEmailAllowed(userData.user.email)) {
+      if (userData.user) {
+        await supabase.auth.signOut();
+      }
+      router.push("/login?error=domain_restricted");
       return;
     }
 

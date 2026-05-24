@@ -6,6 +6,7 @@ import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase/client";
 import { setUserOnline, setUserOffline } from "@/lib/presence";
+import { isEmailAllowed } from "@/lib/validations/auth";
 
 type Profile = {
   id: string;
@@ -67,8 +68,11 @@ export default function PrivateChatPage() {
       data: { user },
     } = await supabase.auth.getUser();
 
-    if (!user) {
-      router.replace("/login");
+    if (!user || !isEmailAllowed(user.email)) {
+      if (user) {
+        await supabase.auth.signOut();
+      }
+      router.replace("/login?error=domain_restricted");
       return;
     }
 

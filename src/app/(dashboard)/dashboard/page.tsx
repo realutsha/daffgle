@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase/client";
 import { setUserOnline, setUserOffline } from "@/lib/presence";
 import { setupPushNotifications } from "@/lib/notifications";
@@ -11,7 +11,7 @@ type Profile = {
   id: string;
   anonymous_username: string;
   department: string;
-  gender: string;
+  gender?: string;
   is_online: boolean;
   last_seen: string;
   is_banned?: boolean;
@@ -25,37 +25,21 @@ type OnlineUser = {
   last_seen: string;
 };
 
-type Conversation = {
-  id: string;
-  user_one: string;
-  user_two: string;
-  created_at: string;
-};
-
-type RecentChat = {
-  conversation_id: string;
-  user_id: string;
-  anonymous_username: string;
-  department: string;
-  last_message: string;
-  last_time: string;
-};
-
 function formatLastSeen(date: string, online: boolean) {
-  if (online) return "● Online";
+  if (online) return "Online now";
 
-  const now = new Date().getTime();
+  const now = Date.now();
   const last = new Date(date).getTime();
   const diffMinutes = Math.floor((now - last) / 1000 / 60);
 
-  if (diffMinutes < 1) return "Last seen just now";
-  if (diffMinutes < 60) return `Last seen ${diffMinutes} min ago`;
+  if (diffMinutes < 1) return "Active just now";
+  if (diffMinutes < 60) return `Active ${diffMinutes} min ago`;
 
   const diffHours = Math.floor(diffMinutes / 60);
-  if (diffHours < 24) return `Last seen ${diffHours}h ago`;
+  if (diffHours < 24) return `Active ${diffHours}h ago`;
 
   const diffDays = Math.floor(diffHours / 24);
-  return `Last seen ${diffDays}d ago`;
+  return `Active ${diffDays}d ago`;
 }
 
 export default function DashboardPage() {
@@ -64,44 +48,39 @@ export default function DashboardPage() {
   const [currentUserId, setCurrentUserId] = useState("");
   const [profile, setProfile] = useState<Profile | null>(null);
   const [onlineUsers, setOnlineUsers] = useState<OnlineUser[]>([]);
-  const [suggestedUsers, setSuggestedUsers] = useState<OnlineUser[]>([]);
-  const [recentChats, setRecentChats] = useState<RecentChat[]>([]);
-  const [userSearch, setUserSearch] = useState("");
-  const [chatSearch, setChatSearch] = useState("");
-  const [activeTab, setActiveTab] = useState<"chats" | "online">("chats");
+  const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   const filteredUsers = useMemo(() => {
-    return onlineUsers.filter((user) =>
-      user.anonymous_username
-        .toLowerCase()
-        .includes(userSearch.toLowerCase())
-    );
-  }, [onlineUsers, userSearch]);
+    const query = search.trim().toLowerCase();
 
-  const filteredChats = useMemo(() => {
-    return recentChats.filter((chat) =>
-      chat.anonymous_username
-        .toLowerCase()
-        .includes(chatSearch.toLowerCase())
-    );
-  }, [recentChats, chatSearch]);
+    if (!query) return onlineUsers;
 
-  const loadDashboard = async () => {
+    return onlineUsers.filter((user) => {
+      return (
+        user.anonymous_username.toLowerCase().includes(query) ||
+        user.department.toLowerCase().includes(query)
+      );
+    });
+  }, [onlineUsers, search]);
+
+  const onlineCount = onlineUsers.length;
+
+  const loadDashboard = useCallback(async () => {
     setRefreshing(true);
 
     const { data: userData } = await supabase.auth.getUser();
 
     if (!userData.user) {
-      router.push("/login");
+      router.replace("/login");
       return;
     }
 
     const myId = userData.user.id;
     setCurrentUserId(myId);
 
-    await setupPushNotifications(myId);
+    await setupPushNotifications(myId).catch(() => {});
     await setUserOnline(myId);
 
     const { data: profileData } = await supabase
@@ -111,14 +90,14 @@ export default function DashboardPage() {
       .single();
 
     if (!profileData) {
-      router.push("/setup");
+      router.replace("/setup");
       return;
     }
 
     if (profileData.is_banned) {
       await setUserOffline(myId);
       await supabase.auth.signOut();
-      router.push("/login");
+      router.replace("/login");
       return;
     }
 
@@ -134,72 +113,14 @@ export default function DashboardPage() {
       .gt("last_seen", activeSince)
       .order("last_seen", { ascending: false });
 
-    setOnlineUsers(users || []);
-
-    const suggested =
-      users?.sort(() => 0.5 - Math.random()).slice(0, 3) || [];
-
-    setSuggestedUsers(suggested);
-
-    const { data: conversations } = await supabase
-      .from("conversations")
-      .select("*")
-      .or(`user_one.eq.${myId},user_two.eq.${myId}`)
-      .order("created_at", { ascending: false });
-
-    if (!conversations || conversations.length === 0) {
-      setRecentChats([]);
-      setLoading(false);
-      setRefreshing(false);
-      return;
-    }
-
-    const otherUserIds = conversations.map((conversation: Conversation) =>
-      conversation.user_one === myId
-        ? conversation.user_two
-        : conversation.user_one
+    const uniqueUsers = Array.from(
+      new Map((users || []).map((user) => [user.id, user])).values()
     );
 
-    const { data: chatProfiles } = await supabase
-      .from("profiles")
-      .select("id, anonymous_username, department")
-      .in("id", otherUserIds);
-
-    const chatList: RecentChat[] = await Promise.all(
-      conversations.map(async (conversation: Conversation) => {
-        const otherUserId =
-          conversation.user_one === myId
-            ? conversation.user_two
-            : conversation.user_one;
-
-        const otherProfile = chatProfiles?.find(
-          (p) => p.id === otherUserId
-        );
-
-        const { data: lastMessage } = await supabase
-          .from("messages")
-          .select("message, created_at")
-          .eq("conversation_id", conversation.id)
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
-
-        return {
-          conversation_id: conversation.id,
-          user_id: otherUserId,
-          anonymous_username:
-            otherProfile?.anonymous_username || "Unknown User",
-          department: otherProfile?.department || "Unknown",
-          last_message: lastMessage?.message || "No messages yet",
-          last_time: lastMessage?.created_at || conversation.created_at,
-        };
-      })
-    );
-
-    setRecentChats(chatList);
+    setOnlineUsers(uniqueUsers);
     setLoading(false);
     setRefreshing(false);
-  };
+  }, [router]);
 
   useEffect(() => {
     let userId = "";
@@ -211,7 +132,7 @@ export default function DashboardPage() {
       } = await supabase.auth.getUser();
 
       if (!user) {
-        router.push("/login");
+        router.replace("/login");
         return;
       }
 
@@ -227,18 +148,6 @@ export default function DashboardPage() {
       }, 30000);
     };
 
-    const handleBeforeUnload = () => {
-      if (userId) {
-        navigator.sendBeacon(
-          `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/profiles?id=eq.${userId}`,
-          JSON.stringify({
-            is_online: false,
-            last_seen: new Date().toISOString(),
-          })
-        );
-      }
-    };
-
     const handleVisibilityChange = async () => {
       if (!userId) return;
 
@@ -252,13 +161,11 @@ export default function DashboardPage() {
 
     setupPresence();
 
-    window.addEventListener("beforeunload", handleBeforeUnload);
     document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
       if (interval) clearInterval(interval);
 
-      window.removeEventListener("beforeunload", handleBeforeUnload);
       document.removeEventListener(
         "visibilitychange",
         handleVisibilityChange
@@ -268,7 +175,7 @@ export default function DashboardPage() {
         setUserOffline(userId);
       }
     };
-  }, []);
+  }, [loadDashboard, router]);
 
   const handleLogout = async () => {
     if (currentUserId) {
@@ -276,241 +183,236 @@ export default function DashboardPage() {
     }
 
     await supabase.auth.signOut();
-    router.push("/login");
+    router.replace("/login");
   };
 
   if (loading) {
     return (
       <main className="flex h-dvh items-center justify-center bg-[#0E1621] text-white">
-        Loading Daffgle...
+        <div className="mx-auto w-full max-w-3xl space-y-4 px-5">
+          <div className="rounded-4xl border border-[#22303D] bg-[#17212B]/95 p-6 shadow-xl shadow-black/20">
+            <div className="flex items-center justify-between gap-4">
+              <div className="h-10 w-28 rounded-full bg-[#2AABEE]/20" />
+              <div className="h-10 w-24 rounded-full bg-[#2AABEE]/10" />
+            </div>
+            <div className="mt-6 space-y-3">
+              <div className="h-4 w-3/4 rounded-full bg-[#2AABEE]/10" />
+              <div className="h-4 rounded-full bg-[#2AABEE]/08" />
+              <div className="h-4 rounded-full bg-[#2AABEE]/08" />
+            </div>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="h-32 rounded-4xl border border-[#22303D] bg-[#17212B]/95 p-4 shadow-xl shadow-black/20" />
+            <div className="h-32 rounded-4xl border border-[#22303D] bg-[#17212B]/95 p-4 shadow-xl shadow-black/20" />
+          </div>
+          <p className="text-center text-sm text-gray-400">Loading Daffgle...</p>
+        </div>
       </main>
     );
   }
 
   return (
-    <main className="flex h-dvh bg-[#0E1621] text-white">
-      <aside className="flex w-full flex-col border-r border-[#22303D] bg-[#17212B] md:w-96">
-        <div className="border-b border-[#22303D] p-5">
-          <div className="flex items-center justify-between">
+    <main className="flex h-dvh overflow-hidden bg-[#0E1621] text-white">
+      <aside className="flex w-full flex-col bg-[#17212B] md:w-107.5 md:border-r md:border-[#22303D]">
+        <header className="sticky top-0 z-30 border-b border-[#22303D] bg-[#17212B]/95 px-6 py-5 backdrop-blur">
+          <div className="flex flex-col gap-4 px-1 py-1 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-[#2AABEE]">
+              <h1 className="text-2xl font-black tracking-tight text-[#2AABEE]">
                 Daffgle
               </h1>
-
-              <p className="text-sm text-gray-400">
-                Anonymous DIU Chat
+              <p className="text-xs text-gray-400">
+                Anonymous DIU realtime chat
               </p>
             </div>
 
             <button
               onClick={loadDashboard}
-              className="rounded-xl bg-[#2B5278] px-3 py-2 text-xs font-semibold hover:opacity-90"
+              disabled={refreshing}
+              className="rounded-2xl bg-[#2B5278] px-4 py-2 text-xs font-bold transition hover:scale-[1.02] hover:opacity-90 disabled:opacity-60"
             >
-              {refreshing ? "..." : "Refresh"}
+              {refreshing ? "Syncing..." : "Refresh"}
             </button>
           </div>
-        </div>
 
-        <div className="space-y-4 p-4">
-          <div className="rounded-2xl bg-[#0F1A24] p-4">
-            <p className="font-semibold">{profile?.anonymous_username}</p>
-            <p className="text-sm text-gray-400">{profile?.department}</p>
-            <p className="mt-2 text-xs text-green-400">● Online</p>
+          <div className="mt-4 rounded-3xl border border-[#22303D] bg-[#0F1A24] p-4 shadow-xl shadow-black/10">
+            <div className="flex items-center gap-3">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#2B5278] text-lg font-black">
+                {profile?.anonymous_username?.charAt(0).toUpperCase() || "D"}
+              </div>
+
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-bold">
+                  {profile?.anonymous_username}
+                </p>
+                <p className="truncate text-xs text-gray-400">
+                  {profile?.department}
+                </p>
+              </div>
+
+              <div className="rounded-full bg-green-500/10 px-3 py-1 text-[11px] font-bold text-green-400">
+                ● Online
+              </div>
+            </div>
           </div>
 
-          <div className="rounded-2xl bg-[#0F1A24] p-4">
-            <div className="mb-3 flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-[#2AABEE]">
-                Suggested Users
-              </h3>
+          <div className="mt-4 grid grid-cols-2 gap-2">
+            <button
+              onClick={() => router.push("/dashboard")}
+              className="rounded-2xl bg-[#2AABEE] py-3 text-sm font-black text-white shadow-lg shadow-[#2AABEE]/20"
+            >
+              Online
+            </button>
 
-              <span className="text-xs text-gray-500">Online now</span>
+            <button
+              onClick={() => router.push("/chat")}
+              className="rounded-2xl bg-[#0F1A24] py-3 text-sm font-bold text-gray-300 transition hover:bg-[#182533]"
+            >
+              Chats
+            </button>
+          </div>
+
+          <div className="mt-4">
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search online users..."
+              className="w-full rounded-3xl border border-[#22303D] bg-[#0E1621] px-4 py-3 text-sm text-white outline-none placeholder:text-gray-500 transition focus:border-[#2AABEE] focus:ring-2 focus:ring-[#2AABEE]/20"
+            />
+          </div>
+        </header>
+
+        <section className="flex-1 overflow-y-auto px-5 pb-28 pt-4">
+          <div className="mb-4 flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-black">Online Users</h2>
+              <p className="text-xs text-gray-400">
+                Tap a username to start private anonymous chat.
+              </p>
             </div>
 
-            <div className="space-y-3">
-              {suggestedUsers.length > 0 ? (
-                suggestedUsers.map((user) => (
-                  <button
-                    key={user.id}
-                    onClick={() => router.push(`/chat/${user.id}`)}
-                    className="flex w-full items-center justify-between rounded-xl bg-[#17212B] p-3 text-left hover:bg-[#1D2A36]"
-                  >
-                    <div>
-                      <p className="font-medium">
-                        {user.anonymous_username}
-                      </p>
+            <span className="rounded-full bg-[#0F1A24] px-3 py-1 text-xs font-bold text-[#2AABEE]">
+              {onlineCount} live
+            </span>
+          </div>
 
-                      <p className="text-xs text-gray-400">
-                        {user.department}
-                      </p>
+          {filteredUsers.length > 0 ? (
+            <div className="space-y-3">
+              {filteredUsers.map((user, index) => (
+                <motion.button
+                  key={user.id}
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.03 }}
+                  onClick={() => router.push(`/chat/${user.id}`)}
+                  className="group w-full rounded-3xl border border-[#22303D] bg-[#0F1A24] p-5 text-left shadow-lg shadow-black/20 transition duration-200 hover:-translate-y-0.5 hover:border-[#2AABEE]/50 hover:bg-[#182533] focus:outline-none focus:ring-2 focus:ring-[#2AABEE]/20"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-3xl bg-[#2B5278] text-lg font-black">
+                      {user.anonymous_username.charAt(0).toUpperCase()}
+                      <span className="absolute -right-0.5 -top-0.5 h-4 w-4 rounded-full border-2 border-[#17212B] bg-green-400" />
                     </div>
 
-                    <span className="text-xs text-green-400">
-                      ● Online
-                    </span>
-                  </button>
-                ))
-              ) : (
-                <p className="rounded-xl bg-[#17212B] p-3 text-center text-xs text-gray-500">
-                  No active users now.
-                </p>
-              )}
-            </div>
-          </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="truncate font-black">
+                          {user.anonymous_username}
+                        </p>
 
-          <div className="grid grid-cols-2 gap-2">
+                        <span className="rounded-full bg-[#2AABEE]/10 px-3 py-1 text-[10px] font-bold text-[#2AABEE]">
+                          Chat
+                        </span>
+                      </div>
+
+                      <p className="mt-1 truncate text-sm text-gray-400">
+                        {user.department}
+                      </p>
+
+                      <p className="mt-1 text-xs font-medium text-green-400">
+                        {formatLastSeen(user.last_seen, user.is_online)}
+                      </p>
+                    </div>
+                  </div>
+                </motion.button>
+              ))}
+            </div>
+          ) : (
+            <div className="mt-16 rounded-3xl border border-[#22303D] bg-[#0F1A24] p-8 text-center">
+              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-3xl bg-[#17212B] text-3xl">
+                👻
+              </div>
+              <h3 className="text-lg font-black">No online users found</h3>
+              <p className="mt-2 text-sm text-gray-400">
+                Try refreshing, or come back when more DIU students are online.
+              </p>
+            </div>
+          )}
+        </section>
+
+        <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-[#22303D] bg-[#17212B]/95 px-4 py-4 backdrop-blur md:absolute md:right-auto md:w-107.5">
+          <div className="grid grid-cols-3 gap-3">
             <button
-              onClick={() => setActiveTab("chats")}
-              className={`rounded-xl py-2 text-sm font-semibold ${
-                activeTab === "chats" ? "bg-[#2AABEE]" : "bg-[#0F1A24]"
-              }`}
+              onClick={() => router.push("/dashboard")}
+              className="rounded-full bg-[#2AABEE] py-3 text-sm font-black text-white shadow-lg shadow-[#2AABEE]/20 transition duration-200 hover:scale-[1.02]"
+            >
+              Online
+            </button>
+
+            <button
+              onClick={() => router.push("/chat")}
+              className="rounded-full bg-[#0F1A24] py-3 text-sm font-bold text-gray-300 transition duration-200 hover:bg-[#182533]"
             >
               Chats
             </button>
 
             <button
-              onClick={() => setActiveTab("online")}
-              className={`rounded-xl py-2 text-sm font-semibold ${
-                activeTab === "online" ? "bg-[#2AABEE]" : "bg-[#0F1A24]"
-              }`}
+              onClick={handleLogout}
+              className="rounded-full bg-[#2B5278] py-3 text-sm font-bold text-white transition duration-200 hover:brightness-110"
             >
-              Online
+              Logout
             </button>
           </div>
-
-          {activeTab === "chats" ? (
-            <>
-              <input
-                value={chatSearch}
-                onChange={(e) => setChatSearch(e.target.value)}
-                placeholder="Search recent chats..."
-                className="w-full rounded-2xl border border-[#22303D] bg-[#0F1A24] px-4 py-3 text-sm text-white placeholder:text-gray-500"
-              />
-
-              <div className="max-h-[42vh] space-y-3 overflow-y-auto">
-                {filteredChats.length > 0 ? (
-                  filteredChats.map((chat) => (
-                    <button
-                      key={chat.conversation_id}
-                      onClick={() => router.push(`/chat/${chat.user_id}`)}
-                      className="w-full rounded-2xl bg-[#0F1A24] p-4 text-left hover:bg-[#182533]"
-                    >
-                      <div className="flex items-center justify-between">
-                        <p className="font-semibold">
-                          {chat.anonymous_username}
-                        </p>
-
-                        <p className="text-[10px] text-gray-500">
-                          {new Date(chat.last_time).toLocaleTimeString([], {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
-                        </p>
-                      </div>
-
-                      <p className="text-sm text-gray-400">
-                        {chat.department}
-                      </p>
-
-                      <p className="mt-1 truncate text-xs text-gray-500">
-                        {chat.last_message}
-                      </p>
-                    </button>
-                  ))
-                ) : (
-                  <p className="rounded-2xl bg-[#0F1A24] p-4 text-center text-sm text-gray-400">
-                    No recent chats yet.
-                  </p>
-                )}
-              </div>
-            </>
-          ) : (
-            <>
-              <input
-                value={userSearch}
-                onChange={(e) => setUserSearch(e.target.value)}
-                placeholder="Search users..."
-                className="w-full rounded-2xl border border-[#22303D] bg-[#0F1A24] px-4 py-3 text-sm text-white placeholder:text-gray-500"
-              />
-
-              <div className="max-h-[42vh] space-y-3 overflow-y-auto">
-                {filteredUsers.length > 0 ? (
-                  filteredUsers.map((user) => (
-                    <div
-                      key={user.id}
-                      className="flex items-center justify-between rounded-2xl bg-[#0F1A24] p-4"
-                    >
-                      <div>
-                        <p className="font-semibold">
-                          {user.anonymous_username}
-                        </p>
-
-                        <p className="text-sm text-gray-400">
-                          {user.department}
-                        </p>
-
-                        <p className="mt-1 text-xs text-green-400">
-                          {formatLastSeen(user.last_seen, user.is_online)}
-                        </p>
-                      </div>
-
-                      <button
-                        onClick={() => router.push(`/chat/${user.id}`)}
-                        className="rounded-xl bg-[#2AABEE] px-4 py-2 text-sm font-semibold hover:opacity-90"
-                      >
-                        Chat
-                      </button>
-                    </div>
-                  ))
-                ) : (
-                  <p className="rounded-2xl bg-[#0F1A24] p-4 text-center text-sm text-gray-400">
-                    No online users found.
-                  </p>
-                )}
-              </div>
-            </>
-          )}
-
-          <button
-            onClick={handleLogout}
-            className="w-full rounded-2xl bg-[#2B5278] py-3 text-sm font-semibold hover:opacity-90"
-          >
-            Logout
-          </button>
-        </div>
+        </nav>
       </aside>
 
-      <section className="hidden flex-1 items-center justify-center bg-[#0F1A24] p-6 md:flex">
+      <section className="hidden flex-1 items-center justify-center bg-[#0F1A24] p-8 md:flex">
         <motion.div
           initial={{ opacity: 0, y: 24 }}
           animate={{ opacity: 1, y: 0 }}
-          className="max-w-md text-center"
+          className="max-w-xl text-center"
         >
-          <h2 className="text-4xl font-bold text-[#2AABEE]">
-            Welcome to Daffgle
+          <div className="mx-auto mb-6 flex h-24 w-24 items-center justify-center rounded-4xl bg-[#17212B] text-5xl shadow-2xl">
+            👻
+          </div>
+
+          <h2 className="text-5xl font-black tracking-tight text-white">
+            Find online DIU students
           </h2>
 
-          <p className="mt-4 text-gray-400">
-            Discover online DIU students and start anonymous conversations.
+          <p className="mt-5 text-lg leading-8 text-gray-400">
+            This dashboard is now clean: only online users appear here.
+            Conversations live separately in the Chats page.
           </p>
 
           <div className="mt-8 grid grid-cols-2 gap-4 text-left">
-            <div className="rounded-2xl bg-[#17212B] p-4">
-              <p className="text-2xl font-bold text-[#2AABEE]">
-                {onlineUsers.length}
+            <div className="rounded-3xl border border-[#22303D] bg-[#17212B] p-5">
+              <p className="text-3xl font-black text-[#2AABEE]">
+                {onlineCount}
               </p>
-
-              <p className="text-sm text-gray-400">Online users</p>
+              <p className="mt-1 text-sm text-gray-400">Online now</p>
             </div>
 
-            <div className="rounded-2xl bg-[#17212B] p-4">
-              <p className="text-2xl font-bold text-[#2AABEE]">
-                {recentChats.length}
-              </p>
-
-              <p className="text-sm text-gray-400">Recent chats</p>
+            <div className="rounded-3xl border border-[#22303D] bg-[#17212B] p-5">
+              <p className="text-3xl font-black text-[#2AABEE]">1:1</p>
+              <p className="mt-1 text-sm text-gray-400">Private chat only</p>
             </div>
           </div>
+
+          <button
+            onClick={() => router.push("/chat")}
+            className="mt-8 rounded-2xl bg-[#2AABEE] px-8 py-4 text-sm font-black shadow-xl shadow-[#2AABEE]/20 transition hover:scale-[1.02]"
+          >
+            Open Chats
+          </button>
         </motion.div>
       </section>
     </main>

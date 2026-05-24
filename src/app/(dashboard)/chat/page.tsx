@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { supabase } from "@/lib/supabase/client";
@@ -59,7 +59,7 @@ export default function ChatPage() {
     });
   }, [search, conversations]);
 
-  const loadChats = async () => {
+  const loadChats = useCallback(async () => {
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -148,7 +148,7 @@ export default function ChatPage() {
 
     setConversations(finalChats);
     setLoading(false);
-  };
+  }, [router]);
 
   useEffect(() => {
     loadChats();
@@ -171,7 +171,7 @@ export default function ChatPage() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [loadChats]);
 
   if (loading) {
     return (
@@ -220,7 +220,7 @@ export default function ChatPage() {
         <section className="px-3 pb-28 pt-3">
           {filteredConversations.length === 0 ? (
             <div className="mt-24 text-center">
-              <div className="mx-auto mb-5 flex h-24 w-24 items-center justify-center rounded-[2rem] bg-[#17212B] text-5xl">
+              <div className="mx-auto mb-5 flex h-24 w-24 items-center justify-center rounded-4xl bg-[#17212B] text-5xl">
                 💬
               </div>
 

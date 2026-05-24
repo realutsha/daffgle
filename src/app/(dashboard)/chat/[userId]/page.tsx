@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { supabase } from "@/lib/supabase/client";
@@ -46,13 +46,13 @@ export default function PrivateChatPage() {
 
   const canSend = useMemo(() => text.trim().length > 0 && !sending, [text, sending]);
 
-  const scrollToBottom = () => {
+  const scrollToBottom = useCallback(() => {
     setTimeout(() => {
       bottomRef.current?.scrollIntoView({ behavior: "smooth" });
     }, 100);
-  };
+  }, []);
 
-  const loadChat = async () => {
+  const loadChat = useCallback(async () => {
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -99,7 +99,7 @@ export default function PrivateChatPage() {
 
     setLoading(false);
     scrollToBottom();
-  };
+  }, [otherUserId, router, scrollToBottom]);
 
   useEffect(() => {
     let userId = "";
@@ -184,11 +184,11 @@ export default function PrivateChatPage() {
         setUserOffline(userId);
       }
     };
-  }, [otherUserId]);
+  }, [otherUserId, loadChat, router]);
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages]);
+  }, [messages, scrollToBottom]);
 
   const sendMessage = async () => {
     const cleanText = text.trim();
@@ -287,7 +287,7 @@ export default function PrivateChatPage() {
 
           {messages.length === 0 ? (
             <div className="mt-24 text-center">
-              <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-[2rem] bg-[#17212B] text-4xl">
+              <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-4xl bg-[#17212B] text-4xl">
                 👻
               </div>
               <h2 className="text-xl font-black">Start the conversation</h2>
@@ -316,7 +316,7 @@ export default function PrivateChatPage() {
                           : "rounded-bl-md bg-[#182533] text-white"
                       }`}
                     >
-                      <p className="whitespace-pre-wrap break-words text-[15px] leading-6">
+                      <p className="whitespace-pre-wrap wrap-break-word text-[15px] leading-6">
                         {message.content}
                       </p>
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 
@@ -71,7 +71,7 @@ export default function AdminPage() {
 
   const pendingReports = reports.filter((report) => report.status === "pending");
 
-  const loadAdmin = async () => {
+  const loadAdmin = useCallback(async () => {
     setLoading(true);
     setMessage("");
 
@@ -131,11 +131,11 @@ export default function AdminPage() {
     setLogs(logData || []);
 
     setLoading(false);
-  };
+  }, [router]);
 
   useEffect(() => {
     loadAdmin();
-  }, []);
+  }, [loadAdmin]);
 
   const writeLog = async (
     targetUserId: string,

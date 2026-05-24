@@ -84,95 +84,56 @@ export default function ChatPage() {
 
     setCurrentUserId(user.id);
 
-    const { data: messages, error } = await supabase
-      .from("messages")
-      .select("*")
-      .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`)
-      .order("created_at", { ascending: false });
-
-    
-    if (error) {
-  console.warn("Chat load warning:", error.message);
-  setConversations([]);
-  setLoading(false);
-  return;
-}
-
-    const latestMap = new Map();
-
-    for (const message of messages || []) {
-      const otherId =
-        message.sender_id === user.id
-          ? message.receiver_id
-          : message.sender_id;
-
-      if (!latestMap.has(otherId)) {
-        latestMap.set(otherId, message);
-      }
-    }
-
-    const userIdsAll = Array.from(latestMap.keys());
-
-    if (userIdsAll.length === 0) {
-      setConversations([]);
-      setLoading(false);
-      return;
-    }
-
-    const { data: activeRequests } = await supabase
+    // Fetch active help requests where current user is requester or helper, along with participant profiles
+    const { data: activeRequests, error } = await supabase
       .from("help_requests")
-      .select("requester_id, helper_id")
+      .select("*, requester:profiles!requester_id(id, anonymous_username, department, is_online, last_seen), helper:profiles!helper_id(id, anonymous_username, department, is_online, last_seen)")
       .or(`requester_id.eq.${user.id},helper_id.eq.${user.id}`)
       .in("status", ["accepted", "solved"]);
 
-    const allowedUserIds = new Set<string>();
-    for (const req of activeRequests || []) {
-      if (req.requester_id !== user.id) allowedUserIds.add(req.requester_id);
-      if (req.helper_id && req.helper_id !== user.id) allowedUserIds.add(req.helper_id);
-    }
-
-    const userIds = userIdsAll.filter((uid) => allowedUserIds.has(uid));
-
-    if (userIds.length === 0) {
+    if (error) {
+      console.warn("Chat load warning:", error.message);
       setConversations([]);
       setLoading(false);
       return;
     }
 
-    const { data: profiles } = await supabase
-      .from("profiles")
-      .select("id, anonymous_username, department, is_online, last_seen")
-      .in("id", userIds);
-
-    const profileMap = new Map(
-      (profiles || []).map((profile) => [profile.id, profile])
-    );
-
     const finalChats: Conversation[] = [];
 
-    for (const [otherId, message] of latestMap.entries()) {
-      if (!allowedUserIds.has(otherId)) continue;
+    for (const req of activeRequests || []) {
+      const otherProfile = req.requester_id === user.id ? req.helper : req.requester;
+      if (!otherProfile) continue;
 
-      const profile = profileMap.get(otherId);
+      let lastMsgText = "👋 Chat accepted. Start conversing!";
+      let lastMsgTime = req.created_at;
+      let unreadCount = 0;
 
-      if (!profile) continue;
+      if (req.conversation_id) {
+        // Query the messages for this conversation with correct columns
+        const { data: messages } = await supabase
+          .from("messages")
+          .select("message, created_at, sender_id, seen")
+          .eq("conversation_id", req.conversation_id)
+          .order("created_at", { ascending: false });
 
-      const unreadCount = (messages || []).filter(
-        (m) =>
-          m.sender_id === otherId &&
-          m.receiver_id === user.id &&
-          m.seen === false
-      ).length;
+        if (messages && messages.length > 0) {
+          lastMsgText = messages[0].message;
+          lastMsgTime = messages[0].created_at;
+          unreadCount = messages.filter(
+            (m) => m.sender_id !== user.id && m.seen === false
+          ).length;
+        }
+      }
 
       finalChats.push({
-        id: otherId,
-        anonymous_username: profile.anonymous_username,
-        department: profile.department,
-        last_message: message.content,
-        last_message_time: message.created_at,
+        id: otherProfile.id,
+        anonymous_username: otherProfile.anonymous_username,
+        department: otherProfile.department,
+        last_message: lastMsgText,
+        last_message_time: lastMsgTime,
         unread_count: unreadCount,
-        is_online: profile.is_online,
-        last_seen: profile.last_seen,
+        is_online: otherProfile.is_online,
+        last_seen: otherProfile.last_seen,
       });
     }
 
@@ -196,15 +157,15 @@ export default function ChatPage() {
   useEffect(() => {
     if (!currentUserId) return;
 
+    // Listen for any inserts or updates on the messages table to reload our chats list in real-time
     const channel = supabase
       .channel("chat-page-realtime")
       .on(
         "postgres_changes",
         {
-          event: "INSERT",
+          event: "*",
           schema: "public",
           table: "messages",
-          filter: `receiver_id=eq.${currentUserId}`,
         },
         () => {
           loadChats();

@@ -321,11 +321,25 @@ export default function HelpHubDashboardPage() {
     if (!confirmHelp) return;
 
     try {
+      // 1. Create a new conversation row
+      const { data: convData, error: convError } = await supabase
+        .from("conversations")
+        .insert({})
+        .select("id")
+        .single();
+
+      if (convError || !convData) {
+        toast.error("Failed to create chat room: " + (convError?.message || "Unknown error"));
+        return;
+      }
+
+      // 2. Accept request and link the conversation
       const { error } = await supabase
         .from("help_requests")
         .update({
           status: "accepted",
-          helper_id: currentUserId
+          helper_id: currentUserId,
+          conversation_id: convData.id
         })
         .eq("id", request.id);
 
@@ -334,11 +348,11 @@ export default function HelpHubDashboardPage() {
         return;
       }
 
-      // Automatically insert an initial system/chat message from helper to requester to start the conversation
+      // 3. Automatically insert an initial system/chat message from helper to requester using correct columns
       await supabase.from("messages").insert({
         sender_id: currentUserId,
-        receiver_id: request.requester_id,
-        content: `👋 I accepted your request for "${request.item}"! I can help you with this.`
+        conversation_id: convData.id,
+        message: `👋 I accepted your request for "${request.item}"! I can help you with this.`
       });
 
       toast.success("Help Request Accepted! Opening chat...");

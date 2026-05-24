@@ -19,8 +19,8 @@ type Profile = {
 type Message = {
   id: string;
   sender_id: string;
-  receiver_id: string;
-  content: string;
+  conversation_id: string;
+  message: string;
   created_at: string;
   seen?: boolean;
   status?: "sending" | "sent" | "error";
@@ -50,6 +50,7 @@ export default function PrivateChatPage() {
 
   const [currentUserId, setCurrentUserId] = useState("");
   const [otherUser, setOtherUser] = useState<Profile | null>(null);
+  const [conversationId, setConversationId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(true);
@@ -103,26 +104,49 @@ export default function PrivateChatPage() {
       return;
     }
 
-    setOtherUser(profileData);
+    const activeReq = activeRequests[0];
+    let convId = activeReq.conversation_id;
 
-    const { data: messageData, error } = await supabase
-      .from("messages")
-      .select("id, sender_id, receiver_id, content, created_at, seen")
-      .or(
-        `and(sender_id.eq.${user.id},receiver_id.eq.${otherUserId}),and(sender_id.eq.${otherUserId},receiver_id.eq.${user.id})`
-      )
-      .order("created_at", { ascending: true });
-
-    if (!error) {
-      setMessages(messageData || []);
+    // Fallback: If conversation_id doesn't exist yet on active help request, create it and link it
+    if (!convId) {
+      const { data: convData, error: convError } = await supabase
+        .from("conversations")
+        .insert({})
+        .select("id")
+        .single();
+        
+      if (!convError && convData) {
+        convId = convData.id;
+        await supabase
+          .from("help_requests")
+          .update({ conversation_id: convId })
+          .eq("id", activeReq.id);
+      }
     }
 
-    await supabase
-      .from("messages")
-      .update({ seen: true })
-      .eq("sender_id", otherUserId)
-      .eq("receiver_id", user.id)
-      .eq("seen", false);
+    setConversationId(convId);
+    setOtherUser(profileData);
+
+    if (convId) {
+      // Fetch messages by conversation_id with correct database columns
+      const { data: messageData, error } = await supabase
+        .from("messages")
+        .select("id, sender_id, conversation_id, message, created_at, seen")
+        .eq("conversation_id", convId)
+        .order("created_at", { ascending: true });
+
+      if (!error) {
+        setMessages(messageData || []);
+      }
+
+      // Mark messages as seen
+      await supabase
+        .from("messages")
+        .update({ seen: true })
+        .eq("conversation_id", convId)
+        .eq("sender_id", otherUserId)
+        .eq("seen", false);
+    }
 
     setLoading(false);
     scrollToBottom();
@@ -154,24 +178,6 @@ export default function PrivateChatPage() {
     };
 
     init();
-
-    const channel = supabase
-      .channel(`private-chat-${otherUserId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "messages",
-          filter: `sender_id=eq.${otherUserId}`,
-        },
-        (payload) => {
-          if (payload.new.receiver_id === currentUserId) {
-            loadChat();
-          }
-        }
-      )
-      .subscribe();
 
     const profileChannel = supabase
       .channel(`profile-status-${otherUserId}`)
@@ -205,7 +211,6 @@ export default function PrivateChatPage() {
     return () => {
       if (interval) clearInterval(interval);
 
-      supabase.removeChannel(channel);
       supabase.removeChannel(profileChannel);
 
       document.removeEventListener("visibilitychange", handleVisibilityChange);
@@ -216,6 +221,31 @@ export default function PrivateChatPage() {
     };
   }, [otherUserId, loadChat, router, currentUserId]);
 
+  // Realtime subscription specifically for the conversation messages
+  useEffect(() => {
+    if (!conversationId) return;
+
+    const channel = supabase
+      .channel(`private-chat-${conversationId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "messages",
+          filter: `conversation_id=eq.${conversationId}`,
+        },
+        () => {
+          loadChat();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [conversationId, loadChat]);
+
   useEffect(() => {
     scrollToBottom();
   }, [messages, scrollToBottom]);
@@ -223,7 +253,7 @@ export default function PrivateChatPage() {
   const sendMessage = async () => {
     const cleanText = text.trim();
 
-    if (!cleanText || !currentUserId || !otherUserId) return;
+    if (!cleanText || !currentUserId || !otherUserId || !conversationId) return;
 
     setSending(true);
     setText("");
@@ -233,8 +263,8 @@ export default function PrivateChatPage() {
     const optimisticMessage: Message = {
       id: tempId,
       sender_id: currentUserId,
-      receiver_id: otherUserId,
-      content: cleanText,
+      conversation_id: conversationId,
+      message: cleanText,
       created_at: new Date().toISOString(),
       seen: false,
       status: "sending"
@@ -244,66 +274,20 @@ export default function PrivateChatPage() {
     setMessages((prev) => [...prev, optimisticMessage]);
     scrollToBottom();
 
-    // 3. Prepare payload for insertion
-    const payload = {
-      sender_id: currentUserId,
-      receiver_id: otherUserId,
-      content: cleanText,
-      seen: false,
-    };
-
-    // 4. Insert to database
+    // 3. Insert to database under correct columns: conversation_id and message
     const { data, error } = await supabase
       .from("messages")
-      .insert(payload)
-      .select("id, sender_id, receiver_id, content, created_at, seen")
+      .insert({
+        sender_id: currentUserId,
+        conversation_id: conversationId,
+        message: cleanText,
+        seen: false,
+      })
+      .select("id, sender_id, conversation_id, message, created_at, seen")
       .single();
 
     if (error) {
-      // Fetch details dynamically for deep logging
-      const conversationIdFromUrl = params.userId; // the userId param from the URL
-      
-      const { data: activeReqs } = await supabase
-        .from("help_requests")
-        .select("*")
-        .or(`and(requester_id.eq.${currentUserId},helper_id.eq.${otherUserId}),and(requester_id.eq.${otherUserId},helper_id.eq.${currentUserId})`)
-        .in("status", ["accepted", "solved"]);
-        
-      const activeRequestRow = activeReqs && activeReqs.length > 0 ? activeReqs[0] : null;
-      const currentConvId = activeRequestRow ? activeRequestRow.conversation_id : null;
-      
-      let loadedConv = null;
-      if (currentConvId) {
-        const { data: convData } = await supabase
-          .from("conversations")
-          .select("*")
-          .eq("id", currentConvId)
-          .single();
-        loadedConv = convData;
-      }
-      
-      let relatedHelpReqByConv = null;
-      if (currentConvId) {
-        const { data: helpReqByConv } = await supabase
-          .from("help_requests")
-          .select("*")
-          .eq("conversation_id", currentConvId)
-          .single();
-        relatedHelpReqByConv = helpReqByConv;
-      }
-
-      console.log("--- DETAILED SUPABASE INSERT FAILURE LOG ---");
-      console.log("1. Insert Payload:", payload);
-      console.log("2. Error Message:", error.message);
-      console.log("3. Error Details:", error.details);
-      console.log("4. Error Hint:", error.hint);
-      console.log("5. Error Code:", error.code);
-      console.log("6. Current User ID:", currentUserId);
-      console.log("7. Conversation ID from URL (userId param):", conversationIdFromUrl);
-      console.log("8. Loaded Conversation Object:", loadedConv);
-      console.log("9. Related Help Request Row where conversation_id = current conversation id:", relatedHelpReqByConv);
-      console.log("--------------------------------------------");
-
+      console.error("Send message error:", error);
       // Rollback optimistic state and restore text field
       setMessages((prev) => prev.filter((m) => m.id !== tempId));
       setText(cleanText);
@@ -464,7 +448,7 @@ export default function PrivateChatPage() {
                       }`}
                     >
                       <p className="whitespace-pre-wrap break-words text-[15px] leading-6">
-                        {message.content}
+                        {message.message}
                       </p>
 
                       <div

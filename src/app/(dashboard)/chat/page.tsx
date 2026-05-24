@@ -347,19 +347,26 @@ export default function ChatPage() {
         </section>
 
         <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-[#22303D] bg-[#17212B]/95 px-4 py-3 backdrop-blur">
-          <div className="mx-auto grid max-w-2xl grid-cols-2 gap-2">
+          <div className="mx-auto grid max-w-2xl grid-cols-3 gap-2">
             <button
               onClick={() => router.push("/dashboard")}
-              className="rounded-2xl bg-[#0F1A24] py-3 text-sm font-bold text-gray-300"
+              className="rounded-2xl bg-[#0F1A24] py-3 text-sm font-bold text-gray-300 transition duration-200 hover:bg-[#182533]"
             >
               Online
             </button>
 
             <button
               onClick={() => router.push("/chat")}
-              className="rounded-2xl bg-[#2AABEE] py-3 text-sm font-black"
+              className="rounded-2xl bg-[#2AABEE] py-3 text-sm font-black text-white shadow-lg shadow-[#2AABEE]/20"
             >
               Chats
+            </button>
+
+            <button
+              onClick={() => router.push("/profile")}
+              className="rounded-2xl bg-[#0F1A24] py-3 text-sm font-bold text-gray-300 transition duration-200 hover:bg-[#182533]"
+            >
+              Profile
             </button>
           </div>
         </nav>

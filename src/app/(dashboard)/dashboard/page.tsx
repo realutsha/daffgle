@@ -386,10 +386,10 @@ export default function DashboardPage() {
             </button>
 
             <button
-              onClick={handleLogout}
-              className="rounded-full bg-[#2B5278] py-3 text-sm font-bold text-white transition duration-200 hover:brightness-110"
+              onClick={() => router.push("/profile")}
+              className="rounded-full bg-[#0F1A24] py-3 text-sm font-bold text-gray-300 transition duration-200 hover:bg-[#182533]"
             >
-              Logout
+              Profile
             </button>
           </div>
         </nav>

@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import { isEmailAllowed } from "@/lib/validations/auth";
+import { fetchProfileSafely, isProfileComplete, clearCachedProfile } from "@/utils/profile";
 
 type Profile = {
   id: string;
@@ -186,32 +187,26 @@ export default function HelpHubDashboardPage() {
     await setupPushNotifications(myId).catch(() => {});
     await setUserOnline(myId);
 
-    // Fetch user profile
-    const { data: profileData } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("id", myId)
-      .single();
+    // Fetch user profile using unified safe utility
+    const { data: profileData } = await fetchProfileSafely(myId);
 
-    if (!profileData) {
-      router.replace("/auth/setup");
-      return;
-    }
-
-    if (profileData.is_banned) {
+    if (profileData && profileData.is_banned) {
       await setUserOffline(myId);
+      clearCachedProfile();
       await supabase.auth.signOut();
       router.replace("/login");
       return;
     }
 
-    if (!profileData.hall) {
-      toast.error("Please set your hall first!");
+    const complete = isProfileComplete(profileData);
+
+    if (!complete || !profileData || !profileData.hall) {
+      toast.error("Please complete your profile setup first!");
       router.replace("/auth/setup");
       return;
     }
 
-    setProfile(profileData);
+    setProfile(profileData as Profile);
 
     const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 

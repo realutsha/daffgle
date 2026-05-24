@@ -7,6 +7,7 @@ import { isEmailAllowed } from "@/lib/validations/auth";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
+import { fetchProfileSafely, isProfileComplete, clearCachedProfile } from "@/utils/profile";
 
 type Profile = {
   id: string;
@@ -76,19 +77,18 @@ export default function ProfilePage() {
         const myId = userData.user.id;
         setUserId(myId);
 
-        // Fetch user anonymous profile details
-        const { data: profileData, error } = await supabase
-          .from("profiles")
-          .select("id, anonymous_username, department, gender, hall, karma, profile_edit_count, last_profile_edit_at, warning_badge")
-          .eq("id", myId)
-          .single();
+        // Fetch user anonymous profile details using unified safety utility
+        const { data: profileData } = await fetchProfileSafely(myId);
 
-        if (error || !profileData) {
+        const complete = isProfileComplete(profileData);
+
+        if (!complete || !profileData) {
+          toast.error("Please complete your profile setup first!");
           router.replace("/auth/setup");
           return;
         }
 
-        setProfile(profileData);
+        setProfile(profileData as Profile);
         setEditUsername(profileData.anonymous_username || "");
         setEditDepartment(profileData.department || "");
         setEditGender(profileData.gender || "");
@@ -107,6 +107,7 @@ export default function ProfilePage() {
   // Compute cooldown details safely in useEffect to keep render pure
   useEffect(() => {
     if (!profile || profile.profile_edit_count < 2 || !profile.last_profile_edit_at) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setCooldownActive(false);
       setCooldownRemainingDays(0);
       return;
@@ -192,14 +193,10 @@ export default function ProfilePage() {
       toast.success("Profile saved successfully!");
       setIsEditing(false);
 
-      // Reload profile details
-      const { data: updated } = await supabase
-        .from("profiles")
-        .select("id, anonymous_username, department, gender, hall, karma, profile_edit_count, last_profile_edit_at, warning_badge")
-        .eq("id", userId)
-        .single();
+      // Reload profile details using safe fetch (updates cache automatically)
+      const { data: updated } = await fetchProfileSafely(userId);
       if (updated) {
-        setProfile(updated);
+        setProfile(updated as Profile);
       }
     } catch {
       toast.error("Failed to update profile.");
@@ -246,6 +243,7 @@ export default function ProfilePage() {
       if (userId) {
         await setUserOffline(userId).catch(() => {});
       }
+      clearCachedProfile();
       await supabase.auth.signOut().catch(() => {});
       
       toast.success("Your Daffgle identity and records have been deleted.");
@@ -264,6 +262,7 @@ export default function ProfilePage() {
       if (userId) {
         await setUserOffline(userId);
       }
+      clearCachedProfile();
       await supabase.auth.signOut();
       toast.success("Signed out successfully!");
       router.replace("/login");

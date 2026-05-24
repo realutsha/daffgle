@@ -7,6 +7,7 @@ import { isEmailAllowed } from "@/lib/validations/auth";
 import { setUserOnline, setUserOffline } from "@/lib/presence";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
+import { fetchProfileSafely, isProfileComplete, clearCachedProfile } from "@/utils/profile";
 
 type Profile = {
   id: string;
@@ -43,25 +44,18 @@ export default function HomePage() {
         setUserId(myId);
         await setUserOnline(myId);
 
-        // Fetch profile
-        const { data: profileData } = await supabase
-          .from("profiles")
-          .select("id, anonymous_username, department, gender, hall, karma, notification_enabled, warning_badge")
-          .eq("id", myId)
-          .single();
+        // Fetch profile using unified safe utility
+        const { data: profileData } = await fetchProfileSafely(myId);
 
-        if (!profileData) {
+        const complete = isProfileComplete(profileData);
+
+        if (!complete) {
+          toast.error("Please complete your profile setup first!");
           router.replace("/auth/setup");
           return;
         }
 
-        if (!profileData.hall) {
-          toast.error("Please configure your campus hall first!");
-          router.replace("/auth/setup");
-          return;
-        }
-
-        setProfile(profileData);
+        setProfile(profileData as Profile);
       } catch (err) {
         console.error("Home initialization failed:", err);
       } finally {
@@ -107,6 +101,7 @@ export default function HomePage() {
       if (userId) {
         await setUserOffline(userId);
       }
+      clearCachedProfile(); // Clear profile cache
       await supabase.auth.signOut();
       toast.success("Logged out successfully!");
       router.replace("/login");

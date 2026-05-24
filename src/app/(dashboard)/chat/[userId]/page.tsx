@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
+import { toast } from "sonner";
 import { supabase } from "@/lib/supabase/client";
 import { setUserOnline, setUserOffline } from "@/lib/presence";
 
@@ -21,6 +22,7 @@ type Message = {
   content: string;
   created_at: string;
   seen?: boolean;
+  status?: "sending" | "sent" | "error";
 };
 
 function formatTime(date: string) {
@@ -209,16 +211,45 @@ export default function PrivateChatPage() {
     setSending(true);
     setText("");
 
-    const { error } = await supabase.from("messages").insert({
+    // 1. Create temporary message for optimistic rendering
+    const tempId = `temp-${Date.now()}`;
+    const optimisticMessage: Message = {
+      id: tempId,
       sender_id: currentUserId,
       receiver_id: otherUserId,
       content: cleanText,
+      created_at: new Date().toISOString(),
       seen: false,
-    });
+      status: "sending"
+    };
+
+    // 2. Append optimistically and scroll
+    setMessages((prev) => [...prev, optimisticMessage]);
+    scrollToBottom();
+
+    // 3. Insert to database
+    const { data, error } = await supabase
+      .from("messages")
+      .insert({
+        sender_id: currentUserId,
+        receiver_id: otherUserId,
+        content: cleanText,
+        seen: false,
+      })
+      .select("id, sender_id, receiver_id, content, created_at, seen")
+      .single();
 
     if (error) {
       console.error("Send message error:", error);
+      // Rollback optimistic state and restore text field
+      setMessages((prev) => prev.filter((m) => m.id !== tempId));
       setText(cleanText);
+      toast.error("Message failed to send. Please try again.");
+    } else if (data) {
+      // Update optimistic message with confirmed database record
+      setMessages((prev) =>
+        prev.map((m) => (m.id === tempId ? { ...data, status: "sent" } : m))
+      );
     } else {
       await loadChat();
     }
@@ -241,11 +272,53 @@ export default function PrivateChatPage() {
 
   if (loading) {
     return (
-      <main className="flex h-dvh items-center justify-center bg-[#0E1621] text-white">
-        <div className="text-center">
-          <div className="mx-auto mb-4 h-12 w-12 animate-pulse rounded-3xl bg-[#2AABEE]" />
-          <p className="text-sm text-gray-400">Opening private chat...</p>
-        </div>
+      <main className="flex h-dvh flex-col overflow-hidden bg-[#0E1621] text-white">
+        {/* Header Skeleton */}
+        <header className="z-30 border-b border-[#22303D] bg-[#17212B]/95 px-4 py-3 backdrop-blur">
+          <div className="mx-auto flex max-w-5xl items-center gap-3">
+            <div className="h-11 w-11 animate-pulse rounded-2xl bg-[#0F1A24] border border-[#22303D]/10" />
+            <div className="h-12 w-12 animate-pulse rounded-2xl bg-[#2B5278]/25" />
+            <div className="min-w-0 flex-1 space-y-2">
+              <div className="h-4 w-32 animate-pulse rounded bg-[#2AABEE]/20" />
+              <div className="h-3 w-16 animate-pulse rounded bg-gray-600/30" />
+            </div>
+            <div className="h-8 w-16 animate-pulse rounded-2xl bg-[#2AABEE]/20" />
+          </div>
+        </header>
+
+        {/* Message Area Skeleton */}
+        <section className="flex-1 overflow-y-auto bg-[#0F1A24] px-4 py-5 space-y-4">
+          <div className="mx-auto max-w-5xl space-y-4">
+            <div className="flex justify-center">
+              <div className="h-8 w-64 animate-pulse rounded-2xl bg-[#17212B] border border-[#22303D]/10" />
+            </div>
+            
+            {/* Alternating bubbles */}
+            <div className="flex justify-start">
+              <div className="h-12 w-[60%] animate-pulse rounded-3xl rounded-bl-md bg-[#182533]/60" />
+            </div>
+            <div className="flex justify-end">
+              <div className="h-14 w-[50%] animate-pulse rounded-3xl rounded-br-md bg-[#2B5278]/40" />
+            </div>
+            <div className="flex justify-start">
+              <div className="h-16 w-[70%] animate-pulse rounded-3xl rounded-bl-md bg-[#182533]/60" />
+            </div>
+            <div className="flex justify-end">
+              <div className="h-12 w-[40%] animate-pulse rounded-3xl rounded-br-md bg-[#2B5278]/40" />
+            </div>
+            <div className="flex justify-start">
+              <div className="h-12 w-[55%] animate-pulse rounded-3xl rounded-bl-md bg-[#182533]/60" />
+            </div>
+          </div>
+        </section>
+
+        {/* Footer Skeleton */}
+        <footer className="border-t border-[#22303D] bg-[#17212B]/95 px-4 py-3">
+          <div className="mx-auto flex max-w-5xl items-center gap-3">
+            <div className="h-12 flex-1 animate-pulse rounded-3xl bg-[#0E1621] border border-[#22303D]/20" />
+            <div className="h-12 w-12 animate-pulse rounded-2xl bg-[#2AABEE]/25" />
+          </div>
+        </footer>
       </main>
     );
   }
@@ -327,17 +400,30 @@ export default function PrivateChatPage() {
                           : "rounded-bl-md bg-[#182533] text-white"
                       }`}
                     >
-                      <p className="whitespace-pre-wrap wrap-break-word text-[15px] leading-6">
+                      <p className="whitespace-pre-wrap break-words text-[15px] leading-6">
                         {message.content}
                       </p>
 
                       <div
-                        className={`mt-1 flex items-center gap-1 text-[10px] ${
-                          isMine ? "justify-end text-blue-100" : "text-gray-400"
+                        className={`mt-1 flex items-center justify-end gap-1.5 text-[10px] ${
+                          isMine ? "text-blue-100/90" : "text-gray-400"
                         }`}
                       >
                         <span>{formatTime(message.created_at)}</span>
-                        {isMine && <span>{message.seen ? "Seen" : "Sent"}</span>}
+                        {isMine && (
+                          <span className="flex items-center gap-0.5 select-none font-bold">
+                            {message.status === "sending" ? (
+                              <svg className="h-3 w-3 animate-spin text-blue-100" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                              </svg>
+                            ) : message.seen ? (
+                              <span className="text-green-300 font-extrabold text-[11px] tracking-tighter">✓✓</span>
+                            ) : (
+                              <span className="text-blue-200 font-semibold text-[11px] tracking-tighter">✓</span>
+                            )}
+                          </span>
+                        )}
                       </div>
                     </div>
                   </motion.div>

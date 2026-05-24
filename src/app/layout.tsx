@@ -1,6 +1,7 @@
 import PWAInstall from "@/components/PWAInstall";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { Toaster } from "sonner";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -35,9 +36,10 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-[#0E1621] text-white">
-  {children}
-  <PWAInstall />
-</body>
+        {children}
+        <PWAInstall />
+        <Toaster position="top-center" theme="dark" richColors closeButton />
+      </body>
     </html>
   );
 }

@@ -289,7 +289,7 @@ export default function DashboardPage() {
           </div>
         </header>
 
-        <section className="flex-1 overflow-y-auto px-5 pb-28 pt-4">
+        <section className="flex-1 overflow-y-auto px-5 pb-36 pt-4">
           <div className="mb-4 flex items-center justify-between">
             <div>
               <h2 className="text-lg font-black">Online Users</h2>

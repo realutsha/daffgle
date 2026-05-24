@@ -190,8 +190,36 @@ export default function ChatPage() {
 
   if (loading) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#0E1621] text-white">
-        Loading chats...
+      <main className="min-h-screen bg-[#0E1621] text-white">
+        <div className="mx-auto w-full max-w-2xl px-5 py-5 space-y-6">
+          {/* Header Skeleton */}
+          <div className="flex items-center justify-between">
+            <div className="space-y-2">
+              <div className="h-8 w-24 animate-pulse rounded-full bg-[#2AABEE]/20" />
+              <div className="h-4 w-44 animate-pulse rounded-full bg-[#2AABEE]/10" />
+            </div>
+            <div className="h-10 w-20 animate-pulse rounded-2xl bg-[#2B5278]/30" />
+          </div>
+          {/* Search Box Skeleton */}
+          <div className="h-14 w-full animate-pulse rounded-2xl bg-[#0F1A24] border border-[#22303D]" />
+          
+          {/* Conversation List Skeletons */}
+          <div className="space-y-4 pt-4">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <div key={i} className="flex items-center gap-4 rounded-3xl bg-[#17212B] p-4 border border-[#22303D]/10">
+                <div className="h-14 w-14 shrink-0 animate-pulse rounded-2xl bg-[#2B5278]/25" />
+                <div className="min-w-0 flex-1 space-y-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="h-4 w-28 animate-pulse rounded bg-[#2AABEE]/20" />
+                    <div className="h-3 w-10 animate-pulse rounded bg-gray-600/30" />
+                  </div>
+                  <div className="h-3 w-16 animate-pulse rounded bg-gray-600/20" />
+                  <div className="h-4 w-[85%] animate-pulse rounded bg-gray-500/10 mt-1" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       </main>
     );
   }

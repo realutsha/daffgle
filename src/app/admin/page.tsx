@@ -232,8 +232,56 @@ export default function AdminPage() {
 
   if (loading) {
     return (
-      <main className="flex h-dvh items-center justify-center bg-[#0E1621] text-white">
-        Loading admin dashboard...
+      <main className="min-h-dvh bg-[#0E1621] text-white">
+        {/* Header Skeleton */}
+        <header className="border-b border-[#22303D] bg-[#17212B] p-5">
+          <div className="mx-auto flex max-w-7xl items-center justify-between">
+            <div className="space-y-2">
+              <div className="h-8 w-48 animate-pulse rounded bg-[#2AABEE]/20" />
+              <div className="h-4 w-72 animate-pulse rounded bg-gray-600/30" />
+            </div>
+            <div className="flex gap-3">
+              <div className="h-10 w-24 animate-pulse rounded-xl bg-[#0F1A24] border border-[#22303D]/30" />
+              <div className="h-10 w-20 animate-pulse rounded-xl bg-[#2B5278]/25" />
+              <div className="h-10 w-20 animate-pulse rounded-xl bg-red-900/20" />
+            </div>
+          </div>
+        </header>
+
+        <section className="mx-auto max-w-7xl p-5 space-y-6">
+          {/* Stat Grid Skeletons */}
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="rounded-2xl bg-[#17212B] p-5 border border-[#22303D]/10 space-y-3">
+                <div className="h-9 w-12 animate-pulse rounded bg-[#2AABEE]/20" />
+                <div className="h-4 w-20 animate-pulse rounded bg-gray-600/30" />
+              </div>
+            ))}
+          </div>
+
+          {/* Navigation Bar Skeleton */}
+          <div className="grid grid-cols-4 gap-2 rounded-2xl bg-[#17212B] p-2">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="h-11 animate-pulse rounded-xl bg-[#0F1A24]/60" />
+            ))}
+          </div>
+
+          {/* Content Lists Skeleton */}
+          <div className="grid gap-5 md:grid-cols-2">
+            {[1, 2].map((panel) => (
+              <div key={panel} className="rounded-2xl bg-[#17212B] p-5 space-y-4">
+                <div className="h-6 w-36 animate-pulse rounded bg-[#2AABEE]/20 mb-2" />
+                {[1, 2, 3].map((row) => (
+                  <div key={row} className="rounded-xl bg-[#0F1A24] p-4 space-y-2 border border-[#22303D]/10">
+                    <div className="h-4 w-32 animate-pulse rounded bg-gray-500/25" />
+                    <div className="h-3 w-[70%] animate-pulse rounded bg-gray-500/15" />
+                    <div className="h-2.5 w-20 animate-pulse rounded bg-gray-600/20" />
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        </section>
       </main>
     );
   }

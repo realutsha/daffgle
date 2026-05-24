@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase/client";
 import { setUserOnline, setUserOffline } from "@/lib/presence";
@@ -12,6 +12,7 @@ type Profile = {
   id: string;
   anonymous_username: string;
   department: string;
+  warning_badge?: string | null;
   is_online?: boolean;
   last_seen?: string;
 };
@@ -25,6 +26,15 @@ type Message = {
   seen?: boolean;
   status?: "sending" | "sent" | "error";
 };
+
+const REPORT_REASONS = [
+  "Fake helper",
+  "Did not help",
+  "Abusive behavior",
+  "Harassment",
+  "Spam",
+  "Suspicious activity"
+];
 
 function formatTime(date: string) {
   return new Date(date).toLocaleTimeString([], {
@@ -55,6 +65,15 @@ export default function PrivateChatPage() {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
 
+  // Associated Request tracking
+  const [linkedRequestId, setLinkedRequestId] = useState("");
+
+  // Report modal state
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [reportReason, setReportReason] = useState("");
+  const [reportDetails, setReportDetails] = useState("");
+  const [submittingReport, setSubmittingReport] = useState(false);
+
   const canSend = useMemo(() => text.trim().length > 0 && !sending, [text, sending]);
 
   const scrollToBottom = useCallback(() => {
@@ -79,10 +98,10 @@ export default function PrivateChatPage() {
     setCurrentUserId(user.id);
     await setUserOnline(user.id);
 
-    // 1. Fetch the active help request matching this conversationId
+    // 1. Fetch the active help request matching this conversationId (include warning_badge)
     const { data: activeRequest, error: reqError } = await supabase
       .from("help_requests")
-      .select("*, requester:profiles!requester_id(id, anonymous_username, department, is_online, last_seen), helper:profiles!helper_id(id, anonymous_username, department, is_online, last_seen)")
+      .select("*, requester:profiles!requester_id(id, anonymous_username, department, is_online, last_seen, warning_badge), helper:profiles!helper_id(id, anonymous_username, department, is_online, last_seen, warning_badge)")
       .eq("conversation_id", conversationId)
       .single();
 
@@ -92,6 +111,8 @@ export default function PrivateChatPage() {
       router.replace("/dashboard");
       return;
     }
+
+    setLinkedRequestId(activeRequest.id);
 
     // 2. Identify the other participant's profile
     const otherProfile = activeRequest.requester_id === user.id ? activeRequest.helper : activeRequest.requester;
@@ -103,7 +124,7 @@ export default function PrivateChatPage() {
 
     setOtherUser(otherProfile);
 
-    // 3. Fetch messages for this conversation using correct database columns
+    // 3. Fetch messages for this conversation
     const { data: messageData, error } = await supabase
       .from("messages")
       .select("id, sender_id, conversation_id, message, created_at, seen")
@@ -254,11 +275,10 @@ export default function PrivateChatPage() {
       status: "sending"
     };
 
-    // 2. Append optimistically and scroll
     setMessages((prev) => [...prev, optimisticMessage]);
     scrollToBottom();
 
-    // 3. Insert to database under correct columns: conversation_id and message
+    // 2. Insert to database
     const { data, error } = await supabase
       .from("messages")
       .insert({
@@ -272,12 +292,10 @@ export default function PrivateChatPage() {
 
     if (error) {
       console.error("Send message error:", error);
-      // Rollback optimistic state and restore text field
       setMessages((prev) => prev.filter((m) => m.id !== tempId));
       setText(cleanText);
       toast.error("Message failed to send. Please try again.");
     } else if (data) {
-      // Update optimistic message with confirmed database record
       setMessages((prev) =>
         prev.map((m) => (m.id === tempId ? { ...data, status: "sent" } : m))
       );
@@ -301,61 +319,74 @@ export default function PrivateChatPage() {
     await loadChat();
   };
 
+  const handleReportParticipant = async () => {
+    if (!otherUser?.id || !reportReason) {
+      toast.error("Please choose a reason.");
+      return;
+    }
+
+    try {
+      setSubmittingReport(true);
+
+      const { error } = await supabase.from("reports").insert({
+        reporter_id: currentUserId,
+        reported_id: otherUser.id,
+        reason: reportReason,
+        details: reportDetails || null,
+        conversation_id: conversationId,
+        request_id: linkedRequestId || null,
+        status: "pending"
+      });
+
+      if (error) {
+        toast.error("Report failed: " + error.message);
+        return;
+      }
+
+      toast.success(`User @${otherUser.anonymous_username} reported to admin center.`);
+      setShowReportModal(false);
+      setReportReason("");
+      setReportDetails("");
+      
+      // Reload to see badge update
+      await loadChat();
+    } catch {
+      toast.error("Failed to submit report.");
+    } finally {
+      setSubmittingReport(false);
+    }
+  };
+
   if (loading) {
     return (
       <main className="flex h-dvh flex-col overflow-hidden bg-[#0E1621] text-white">
-        {/* Header Skeleton */}
         <header className="z-30 border-b border-[#22303D] bg-[#17212B]/95 px-4 py-3 backdrop-blur">
           <div className="mx-auto flex max-w-5xl items-center gap-3">
             <div className="h-11 w-11 animate-pulse rounded-2xl bg-[#0F1A24] border border-[#22303D]/10" />
             <div className="h-12 w-12 animate-pulse rounded-2xl bg-[#2B5278]/25" />
             <div className="min-w-0 flex-1 space-y-2">
               <div className="h-4 w-32 animate-pulse rounded bg-[#2AABEE]/20" />
-              <div className="h-3 w-16 animate-pulse rounded bg-gray-600/30" />
             </div>
-            <div className="h-8 w-16 animate-pulse rounded-2xl bg-[#2AABEE]/20" />
           </div>
         </header>
 
-        {/* Message Area Skeleton */}
         <section className="flex-1 overflow-y-auto bg-[#0F1A24] px-4 py-5 space-y-4">
           <div className="mx-auto max-w-5xl space-y-4">
-            <div className="flex justify-center">
-              <div className="h-8 w-64 animate-pulse rounded-2xl bg-[#17212B] border border-[#22303D]/10" />
-            </div>
-            
-            {/* Alternating bubbles */}
             <div className="flex justify-start">
               <div className="h-12 w-[60%] animate-pulse rounded-3xl rounded-bl-md bg-[#182533]/60" />
             </div>
             <div className="flex justify-end">
               <div className="h-14 w-[50%] animate-pulse rounded-3xl rounded-br-md bg-[#2B5278]/40" />
             </div>
-            <div className="flex justify-start">
-              <div className="h-16 w-[70%] animate-pulse rounded-3xl rounded-bl-md bg-[#182533]/60" />
-            </div>
-            <div className="flex justify-end">
-              <div className="h-12 w-[40%] animate-pulse rounded-3xl rounded-br-md bg-[#2B5278]/40" />
-            </div>
-            <div className="flex justify-start">
-              <div className="h-12 w-[55%] animate-pulse rounded-3xl rounded-bl-md bg-[#182533]/60" />
-            </div>
           </div>
         </section>
-
-        {/* Footer Skeleton */}
-        <footer className="border-t border-[#22303D] bg-[#17212B]/95 px-4 py-3">
-          <div className="mx-auto flex max-w-5xl items-center gap-3">
-            <div className="h-12 flex-1 animate-pulse rounded-3xl bg-[#0E1621] border border-[#22303D]/20" />
-            <div className="h-12 w-12 animate-pulse rounded-2xl bg-[#2AABEE]/25" />
-          </div>
-        </footer>
       </main>
     );
   }
 
   return (
     <main className="flex h-dvh flex-col overflow-hidden bg-[#0E1621] text-white">
+      {/* Header */}
       <header className="z-30 border-b border-[#22303D] bg-[#17212B]/95 px-4 py-3 backdrop-blur">
         <div className="mx-auto flex max-w-5xl items-center gap-3">
           <button
@@ -367,36 +398,51 @@ export default function PrivateChatPage() {
 
           <div className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#2B5278] text-lg font-black">
             {otherUser?.anonymous_username?.charAt(0).toUpperCase() || "U"}
-
             {isUserActuallyOnline(otherUser?.is_online, otherUser?.last_seen) && (
               <span className="absolute -right-0.5 -top-0.5 h-4 w-4 rounded-full border-2 border-[#17212B] bg-green-400" />
             )}
           </div>
 
           <div className="min-w-0 flex-1">
-            <h1 className="truncate text-base font-black">
-              {otherUser?.anonymous_username}
-            </h1>
+            <div className="flex items-center gap-1.5">
+              <h1 className="truncate text-base font-black">
+                {otherUser?.anonymous_username}
+              </h1>
+              {otherUser?.warning_badge && (
+                <span className="rounded-full bg-red-650/15 border border-red-500/25 px-2 py-0.5 text-[8px] font-black text-red-400 uppercase tracking-wide animate-pulse">
+                  ⚠️ {otherUser.warning_badge}
+                </span>
+              )}
+            </div>
             <p className="truncate text-xs text-gray-400">
               {isUserActuallyOnline(otherUser?.is_online, otherUser?.last_seen) ? "Online now" : otherUser?.department}
             </p>
           </div>
 
-          <button
-            onClick={() => router.push("/dashboard")}
-            className="rounded-2xl bg-[#2AABEE] px-4 py-2 text-xs font-black cursor-pointer"
-          >
-            Help Hub
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setShowReportModal(true)}
+              className="rounded-2xl bg-red-950/20 border border-red-900/35 px-4 py-2 text-xs font-bold text-red-400 hover:bg-red-950/45 transition cursor-pointer"
+            >
+              Report User
+            </button>
+
+            <button
+              onClick={() => router.push("/dashboard")}
+              className="rounded-2xl bg-[#2AABEE] px-4 py-2 text-xs font-black cursor-pointer hidden sm:block"
+            >
+              Help Hub
+            </button>
+          </div>
         </div>
       </header>
 
+      {/* Messages List Area */}
       <section className="flex-1 overflow-y-auto bg-[#0F1A24] px-4 py-5">
         <div className="mx-auto max-w-5xl">
           <div className="mb-5 flex justify-center">
             <div className="rounded-2xl border border-[#22303D] bg-[#17212B] px-4 py-2 text-center text-xs text-gray-400">
-              Messages auto-delete after 7 days. Keep Daffgle safe and
-              respectful.
+              Messages auto-delete after 7 days. Keep Daffgle safe, respectful, and anonymized.
             </div>
           </div>
 
@@ -420,15 +466,15 @@ export default function PrivateChatPage() {
                     key={message.id}
                     initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.01 }}
+                    transition={{ delay: index * 0.005 }}
                     className={`flex ${isMine ? "justify-end" : "justify-start"}`}
                   >
                     <div
                       onDoubleClick={() => isMine && deleteMessage(message.id)}
                       className={`max-w-[82%] rounded-3xl px-4 py-3 shadow-lg md:max-w-[60%] ${
                         isMine
-                          ? "rounded-br-md bg-[#2B5278] text-white"
-                          : "rounded-bl-md bg-[#182533] text-white"
+                           ? "rounded-br-md bg-[#2B5278] text-white"
+                           : "rounded-bl-md bg-[#182533] text-white"
                       }`}
                     >
                       <p className="whitespace-pre-wrap break-words text-[15px] leading-6">
@@ -467,7 +513,8 @@ export default function PrivateChatPage() {
         </div>
       </section>
 
-      <footer className="border-t border-[#22303D] bg-[#17212B]/95 px-4 py-3 backdrop-blur">
+      {/* Footer Text Area */}
+      <footer className="border-t border-[#22303D] bg-[#17212B]/95 px-4 py-3 backdrop-blur pb-safe">
         <div className="mx-auto flex max-w-5xl items-end gap-3">
           <textarea
             value={text}
@@ -496,6 +543,87 @@ export default function PrivateChatPage() {
           Tip: double click your own message to delete it.
         </p>
       </footer>
+
+      {/* Modal to Report Participant */}
+      <AnimatePresence>
+        {showReportModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+          >
+            <motion.div
+              initial={{ scale: 0.95, y: 15 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: 15 }}
+              className="w-full max-w-md overflow-hidden rounded-3xl border border-[#22303D] bg-[#17212B] p-6 shadow-2xl space-y-6"
+            >
+              <div>
+                <h3 className="text-2xl font-black text-red-400 tracking-tight">Report Participant</h3>
+                <p className="text-xs text-gray-400 mt-1">
+                  Report student @<span className="text-white font-bold">{otherUser?.anonymous_username}</span> to Daffgle moderation center.
+                </p>
+              </div>
+
+              <div className="space-y-4">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block ml-1">
+                    Select Report Reason
+                  </label>
+                  <select
+                    value={reportReason}
+                    onChange={(e) => setReportReason(e.target.value)}
+                    className="w-full rounded-2xl border border-[#22303D] bg-[#0F1A24] px-4 py-3 text-white focus:border-red-400 outline-none transition"
+                  >
+                    <option value="">-- Choose reason --</option>
+                    {REPORT_REASONS.map((reason) => (
+                      <option key={reason} value={reason}>
+                        {reason}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block ml-1">
+                    Provide Audit Details
+                  </label>
+                  <textarea
+                    value={reportDetails}
+                    onChange={(e) => setReportDetails(e.target.value)}
+                    placeholder="Enter details, harassment logs, abusive behavior context..."
+                    rows={4}
+                    className="w-full rounded-2xl border border-[#22303D] bg-[#0F1A24] px-4 py-3 text-white outline-none focus:border-red-400 text-sm resize-none"
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    setShowReportModal(false);
+                    setReportReason("");
+                    setReportDetails("");
+                  }}
+                  disabled={submittingReport}
+                  className="flex-1 rounded-2xl bg-[#0F1A24] border border-[#22303D] py-3 text-sm font-bold text-gray-300 transition hover:bg-[#182533] cursor-pointer"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  onClick={handleReportParticipant}
+                  disabled={submittingReport || !reportReason}
+                  className="flex-1 rounded-2xl bg-red-650 py-3 text-sm font-black text-white hover:opacity-90 transition disabled:opacity-50 cursor-pointer shadow-lg shadow-red-600/20"
+                >
+                  {submittingReport ? "Submitting..." : "Submit Report"}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </main>
   );
 }

@@ -148,10 +148,8 @@ export default function ChatPage() {
   }, [router]);
 
   useEffect(() => {
-    const init = async () => {
-      await loadChats();
-    };
-    init();
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadChats();
   }, [loadChats]);
 
   useEffect(() => {
@@ -182,29 +180,19 @@ export default function ChatPage() {
     return (
       <main className="min-h-screen bg-[#0E1621] text-white">
         <div className="mx-auto w-full max-w-2xl px-5 py-5 space-y-6">
-          {/* Header Skeleton */}
           <div className="flex items-center justify-between">
             <div className="space-y-2">
-              <div className="h-8 w-24 animate-pulse rounded-full bg-[#2AABEE]/20" />
-              <div className="h-4 w-44 animate-pulse rounded-full bg-[#2AABEE]/10" />
+              <div className="h-8 w-24 rounded-full bg-[#2AABEE]/20 animate-pulse" />
+              <div className="h-4 w-44 rounded-full bg-[#2AABEE]/10 animate-pulse" />
             </div>
-            <div className="h-10 w-20 animate-pulse rounded-2xl bg-[#2B5278]/30" />
           </div>
-          {/* Search Box Skeleton */}
-          <div className="h-14 w-full animate-pulse rounded-2xl bg-[#0F1A24] border border-[#22303D]" />
-          
-          {/* Conversation List Skeletons */}
           <div className="space-y-4 pt-4">
-            {[1, 2, 3, 4, 5].map((i) => (
-              <div key={i} className="flex items-center gap-4 rounded-3xl bg-[#17212B] p-4 border border-[#22303D]/10">
-                <div className="h-14 w-14 shrink-0 animate-pulse rounded-2xl bg-[#2B5278]/25" />
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="flex items-center gap-4 rounded-3xl bg-[#17212B] p-4 border border-[#22303D]/10 animate-pulse">
+                <div className="h-14 w-14 shrink-0 rounded-2xl bg-[#2B5278]/25" />
                 <div className="min-w-0 flex-1 space-y-2">
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="h-4 w-28 animate-pulse rounded bg-[#2AABEE]/20" />
-                    <div className="h-3 w-10 animate-pulse rounded bg-gray-600/30" />
-                  </div>
-                  <div className="h-3 w-16 animate-pulse rounded bg-gray-600/20" />
-                  <div className="h-4 w-[85%] animate-pulse rounded bg-gray-500/10 mt-1" />
+                  <div className="h-4 w-28 rounded bg-[#2AABEE]/20" />
+                  <div className="h-3 w-[85%] rounded bg-gray-500/10" />
                 </div>
               </div>
             ))}
@@ -215,7 +203,7 @@ export default function ChatPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#0E1621] text-white">
+    <main className="min-h-screen bg-[#0E1621] text-white pb-32">
       <div className="mx-auto w-full max-w-2xl">
         <header className="sticky top-0 z-50 border-b border-[#22303D] bg-[#17212B]/95 backdrop-blur">
           <div className="px-5 py-5">
@@ -232,7 +220,7 @@ export default function ChatPage() {
 
               <button
                 onClick={() => router.push("/dashboard")}
-                className="rounded-2xl bg-[#2B5278] px-4 py-2 text-sm font-bold transition hover:opacity-90 cursor-pointer"
+                className="rounded-2xl bg-[#2B5278] px-4 py-2.5 text-sm font-bold transition hover:opacity-90 cursor-pointer"
               >
                 Help Hub
               </button>
@@ -250,9 +238,9 @@ export default function ChatPage() {
           </div>
         </header>
 
-        <section className="px-3 pb-28 pt-3">
+        <section className="px-3 pt-3">
           {filteredConversations.length === 0 ? (
-            <div className="mt-24 text-center">
+            <div className="mt-24 text-center px-4">
               <div className="mx-auto mb-5 flex h-24 w-24 items-center justify-center rounded-4xl bg-[#17212B] text-5xl">
                 💬
               </div>
@@ -260,12 +248,12 @@ export default function ChatPage() {
               <h2 className="text-2xl font-black">No conversations yet</h2>
 
               <p className="mt-3 text-sm text-gray-400">
-                Start helping others or create a request in the Help Hub.
+                Start helping others or create a request in the Help Hub to open secure private chats.
               </p>
 
               <button
                 onClick={() => router.push("/dashboard")}
-                className="mt-6 rounded-2xl bg-[#2AABEE] px-6 py-3 text-sm font-black cursor-pointer"
+                className="mt-6 rounded-2xl bg-[#2AABEE] px-6 py-3.5 text-sm font-black cursor-pointer shadow-lg shadow-[#2AABEE]/20"
               >
                 Open Help Hub
               </button>
@@ -277,9 +265,9 @@ export default function ChatPage() {
                   key={chat.id}
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.02 }}
+                  transition={{ delay: index * 0.01 }}
                   onClick={() => router.push(`/chat/${chat.id}`)}
-                  className="w-full rounded-3xl border border-transparent bg-[#17212B] p-4 text-left transition hover:border-[#2AABEE]/40 hover:bg-[#1C2B3A] cursor-pointer"
+                  className="w-full rounded-3xl border border-transparent bg-[#17212B] p-4 text-left transition hover:border-[#2AABEE]/40 hover:bg-[#1C2B3A] cursor-pointer block"
                 >
                   <div className="flex items-center gap-4">
                     <div className="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[#2B5278] text-lg font-black">
@@ -302,7 +290,7 @@ export default function ChatPage() {
                           </p>
                         </div>
 
-                        <div className="flex flex-col items-end gap-2">
+                        <div className="flex flex-col items-end gap-2 shrink-0">
                           <span className="text-[11px] text-gray-500">
                             {formatTime(chat.last_message_time)}
                           </span>
@@ -332,27 +320,39 @@ export default function ChatPage() {
           )}
         </section>
 
-        <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-[#22303D] bg-[#17212B]/95 px-4 py-3 backdrop-blur">
-          <div className="mx-auto grid max-w-2xl grid-cols-3 gap-2">
+        {/* Floating Mobile Bottom Navigation Bar (4 tabs) */}
+        <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-[#22303D] bg-[#17212B]/95 px-4 py-3 backdrop-blur md:hidden pb-safe">
+          <div className="mx-auto grid max-w-2xl grid-cols-4 gap-1">
+            <button
+              onClick={() => router.push("/")}
+              className="flex flex-col items-center gap-0.5 py-1.5 rounded-2xl text-gray-400 hover:bg-[#182533]/40 transition duration-200 cursor-pointer"
+            >
+              <span className="text-lg">🏠</span>
+              <span className="text-[10px] font-bold tracking-wide uppercase">Home</span>
+            </button>
+
             <button
               onClick={() => router.push("/dashboard")}
-              className="rounded-2xl bg-[#0F1A24] py-3 text-sm font-bold text-gray-300 transition duration-200 hover:bg-[#182533] cursor-pointer"
+              className="flex flex-col items-center gap-0.5 py-1.5 rounded-2xl text-gray-400 hover:bg-[#182533]/40 transition duration-200 cursor-pointer"
             >
-              Help Hub
+              <span className="text-lg">🤝</span>
+              <span className="text-[10px] font-bold tracking-wide uppercase">Help Hub</span>
             </button>
 
             <button
               onClick={() => router.push("/chat")}
-              className="rounded-2xl bg-[#2AABEE] py-3 text-sm font-black text-white shadow-lg shadow-[#2AABEE]/20 cursor-pointer"
+              className="flex flex-col items-center gap-0.5 py-1.5 rounded-2xl bg-[#2B5278]/20 text-[#2AABEE] transition duration-200 cursor-pointer"
             >
-              My Chats
+              <span className="text-lg">💬</span>
+              <span className="text-[10px] font-black tracking-wide uppercase">Chats</span>
             </button>
 
             <button
               onClick={() => router.push("/profile")}
-              className="rounded-2xl bg-[#0F1A24] py-3 text-sm font-bold text-gray-300 transition duration-200 hover:bg-[#182533] cursor-pointer"
+              className="flex flex-col items-center gap-0.5 py-1.5 rounded-2xl text-gray-400 hover:bg-[#182533]/40 transition duration-200 cursor-pointer"
             >
-              Profile
+              <span className="text-lg">👤</span>
+              <span className="text-[10px] font-bold tracking-wide uppercase">Profile</span>
             </button>
           </div>
         </nav>

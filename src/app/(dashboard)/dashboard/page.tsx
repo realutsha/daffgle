@@ -15,6 +15,8 @@ type Profile = {
   department: string;
   gender: string;
   hall?: string;
+  karma: number;
+  warning_badge?: string | null;
   is_online: boolean;
   is_admin: boolean;
   is_banned: boolean;
@@ -31,11 +33,12 @@ type HelpRequest = {
   conversation_id?: string | null;
   created_at: string;
   updated_at: string;
-  // Join objects
   requester?: {
     anonymous_username: string;
     department: string;
     gender: string;
+    karma: number;
+    warning_badge?: string | null;
     is_online: boolean;
     last_seen: string;
   };
@@ -43,6 +46,8 @@ type HelpRequest = {
     anonymous_username: string;
     department: string;
     gender: string;
+    karma: number;
+    warning_badge?: string | null;
     is_online: boolean;
     last_seen: string;
   };
@@ -57,6 +62,15 @@ const PREDEFINED_ITEMS = [
   "Umbrella",
   "Power Bank",
   "Extension Cable"
+];
+
+const REPORT_REASONS = [
+  "Fake helper",
+  "Did not help",
+  "Abusive behavior",
+  "Harassment",
+  "Spam",
+  "Suspicious activity"
 ];
 
 function formatTimeAgo(date: string) {
@@ -88,10 +102,69 @@ export default function HelpHubDashboardPage() {
   const [selectedItem, setSelectedItem] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
+  // Reporting state
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [reportTargetId, setReportTargetId] = useState("");
+  const [reportTargetName, setReportTargetName] = useState("");
+  const [reportRequestId, setReportRequestId] = useState("");
+  const [reportReason, setReportReason] = useState("");
+  const [reportDetails, setReportDetails] = useState("");
+  const [submittingReport, setSubmittingReport] = useState(false);
+
   // Help lists
   const [availableRequests, setAvailableRequests] = useState<HelpRequest[]>([]);
   const [myRequests, setMyRequests] = useState<HelpRequest[]>([]);
   const [myHelpins, setMyHelpins] = useState<HelpRequest[]>([]);
+
+  // Stable callback handler for accepting requests
+  const handleHelpNow = useCallback(async (request: HelpRequest | Record<string, unknown>) => {
+    const requestItem = String(request.item || "");
+    const requestId = String(request.id || "");
+
+    const confirmHelp = window.confirm(`Accept request for "${requestItem}"? This will open a private, secure, and anonymous 1-on-1 chat.`);
+    if (!confirmHelp) return;
+
+    try {
+      // 1. Insert conversation
+      const { data: convData, error: convError } = await supabase
+        .from("conversations")
+        .insert({})
+        .select("id")
+        .single();
+
+      if (convError || !convData) {
+        toast.error("Failed to create chat: " + (convError?.message || "Unknown error"));
+        return;
+      }
+
+      // 2. Link helper to request
+      const { error } = await supabase
+        .from("help_requests")
+        .update({
+          status: "accepted",
+          helper_id: currentUserId,
+          conversation_id: convData.id
+        })
+        .eq("id", requestId);
+
+      if (error) {
+        toast.error(error.message);
+        return;
+      }
+
+      // 3. Send greeting message
+      await supabase.from("messages").insert({
+        sender_id: currentUserId,
+        conversation_id: convData.id,
+        message: `👋 I accepted your request for "${requestItem}"! I'm ready to help you.`
+      });
+
+      toast.success("Connected! Opening anonymous private chat room...");
+      router.push(`/chat/${convData.id}`);
+    } catch {
+      toast.error("Failed to accept request.");
+    }
+  }, [currentUserId, router]);
 
   const loadData = useCallback(async (silent = false) => {
     if (!silent) setRefreshing(true);
@@ -109,7 +182,7 @@ export default function HelpHubDashboardPage() {
     const myId = userData.user.id;
     setCurrentUserId(myId);
 
-    // Sync presence
+    // Sync presence & notifications
     await setupPushNotifications(myId).catch(() => {});
     await setUserOnline(myId);
 
@@ -132,7 +205,6 @@ export default function HelpHubDashboardPage() {
       return;
     }
 
-    // Redirect to profile setup if hall is not defined
     if (!profileData.hall) {
       toast.error("Please set your hall first!");
       router.replace("/auth/setup");
@@ -143,22 +215,30 @@ export default function HelpHubDashboardPage() {
 
     const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
-    // 1. Fetch available open requests in the same hall from other users (created within 24h)
+    // 1. Fetch available requests and sort by requester(karma) DESC, then created_at DESC
     const { data: availData } = await supabase
       .from("help_requests")
-      .select("*, requester:profiles!requester_id(anonymous_username, department, gender, is_online, last_seen)")
+      .select("*, requester:profiles!requester_id(anonymous_username, department, gender, karma, warning_badge, is_online, last_seen)")
       .eq("status", "open")
       .eq("requester_hall", profileData.hall)
       .neq("requester_id", myId)
-      .gt("created_at", yesterday)
-      .order("created_at", { ascending: false });
+      .gt("created_at", yesterday);
 
-    setAvailableRequests(availData || []);
+    const sortedAvail = (availData || []).sort((a, b) => {
+      const karmaA = a.requester?.karma ?? 0;
+      const karmaB = b.requester?.karma ?? 0;
+      if (karmaB !== karmaA) {
+        return karmaB - karmaA; // Higher karma first
+      }
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime(); // Newest first
+    });
+
+    setAvailableRequests(sortedAvail);
 
     // 2. Fetch requests created by the user
     const { data: myReqData } = await supabase
       .from("help_requests")
-      .select("*, helper:profiles!helper_id(anonymous_username, department, gender, is_online, last_seen)")
+      .select("*, helper:profiles!helper_id(anonymous_username, department, gender, karma, warning_badge, is_online, last_seen)")
       .eq("requester_id", myId)
       .order("created_at", { ascending: false });
 
@@ -167,7 +247,7 @@ export default function HelpHubDashboardPage() {
     // 3. Fetch requests accepted by the user as a helper
     const { data: myHelpData } = await supabase
       .from("help_requests")
-      .select("*, requester:profiles!requester_id(anonymous_username, department, gender, is_online, last_seen)")
+      .select("*, requester:profiles!requester_id(anonymous_username, department, gender, karma, warning_badge, is_online, last_seen)")
       .eq("helper_id", myId)
       .order("created_at", { ascending: false });
 
@@ -200,7 +280,7 @@ export default function HelpHubDashboardPage() {
       await setUserOnline(user.id);
       await loadData();
 
-      // Refresh data & presence status every 30 seconds
+      // Refresh every 30 seconds
       interval = setInterval(async () => {
         await setUserOnline(user.id);
         await loadData(true);
@@ -231,9 +311,59 @@ export default function HelpHubDashboardPage() {
     };
   }, [loadData, router]);
 
+  // Realtime subscription for same-hall requests alert toast notifications
+  useEffect(() => {
+    if (!profile?.hall || !currentUserId) return;
+
+    const alertChannel = supabase
+      .channel("same-hall-alerts")
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "help_requests",
+        },
+        async (payload) => {
+          const newReq = payload.new as Record<string, unknown>;
+          if (
+            newReq &&
+            newReq.requester_hall === profile.hall &&
+            newReq.requester_id !== currentUserId &&
+            newReq.status === "open"
+          ) {
+            // Fetch requester username for toast info
+            const { data: reqProfile } = await supabase
+              .from("profiles")
+              .select("anonymous_username")
+              .eq("id", String(newReq.requester_id || ""))
+              .single();
+
+            const name = reqProfile?.anonymous_username || "Someone";
+            toast.info(`🔔 New request: "${newReq.item}" from @${name} in ${newReq.requester_hall}!`, {
+              duration: 10000,
+              action: {
+                label: "Accept",
+                onClick: () => {
+                  handleHelpNow(newReq);
+                }
+              }
+            });
+
+            await loadData(true);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(alertChannel);
+    };
+  }, [profile?.hall, currentUserId, loadData, handleHelpNow]);
+
   const handleRefresh = async () => {
     await loadData();
-    toast.success("Help Hub refreshed successfully!");
+    toast.success("Help Hub synced in realtime!");
   };
 
   const handleCreateRequest = async () => {
@@ -256,7 +386,6 @@ export default function HelpHubDashboardPage() {
       });
 
       if (error) {
-        // Handle postgres hour cooldown trigger response
         if (error.message.includes("cooldown")) {
           toast.error("Hourly limit exceeded: Max 3 open help requests per hour.");
         } else {
@@ -265,7 +394,7 @@ export default function HelpHubDashboardPage() {
         return;
       }
 
-      toast.success("Help request created successfully!");
+      toast.success("Help request broadcasted to your hall!");
       setShowCreateModal(false);
       setSelectedItem("");
       await loadData();
@@ -310,56 +439,52 @@ export default function HelpHubDashboardPage() {
         return;
       }
 
-      toast.success("Request marked as solved!");
+      toast.success("Request marked as solved! Helper awarded +1 Karma.");
       await loadData();
     } catch {
       toast.error("Operation failed.");
     }
   };
 
-  const handleHelpNow = async (request: HelpRequest) => {
-    const confirmHelp = window.confirm(`Offer to help with "${request.item}"? This will accept the request and open a private chat.`);
-    if (!confirmHelp) return;
+  const openReportModal = (targetId: string, targetName: string, requestId: string) => {
+    setReportTargetId(targetId);
+    setReportTargetName(targetName);
+    setReportRequestId(requestId);
+    setReportReason("");
+    setReportDetails("");
+    setShowReportModal(true);
+  };
+
+  const handleSubmitReport = async () => {
+    if (!reportReason) {
+      toast.error("Please select a reason for reporting.");
+      return;
+    }
 
     try {
-      // 1. Create a new conversation row
-      const { data: convData, error: convError } = await supabase
-        .from("conversations")
-        .insert({})
-        .select("id")
-        .single();
+      setSubmittingReport(true);
 
-      if (convError || !convData) {
-        toast.error("Failed to create chat room: " + (convError?.message || "Unknown error"));
-        return;
-      }
-
-      // 2. Accept request and link the conversation
-      const { error } = await supabase
-        .from("help_requests")
-        .update({
-          status: "accepted",
-          helper_id: currentUserId,
-          conversation_id: convData.id
-        })
-        .eq("id", request.id);
-
-      if (error) {
-        toast.error(error.message);
-        return;
-      }
-
-      // 3. Automatically insert an initial system/chat message from helper to requester using correct columns
-      await supabase.from("messages").insert({
-        sender_id: currentUserId,
-        conversation_id: convData.id,
-        message: `👋 I accepted your request for "${request.item}"! I can help you with this.`
+      const { error } = await supabase.from("reports").insert({
+        reporter_id: currentUserId,
+        reported_id: reportTargetId,
+        reason: reportReason,
+        details: reportDetails || null,
+        request_id: reportRequestId || null,
+        status: "pending"
       });
 
-      toast.success("Help Request Accepted! Opening chat...");
-      router.push(`/chat/${convData.id}`);
+      if (error) {
+        toast.error("Report failed to submit: " + error.message);
+        return;
+      }
+
+      toast.success(`Report submitted! Admin will audit @${reportTargetName} shortly.`);
+      setShowReportModal(false);
+      await loadData();
     } catch {
-      toast.error("Failed to accept request.");
+      toast.error("An error occurred while submitting the report.");
+    } finally {
+      setSubmittingReport(false);
     }
   };
 
@@ -367,7 +492,7 @@ export default function HelpHubDashboardPage() {
     return (
       <main className="flex h-dvh items-center justify-center bg-[#0E1621] text-white">
         <div className="mx-auto w-full max-w-3xl space-y-4 px-5">
-          <div className="rounded-4xl border border-[#22303D] bg-[#17212B]/95 p-6 shadow-xl shadow-black/20">
+          <div className="rounded-4xl border border-[#22303D] bg-[#17212B]/95 p-6 shadow-xl shadow-black/20 animate-pulse">
             <div className="flex items-center justify-between gap-4">
               <div className="h-10 w-28 rounded-full bg-[#2AABEE]/20" />
               <div className="h-10 w-24 rounded-full bg-[#2AABEE]/10" />
@@ -375,14 +500,9 @@ export default function HelpHubDashboardPage() {
             <div className="mt-6 space-y-3">
               <div className="h-4 w-3/4 rounded-full bg-[#2AABEE]/10" />
               <div className="h-4 rounded-full bg-[#2AABEE]/08" />
-              <div className="h-4 rounded-full bg-[#2AABEE]/08" />
             </div>
           </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="h-32 rounded-4xl border border-[#22303D] bg-[#17212B]/95 p-4 shadow-xl shadow-black/20" />
-            <div className="h-32 rounded-4xl border border-[#22303D] bg-[#17212B]/95 p-4 shadow-xl shadow-black/20" />
-          </div>
-          <p className="text-center text-sm text-gray-400">Loading Daffgle Help Hub...</p>
+          <p className="text-center text-sm text-gray-400 font-medium">Syncing Daffgle Network...</p>
         </div>
       </main>
     );
@@ -390,16 +510,16 @@ export default function HelpHubDashboardPage() {
 
   return (
     <main className="flex h-dvh overflow-hidden bg-[#0E1621] text-white">
-      {/* Sidebar / Left panel */}
-      <aside className="flex w-full flex-col bg-[#17212B] md:w-107.5 md:border-r md:border-[#22303D]">
+      {/* Desktop Sidebar Panel */}
+      <aside className="hidden w-full flex-col bg-[#17212B] md:flex md:w-107.5 md:border-r md:border-[#22303D]">
         <header className="sticky top-0 z-30 border-b border-[#22303D] bg-[#17212B]/95 px-6 py-5 backdrop-blur">
           <div className="flex flex-col gap-4 px-1 py-1 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h1 className="text-2xl font-black tracking-tight text-[#2AABEE]">
                 Daffgle Help Hub
               </h1>
-              <p className="text-xs text-gray-400">
-                Anonymous Campus Network for DIU
+              <p className="text-xs text-gray-400 font-semibold uppercase tracking-widest mt-0.5">
+                Campus Assistance
               </p>
             </div>
 
@@ -408,7 +528,7 @@ export default function HelpHubDashboardPage() {
               disabled={refreshing}
               className="rounded-2xl bg-[#2B5278] px-4 py-2 text-xs font-bold transition hover:scale-[1.02] hover:opacity-90 disabled:opacity-60 cursor-pointer"
             >
-              {refreshing ? "Syncing..." : "Refresh"}
+              {refreshing ? "Syncing..." : "Sync"}
             </button>
           </div>
 
@@ -416,20 +536,32 @@ export default function HelpHubDashboardPage() {
           {profile && (
             <div className="mt-4 rounded-3xl border border-[#22303D] bg-[#0F1A24] p-4 shadow-xl shadow-black/10">
               <div className="flex items-center gap-3">
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#2B5278] text-lg font-black">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#2B5278] text-lg font-black relative">
                   {profile.anonymous_username.charAt(0).toUpperCase()}
+                  {profile.warning_badge && (
+                    <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-655 text-[9px] font-black text-white animate-pulse">
+                      ⚠️
+                    </span>
+                  )}
                 </div>
 
                 <div className="min-w-0 flex-1">
-                  <p className="truncate font-bold">
-                    {profile.anonymous_username}
-                  </p>
+                  <div className="flex items-center gap-1.5">
+                    <p className="truncate font-bold">
+                      {profile.anonymous_username}
+                    </p>
+                    {profile.warning_badge && (
+                      <span className="rounded-full bg-red-600/10 border border-red-500/20 px-2.5 py-0.5 text-[8px] font-bold text-red-400 tracking-wide uppercase shrink-0 animate-pulse">
+                        ⚠️ Suspect
+                      </span>
+                    )}
+                  </div>
                   <p className="truncate text-xs text-gray-400">
-                    {profile.department} • {profile.hall}
+                    {profile.department} • {profile.hall} • <span className="text-[#2AABEE] font-bold">{profile.karma} Karma</span>
                   </p>
                 </div>
 
-                <div className="rounded-full bg-green-500/10 px-3 py-1 text-[11px] font-bold text-green-400">
+                <div className="rounded-full bg-green-500/10 px-3 py-1 text-[11px] font-bold text-green-400 shrink-0">
                   ● Online
                 </div>
               </div>
@@ -439,8 +571,10 @@ export default function HelpHubDashboardPage() {
           {/* Navigation Options */}
           <div className="mt-4 grid grid-cols-2 gap-2">
             <button
-              onClick={() => router.push("/dashboard")}
-              className="rounded-2xl bg-[#2AABEE] py-3 text-sm font-black text-white shadow-lg shadow-[#2AABEE]/20 cursor-pointer"
+              onClick={() => setActiveTab("available")}
+              className={`rounded-2xl py-3 text-sm font-black transition cursor-pointer ${
+                activeTab === "available" ? "bg-[#2AABEE] text-white shadow-lg shadow-[#2AABEE]/25" : "bg-[#0F1A24] text-gray-300 hover:bg-[#182533]"
+              }`}
             >
               Help Hub
             </button>
@@ -476,20 +610,32 @@ export default function HelpHubDashboardPage() {
                   key={req.id}
                   initial={{ opacity: 0, y: 12 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.03 }}
-                  className="w-full rounded-3xl border border-[#22303D] bg-[#0F1A24] p-5 shadow-lg shadow-black/20"
+                  transition={{ delay: index * 0.02 }}
+                  className="w-full rounded-3xl border border-[#22303D] bg-[#0F1A24] p-5 shadow-lg shadow-black/20 space-y-4"
                 >
                   <div className="flex items-start gap-4">
-                    <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[#2B5278] text-2xl font-black">
+                    <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[#2B5278] text-2xl font-black relative">
                       📦
+                      {req.requester?.warning_badge && (
+                        <span className="absolute -top-1 -right-1 flex h-4.5 w-4.5 items-center justify-center rounded-full bg-red-655 text-[10px] font-black text-white animate-pulse">
+                          ⚠️
+                        </span>
+                      )}
                     </div>
 
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center justify-between gap-3">
-                        <p className="text-xs font-bold text-[#2AABEE] uppercase tracking-wide">
-                          {req.action}
-                        </p>
-                        <span className="text-[11px] text-gray-500">
+                        <div className="flex items-center gap-1 min-w-0">
+                          <p className="text-xs font-bold text-[#2AABEE] uppercase tracking-wide truncate">
+                            @{req.requester?.anonymous_username}
+                          </p>
+                          {req.requester?.warning_badge && (
+                            <span className="text-[7px] font-black bg-red-655/15 border border-red-500/20 px-1 py-0.2 rounded-full text-red-400 uppercase tracking-widest shrink-0 animate-pulse">
+                              ⚠️ Badged
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-[11px] text-gray-500 shrink-0">
                           {formatTimeAgo(req.created_at)}
                         </span>
                       </div>
@@ -498,16 +644,22 @@ export default function HelpHubDashboardPage() {
                         {req.item}
                       </h3>
 
-                      <p className="mt-1 text-sm text-gray-400 leading-normal">
-                        Someone from <span className="text-white font-semibold">{req.requester_hall}</span> needs a {req.item.toLowerCase()}.
+                      <p className="mt-1 text-xs text-gray-400">
+                        Karma rating: <span className="text-[#2AABEE] font-bold">{req.requester?.karma ?? 0}</span>
                       </p>
 
                       <div className="mt-4 flex gap-2">
                         <button
                           onClick={() => handleHelpNow(req)}
-                          className="w-full rounded-2xl bg-[#2AABEE] py-2.5 text-xs font-black text-white hover:scale-[1.01] transition cursor-pointer text-center"
+                          className="flex-1 rounded-xl bg-[#2AABEE] py-2 text-xs font-black text-white hover:scale-[1.01] transition cursor-pointer text-center"
                         >
                           Help Now
+                        </button>
+                        <button
+                          onClick={() => openReportModal(req.requester_id, req.requester?.anonymous_username || "User", req.id)}
+                          className="rounded-xl bg-red-950/20 border border-red-900/30 px-3 py-2 text-xs font-extrabold text-red-400 hover:bg-red-950/50 transition cursor-pointer shrink-0"
+                        >
+                          Report
                         </button>
                       </div>
                     </div>
@@ -521,28 +673,28 @@ export default function HelpHubDashboardPage() {
                 </div>
                 <h3 className="text-base font-black">No open requests</h3>
                 <p className="mt-2 text-xs text-gray-400 leading-normal">
-                  All requests in {profile?.hall || "your hall"} are solved! Check back later, or create a request.
+                  All requests in {profile?.hall || "your hall"} are solved! Check back later.
                 </p>
               </div>
             )}
           </div>
         </section>
 
-        {/* Footer Nav Bar for Sidebar */}
+        {/* Sidebar Nav Footer */}
         <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-[#22303D] bg-[#17212B]/95 px-4 py-4 backdrop-blur md:absolute md:right-auto md:w-107.5">
           <div className="grid grid-cols-3 gap-3">
+            <button
+              onClick={() => router.push("/")}
+              className="rounded-full bg-[#0F1A24] py-3 text-sm font-bold text-gray-300 transition duration-200 hover:bg-[#182533] cursor-pointer"
+            >
+              Home
+            </button>
+
             <button
               onClick={() => router.push("/dashboard")}
               className="rounded-full bg-[#2AABEE] py-3 text-sm font-black text-white shadow-lg shadow-[#2AABEE]/20 transition duration-200 hover:scale-[1.02] cursor-pointer"
             >
               Help Hub
-            </button>
-
-            <button
-              onClick={() => router.push("/chat")}
-              className="rounded-full bg-[#0F1A24] py-3 text-sm font-bold text-gray-300 transition duration-200 hover:bg-[#182533] cursor-pointer"
-            >
-              Chats
             </button>
 
             <button
@@ -556,15 +708,15 @@ export default function HelpHubDashboardPage() {
       </aside>
 
       {/* Main Panel / Right Panel */}
-      <section className="hidden flex-1 flex-col bg-[#0F1A24] md:flex">
+      <section className="flex flex-1 flex-col bg-[#0F1A24] overflow-x-hidden w-full pb-safe">
         {/* Navigation Tabs Header */}
-        <header className="sticky top-0 z-30 border-b border-[#22303D] bg-[#17212B] px-8 py-5">
-          <div className="flex items-center justify-between">
-            <div className="flex gap-4">
+        <header className="sticky top-0 z-30 border-b border-[#22303D] bg-[#17212B] px-4 md:px-8 py-5">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="flex gap-2 overflow-x-auto no-scrollbar scroll-smooth">
               <button
                 onClick={() => setActiveTab("available")}
-                className={`rounded-2xl px-6 py-2.5 text-sm font-bold transition cursor-pointer ${
-                  activeTab === "available" ? "bg-[#2AABEE] text-white" : "bg-[#0E1621] text-gray-400 hover:bg-[#182533]"
+                className={`rounded-2xl px-5 py-2.5 text-xs md:text-sm font-bold transition cursor-pointer shrink-0 ${
+                  activeTab === "available" ? "bg-[#2AABEE] text-white shadow-md shadow-[#2AABEE]/15" : "bg-[#0E1621] text-gray-400 hover:bg-[#182533]"
                 }`}
               >
                 Available Help
@@ -572,8 +724,8 @@ export default function HelpHubDashboardPage() {
 
               <button
                 onClick={() => setActiveTab("my_requests")}
-                className={`rounded-2xl px-6 py-2.5 text-sm font-bold transition cursor-pointer ${
-                  activeTab === "my_requests" ? "bg-[#2AABEE] text-white" : "bg-[#0E1621] text-gray-400 hover:bg-[#182533]"
+                className={`rounded-2xl px-5 py-2.5 text-xs md:text-sm font-bold transition cursor-pointer shrink-0 ${
+                  activeTab === "my_requests" ? "bg-[#2AABEE] text-white shadow-md shadow-[#2AABEE]/15" : "bg-[#0E1621] text-gray-400 hover:bg-[#182533]"
                 }`}
               >
                 My Requests ({myRequests.length})
@@ -581,8 +733,8 @@ export default function HelpHubDashboardPage() {
 
               <button
                 onClick={() => setActiveTab("my_helpins")}
-                className={`rounded-2xl px-6 py-2.5 text-sm font-bold transition cursor-pointer ${
-                  activeTab === "my_helpins" ? "bg-[#2AABEE] text-white" : "bg-[#0E1621] text-gray-400 hover:bg-[#182533]"
+                className={`rounded-2xl px-5 py-2.5 text-xs md:text-sm font-bold transition cursor-pointer shrink-0 ${
+                  activeTab === "my_helpins" ? "bg-[#2AABEE] text-white shadow-md shadow-[#2AABEE]/15" : "bg-[#0E1621] text-gray-400 hover:bg-[#182533]"
                 }`}
               >
                 My Helpin&apos;s ({myHelpins.length})
@@ -591,7 +743,7 @@ export default function HelpHubDashboardPage() {
 
             <button
               onClick={() => setShowCreateModal(true)}
-              className="rounded-2xl bg-[#2AABEE] px-6 py-3 text-sm font-black text-white hover:scale-[1.02] transition cursor-pointer shadow-lg shadow-[#2AABEE]/20"
+              className="rounded-2xl bg-[#2AABEE] px-5 py-3 text-xs md:text-sm font-black text-white hover:scale-[1.02] transition cursor-pointer shadow-lg shadow-[#2AABEE]/20 shrink-0 self-start sm:self-auto"
             >
               + Create Help Request
             </button>
@@ -599,14 +751,14 @@ export default function HelpHubDashboardPage() {
         </header>
 
         {/* Tab Contents Panel */}
-        <div className="flex-1 overflow-y-auto p-8">
+        <div className="flex-1 overflow-y-auto p-4 md:p-8 pb-32 md:pb-8">
           <div className="mx-auto max-w-4xl">
             {activeTab === "available" && (
               <div className="space-y-6">
                 <div>
-                  <h2 className="text-3xl font-black">Help Requests in {profile?.hall}</h2>
-                  <p className="mt-1.5 text-gray-400 text-sm">
-                    Only students belonging to <span className="text-white font-medium">{profile?.hall}</span> can view and accept these help requests. Real student emails and student IDs remain completely hidden.
+                  <h2 className="text-2xl md:text-3xl font-black">Help Requests in {profile?.hall}</h2>
+                  <p className="mt-1.5 text-gray-400 text-xs md:text-sm leading-relaxed">
+                    Only students belonging to <span className="text-white font-medium">{profile?.hall}</span> can view and accept these. Request feed is sorted automatically by <span className="text-[#2AABEE] font-bold">Helper Karma</span> prioritizing our most helpful students!
                   </p>
                 </div>
 
@@ -617,34 +769,63 @@ export default function HelpHubDashboardPage() {
                         key={req.id}
                         className="rounded-3xl border border-[#22303D] bg-[#17212B] p-6 shadow-2xl space-y-4 flex flex-col justify-between"
                       >
-                        <div className="space-y-2">
+                        <div className="space-y-3">
                           <div className="flex items-center justify-between">
-                            <span className="rounded-full bg-[#2AABEE]/10 px-3 py-1 text-[11px] font-black text-[#2AABEE] uppercase">
+                            <span className="rounded-full bg-[#2AABEE]/10 px-3 py-1 text-[10px] font-black text-[#2AABEE] uppercase">
                               {req.action}
                             </span>
                             <span className="text-xs text-gray-500">{formatTimeAgo(req.created_at)}</span>
                           </div>
 
+                          <div>
+                            <div className="flex items-center gap-1.5">
+                              <p className="text-xs text-gray-400 font-bold">
+                                Broadcasted by @{req.requester?.anonymous_username}
+                              </p>
+                              {req.requester?.warning_badge && (
+                                <span className="rounded-full bg-red-655/15 border border-red-500/20 px-1.5 py-0.2 text-[8px] font-black text-red-400 uppercase tracking-wide shrink-0 animate-pulse">
+                                  ⚠️ Suspect
+                                </span>
+                              )}
+                            </div>
+                            <div className="mt-1 flex items-center gap-3">
+                              <span className="text-xs text-gray-500">
+                                Karma: <span className="text-[#2AABEE] font-extrabold">{req.requester?.karma ?? 0}</span>
+                              </span>
+                              <span className="text-xs text-gray-500">
+                                Dept: <span className="text-white font-semibold">{req.requester?.department}</span>
+                              </span>
+                            </div>
+                          </div>
+
                           <h3 className="text-xl font-black text-white">{req.item}</h3>
-                          <p className="text-sm text-gray-400 leading-relaxed">
-                            Someone needs a <span className="text-white font-medium">{req.item.toLowerCase()}</span> in your hall. 
+                          <p className="text-xs md:text-sm text-gray-400 leading-relaxed">
+                            A verified student in <span className="text-white font-semibold">{req.requester_hall}</span> needs a {req.item.toLowerCase()}.
                           </p>
                         </div>
 
-                        <button
-                          onClick={() => handleHelpNow(req)}
-                          className="w-full rounded-2xl bg-[#2AABEE] py-3 text-sm font-black text-white hover:opacity-90 transition cursor-pointer text-center"
-                        >
-                          Help Now
-                        </button>
+                        <div className="flex gap-2 pt-2">
+                          <button
+                            onClick={() => handleHelpNow(req)}
+                            className="flex-1 rounded-2xl bg-[#2AABEE] py-3 text-xs md:text-sm font-black text-white hover:opacity-90 transition cursor-pointer text-center"
+                          >
+                            Help Now
+                          </button>
+                          <button
+                            onClick={() => openReportModal(req.requester_id, req.requester?.anonymous_username || "User", req.id)}
+                            className="rounded-2xl bg-red-950/20 border border-red-900/35 px-4 py-3 text-xs md:text-sm font-bold text-red-400 hover:bg-red-950/40 transition cursor-pointer shrink-0"
+                          >
+                            Report
+                          </button>
+                        </div>
                       </div>
                     ))
                   ) : (
-                    <div className="col-span-2 py-16 text-center border border-dashed border-[#22303D] rounded-3xl">
+                    <div className="col-span-2 py-16 text-center border border-dashed border-[#22303D] rounded-3xl bg-[#17212B]/40">
                       <p className="text-4xl">🕊️</p>
-                      <h3 className="mt-4 text-xl font-bold">No available requests</h3>
-                      <p className="mt-2 text-sm text-gray-400 max-w-md mx-auto leading-relaxed">
-                        There are no active, open help requests in your hall right now. You can create a request if you need something.
+                      <h3 className="mt-4 text-lg md:text-xl font-bold">No active requests</h3>
+                      <p className="mt-2 text-xs md:text-sm text-gray-400 max-w-sm mx-auto leading-relaxed px-4">
+                        There are no active, open help requests in your hall right now. Check back later or create a request.
                       </p>
                     </div>
                   )}
@@ -655,8 +836,8 @@ export default function HelpHubDashboardPage() {
             {activeTab === "my_requests" && (
               <div className="space-y-6">
                 <div>
-                  <h2 className="text-3xl font-black">My Help Requests</h2>
-                  <p className="mt-1.5 text-gray-400 text-sm">
+                  <h2 className="text-2xl md:text-3xl font-black">My Help Requests</h2>
+                  <p className="mt-1.5 text-gray-400 text-xs md:text-sm">
                     Manage requests you have created. You can cancel active requests or mark them as solved when you receive assistance.
                   </p>
                 </div>
@@ -670,7 +851,7 @@ export default function HelpHubDashboardPage() {
                       >
                         <div className="space-y-1">
                           <div className="flex flex-wrap items-center gap-2">
-                            <h3 className="text-xl font-black text-white">{req.item}</h3>
+                            <h3 className="text-lg md:text-xl font-black text-white">{req.item}</h3>
                             <span className={`rounded-full px-3 py-1 text-[10px] font-black uppercase ${
                               req.status === "open" ? "bg-green-500/10 text-green-400" :
                               req.status === "accepted" ? "bg-[#2AABEE]/10 text-[#2AABEE]" :
@@ -685,9 +866,16 @@ export default function HelpHubDashboardPage() {
                           </p>
 
                           {req.status === "accepted" && req.helper && (
-                            <p className="text-xs text-green-400 font-bold">
-                              🤝 Accepted by helper: @{req.helper.anonymous_username} ({req.helper.department})
-                            </p>
+                            <div className="flex items-center gap-1.5 mt-1">
+                              <p className="text-xs text-green-400 font-extrabold">
+                                🤝 Helper @{req.helper.anonymous_username} ({req.helper.department})
+                              </p>
+                              {req.helper.warning_badge && (
+                                <span className="rounded-full bg-red-655/15 border border-red-500/20 px-1.5 py-0.2 text-[8px] font-bold text-red-400 uppercase animate-pulse">
+                                  ⚠️ Suspect
+                                </span>
+                              )}
+                            </div>
                           )}
                         </div>
 
@@ -719,7 +907,7 @@ export default function HelpHubDashboardPage() {
                           )}
                           
                           {(req.status === "solved" || req.status === "cancelled") && (
-                            <span className="text-xs text-gray-500 italic font-medium px-4 py-2">
+                            <span className="text-xs text-gray-500 italic font-medium px-4 py-2 bg-[#0E1621] rounded-xl">
                               Archived
                             </span>
                           )}
@@ -727,11 +915,11 @@ export default function HelpHubDashboardPage() {
                       </div>
                     ))
                   ) : (
-                    <div className="py-16 text-center border border-dashed border-[#22303D] rounded-3xl">
+                    <div className="py-16 text-center border border-dashed border-[#22303D] rounded-3xl bg-[#17212B]/40">
                       <p className="text-4xl">📝</p>
                       <h3 className="mt-4 text-xl font-bold">No requests created</h3>
-                      <p className="mt-2 text-sm text-gray-400 max-w-md mx-auto leading-relaxed">
-                        You have not created any help requests yet. Need a charger or extension cord? Click the create button.
+                      <p className="mt-2 text-xs md:text-sm text-gray-400 max-w-sm mx-auto leading-relaxed px-4">
+                        You have not created any help requests yet. Need something? Click the create button.
                       </p>
                     </div>
                   )}
@@ -742,8 +930,8 @@ export default function HelpHubDashboardPage() {
             {activeTab === "my_helpins" && (
               <div className="space-y-6">
                 <div>
-                  <h2 className="text-3xl font-black">My Helpin&apos;s</h2>
-                  <p className="mt-1.5 text-gray-400 text-sm">
+                  <h2 className="text-2xl md:text-3xl font-black">My Helpin&apos;s</h2>
+                  <p className="mt-1.5 text-gray-400 text-xs md:text-sm">
                     Track campus help requests you accepted. Keep communication friendly and open to help your fellow students.
                   </p>
                 </div>
@@ -756,10 +944,17 @@ export default function HelpHubDashboardPage() {
                         className="rounded-3xl border border-[#22303D] bg-[#17212B] p-6 shadow-2xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
                       >
                         <div className="space-y-1">
-                          <h3 className="text-xl font-black text-white">{req.item}</h3>
-                          <p className="text-xs text-gray-400">
-                            Requested by: @{req.requester?.anonymous_username} ({req.requester?.department})
-                          </p>
+                          <h3 className="text-lg md:text-xl font-black text-white">{req.item}</h3>
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <p className="text-xs text-gray-400">
+                              Requested by: @{req.requester?.anonymous_username} ({req.requester?.department})
+                            </p>
+                            {req.requester?.warning_badge && (
+                              <span className="rounded-full bg-red-655/15 border border-red-500/20 px-1.5 py-0.2 text-[8px] font-bold text-red-400 uppercase animate-pulse">
+                                  ⚠️ Suspect
+                              </span>
+                            )}
+                          </div>
                           <p className="text-xs text-gray-500">
                             Status: <span className="capitalize font-semibold text-white">{req.status}</span>
                           </p>
@@ -775,12 +970,12 @@ export default function HelpHubDashboardPage() {
                             </button>
                           )}
                           {req.status === "solved" && (
-                            <span className="text-xs text-green-400 font-bold px-4 py-2 flex items-center gap-1">
+                            <span className="text-xs text-green-400 font-bold px-4 py-2 flex items-center gap-1 bg-green-950/20 rounded-xl">
                               ✓ Solved successfully
                             </span>
                           )}
                           {req.status === "cancelled" && (
-                            <span className="text-xs text-gray-500 italic px-4 py-2">
+                            <span className="text-xs text-gray-500 italic px-4 py-2 bg-[#0E1621] rounded-xl">
                               Cancelled by requester
                             </span>
                           )}
@@ -788,10 +983,10 @@ export default function HelpHubDashboardPage() {
                       </div>
                     ))
                   ) : (
-                    <div className="py-16 text-center border border-dashed border-[#22303D] rounded-3xl">
+                    <div className="py-16 text-center border border-dashed border-[#22303D] rounded-3xl bg-[#17212B]/40">
                       <p className="text-4xl">🤝</p>
                       <h3 className="mt-4 text-xl font-bold">No accepted help requests</h3>
-                      <p className="mt-2 text-sm text-gray-400 max-w-md mx-auto leading-relaxed">
+                      <p className="mt-2 text-xs md:text-sm text-gray-400 max-w-sm mx-auto leading-relaxed px-4">
                         You haven&apos;t offered help on any requests yet. View active requests in your hall and click &quot;Help Now&quot; to connect.
                       </p>
                     </div>
@@ -803,7 +998,44 @@ export default function HelpHubDashboardPage() {
         </div>
       </section>
 
-      {/* Glassmorphic Modal to Create New Help Request */}
+      {/* Floating Mobile Navigation Bar */}
+      <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-[#22303D] bg-[#17212B]/95 px-4 py-3 backdrop-blur md:hidden pb-safe">
+        <div className="mx-auto grid max-w-2xl grid-cols-4 gap-1">
+          <button
+            onClick={() => router.push("/")}
+            className="flex flex-col items-center gap-0.5 py-1.5 rounded-2xl text-gray-400 hover:bg-[#182533]/40 transition duration-200 cursor-pointer"
+          >
+            <span className="text-lg">🏠</span>
+            <span className="text-[10px] font-bold tracking-wide uppercase">Home</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab("available")}
+            className="flex flex-col items-center gap-0.5 py-1.5 rounded-2xl bg-[#2B5278]/20 text-[#2AABEE] transition duration-200 cursor-pointer"
+          >
+            <span className="text-lg">🤝</span>
+            <span className="text-[10px] font-black tracking-wide uppercase">Help Hub</span>
+          </button>
+
+          <button
+            onClick={() => router.push("/chat")}
+            className="flex flex-col items-center gap-0.5 py-1.5 rounded-2xl text-gray-400 hover:bg-[#182533]/40 transition duration-200 cursor-pointer"
+          >
+            <span className="text-lg">💬</span>
+            <span className="text-[10px] font-bold tracking-wide uppercase">Chats</span>
+          </button>
+
+          <button
+            onClick={() => router.push("/profile")}
+            className="flex flex-col items-center gap-0.5 py-1.5 rounded-2xl text-gray-400 hover:bg-[#182533]/40 transition duration-200 cursor-pointer"
+          >
+            <span className="text-lg">👤</span>
+            <span className="text-[10px] font-bold tracking-wide uppercase">Profile</span>
+          </button>
+        </div>
+      </nav>
+
+      {/* Modal to Create New Help Request */}
       <AnimatePresence>
         {showCreateModal && (
           <motion.div
@@ -851,7 +1083,6 @@ export default function HelpHubDashboardPage() {
                   </select>
                 </div>
 
-                {/* Predefined preview card */}
                 {selectedItem && profile && (
                   <div className="rounded-2xl border border-[#2AABEE]/20 bg-[#2AABEE]/5 p-4 space-y-1">
                     <p className="text-[10px] font-bold text-[#2AABEE] uppercase tracking-wider">
@@ -881,6 +1112,87 @@ export default function HelpHubDashboardPage() {
                   className="flex-1 rounded-2xl bg-[#2AABEE] py-3 text-sm font-black text-white hover:opacity-90 transition disabled:opacity-50 cursor-pointer shadow-lg shadow-[#2AABEE]/20"
                 >
                   {submitting ? "Publishing..." : "Publish Request"}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Modal to Report a User */}
+      <AnimatePresence>
+        {showReportModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+          >
+            <motion.div
+              initial={{ scale: 0.95, y: 15 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: 15 }}
+              className="w-full max-w-md overflow-hidden rounded-3xl border border-[#22303D] bg-[#17212B] p-6 shadow-2xl space-y-6"
+            >
+              <div>
+                <h3 className="text-2xl font-black text-red-400 tracking-tight">Report User</h3>
+                <p className="text-xs text-gray-400 mt-1">
+                  Report student @<span className="text-white font-bold">{reportTargetName}</span> to Daffgle admin for investigation.
+                </p>
+              </div>
+
+              <div className="space-y-4">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block ml-1">
+                    Select Report Reason
+                  </label>
+                  <select
+                    value={reportReason}
+                    onChange={(e) => setReportReason(e.target.value)}
+                    className="w-full rounded-2xl border border-[#22303D] bg-[#0F1A24] px-4 py-3 text-white focus:border-red-400 outline-none transition"
+                  >
+                    <option value="">-- Choose reason --</option>
+                    {REPORT_REASONS.map((reason) => (
+                      <option key={reason} value={reason}>
+                        {reason}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block ml-1">
+                    Provide Audit Details
+                  </label>
+                  <textarea
+                    value={reportDetails}
+                    onChange={(e) => setReportDetails(e.target.value)}
+                    placeholder="Enter context, chat comments, or details..."
+                    rows={4}
+                    className="w-full rounded-2xl border border-[#22303D] bg-[#0F1A24] px-4 py-3 text-white outline-none focus:border-red-400 text-sm resize-none"
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    setShowReportModal(false);
+                    setReportTargetId("");
+                    setReportTargetName("");
+                    setReportRequestId("");
+                  }}
+                  className="flex-1 rounded-2xl bg-[#0F1A24] border border-[#22303D] py-3 text-sm font-bold text-gray-300 transition hover:bg-[#182533] cursor-pointer"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  onClick={handleSubmitReport}
+                  disabled={submittingReport}
+                  className="flex-1 rounded-2xl bg-red-650 py-3 text-sm font-black text-white hover:opacity-90 transition disabled:opacity-50 cursor-pointer shadow-lg shadow-red-600/20"
+                >
+                  {submittingReport ? "Submitting..." : "Submit Report"}
                 </button>
               </div>
             </motion.div>

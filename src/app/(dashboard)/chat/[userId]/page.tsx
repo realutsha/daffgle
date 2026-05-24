@@ -135,8 +135,10 @@ export default function PrivateChatPage() {
         .eq("conversation_id", convId)
         .order("created_at", { ascending: true });
 
-      if (!error) {
-        setMessages(messageData || []);
+      if (error) {
+        console.error("Error loading chat messages:", error.message, error.details);
+      } else if (messageData) {
+        setMessages(messageData);
       }
 
       // Mark messages as seen
@@ -233,10 +235,11 @@ export default function PrivateChatPage() {
           event: "INSERT",
           schema: "public",
           table: "messages",
-          filter: `conversation_id=eq.${conversationId}`,
         },
-        () => {
-          loadChat();
+        (payload) => {
+          if (payload.new && payload.new.conversation_id === conversationId) {
+            loadChat();
+          }
         }
       )
       .subscribe();

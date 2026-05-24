@@ -13,6 +13,7 @@ type Conversation = {
   last_message_time: string;
   unread_count: number;
   is_online: boolean;
+  last_seen?: string;
 };
 
 function formatTime(date: string) {
@@ -35,6 +36,14 @@ function formatTime(date: string) {
     month: "short",
     day: "numeric",
   });
+}
+
+function isUserActuallyOnline(isOnline: boolean | undefined, lastSeen: string | undefined) {
+  if (!isOnline) return false;
+  if (!lastSeen) return false;
+  const lastSeenDate = new Date(lastSeen).getTime();
+  const now = Date.now();
+  return now - lastSeenDate < 90000;
 }
 
 export default function ChatPage() {
@@ -108,7 +117,7 @@ export default function ChatPage() {
 
     const { data: profiles } = await supabase
       .from("profiles")
-      .select("id, anonymous_username, department, is_online")
+      .select("id, anonymous_username, department, is_online, last_seen")
       .in("id", userIds);
 
     const profileMap = new Map(
@@ -137,6 +146,7 @@ export default function ChatPage() {
         last_message_time: message.created_at,
         unread_count: unreadCount,
         is_online: profile.is_online,
+        last_seen: profile.last_seen,
       });
     }
 
@@ -152,15 +162,20 @@ export default function ChatPage() {
 
   useEffect(() => {
     loadChats();
+  }, [loadChats]);
+
+  useEffect(() => {
+    if (!currentUserId) return;
 
     const channel = supabase
       .channel("chat-page-realtime")
       .on(
         "postgres_changes",
         {
-          event: "*",
+          event: "INSERT",
           schema: "public",
           table: "messages",
+          filter: `receiver_id=eq.${currentUserId}`,
         },
         () => {
           loadChats();
@@ -171,7 +186,7 @@ export default function ChatPage() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [loadChats]);
+  }, [currentUserId, loadChats]);
 
   if (loading) {
     return (
@@ -252,7 +267,7 @@ export default function ChatPage() {
                     <div className="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[#2B5278] text-lg font-black">
                       {chat.anonymous_username.charAt(0).toUpperCase()}
 
-                      {chat.is_online && (
+                      {isUserActuallyOnline(chat.is_online, chat.last_seen) && (
                         <span className="absolute -right-0.5 -top-0.5 h-4 w-4 rounded-full border-2 border-[#17212B] bg-green-400" />
                       )}
                     </div>

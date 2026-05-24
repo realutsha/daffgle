@@ -18,7 +18,9 @@ export default function LoginPage() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: "https://daffgle.vercel.app/auth/callback",
+          redirectTo: typeof window !== "undefined"
+            ? `${window.location.origin}/auth/callback`
+            : "https://daffgle.vercel.app/auth/callback",
         },
       });
 

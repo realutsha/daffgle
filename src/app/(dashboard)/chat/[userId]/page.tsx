@@ -30,6 +30,14 @@ function formatTime(date: string) {
   });
 }
 
+function isUserActuallyOnline(isOnline: boolean | undefined, lastSeen: string | undefined) {
+  if (!isOnline) return false;
+  if (!lastSeen) return false;
+  const lastSeenDate = new Date(lastSeen).getTime();
+  const now = Date.now();
+  return now - lastSeenDate < 90000;
+}
+
 export default function PrivateChatPage() {
   const router = useRouter();
   const params = useParams();
@@ -133,12 +141,15 @@ export default function PrivateChatPage() {
       .on(
         "postgres_changes",
         {
-          event: "*",
+          event: "INSERT",
           schema: "public",
           table: "messages",
+          filter: `sender_id=eq.${otherUserId}`,
         },
-        () => {
-          loadChat();
+        (payload) => {
+          if (payload.new.receiver_id === currentUserId) {
+            loadChat();
+          }
         }
       )
       .subscribe();
@@ -253,7 +264,7 @@ export default function PrivateChatPage() {
           <div className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#2B5278] text-lg font-black">
             {otherUser?.anonymous_username?.charAt(0).toUpperCase() || "U"}
 
-            {otherUser?.is_online && (
+            {isUserActuallyOnline(otherUser?.is_online, otherUser?.last_seen) && (
               <span className="absolute -right-0.5 -top-0.5 h-4 w-4 rounded-full border-2 border-[#17212B] bg-green-400" />
             )}
           </div>
@@ -263,7 +274,7 @@ export default function PrivateChatPage() {
               {otherUser?.anonymous_username}
             </h1>
             <p className="truncate text-xs text-gray-400">
-              {otherUser?.is_online ? "Online now" : otherUser?.department}
+              {isUserActuallyOnline(otherUser?.is_online, otherUser?.last_seen) ? "Online now" : otherUser?.department}
             </p>
           </div>
 

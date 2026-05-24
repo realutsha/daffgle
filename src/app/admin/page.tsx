@@ -43,6 +43,14 @@ function formatDate(date?: string | null) {
   return new Date(date).toLocaleString();
 }
 
+function isUserActuallyOnline(isOnline: boolean | undefined, lastSeen: string | undefined) {
+  if (!isOnline) return false;
+  if (!lastSeen) return false;
+  const lastSeenDate = new Date(lastSeen).getTime();
+  const now = Date.now();
+  return now - lastSeenDate < 90000;
+}
+
 export default function AdminPage() {
   const router = useRouter();
 
@@ -283,7 +291,7 @@ export default function AdminPage() {
 
           <div className="rounded-2xl bg-[#17212B] p-5">
             <p className="text-3xl font-bold text-green-400">
-              {users.filter((user) => user.is_online).length}
+              {users.filter((user) => isUserActuallyOnline(user.is_online, user.last_seen)).length}
             </p>
             <p className="text-sm text-gray-400">Online</p>
           </div>
@@ -414,11 +422,11 @@ export default function AdminPage() {
                           </span>
                         )}
 
-                        {user.is_online && (
-                          <span className="rounded-full bg-green-900 px-2 py-1 text-xs text-green-200">
-                            Online
-                          </span>
-                        )}
+                         {isUserActuallyOnline(user.is_online, user.last_seen) && (
+                           <span className="rounded-full bg-green-900 px-2 py-1 text-xs text-green-200">
+                             Online
+                           </span>
+                         )}
                       </div>
 
                       <p className="mt-1 text-sm text-gray-400">

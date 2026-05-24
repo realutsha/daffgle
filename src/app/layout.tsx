@@ -18,6 +18,9 @@ export const metadata: Metadata = {
   description:
     "Anonymous realtime chat platform for DIU students",
   manifest: "/manifest.json",
+};
+
+export const viewport = {
   themeColor: "#0E1621",
 };
 

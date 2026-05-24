@@ -42,6 +42,14 @@ function formatLastSeen(date: string, online: boolean) {
   return `Active ${diffDays}d ago`;
 }
 
+export function isUserActuallyOnline(isOnline: boolean | undefined, lastSeen: string | undefined) {
+  if (!isOnline) return false;
+  if (!lastSeen) return false;
+  const lastSeenDate = new Date(lastSeen).getTime();
+  const now = Date.now();
+  return now - lastSeenDate < 90000;
+}
+
 export default function DashboardPage() {
   const router = useRouter();
 
@@ -90,7 +98,7 @@ export default function DashboardPage() {
       .single();
 
     if (!profileData) {
-      router.replace("/setup");
+      router.replace("/auth/setup");
       return;
     }
 
@@ -328,7 +336,7 @@ export default function DashboardPage() {
                       </p>
 
                       <p className="mt-1 text-xs font-medium text-green-400">
-                        {formatLastSeen(user.last_seen, user.is_online)}
+                        {formatLastSeen(user.last_seen, isUserActuallyOnline(user.is_online, user.last_seen))}
                       </p>
                     </div>
                   </div>

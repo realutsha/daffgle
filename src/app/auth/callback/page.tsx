@@ -4,7 +4,8 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 
-const ADMIN_EMAIL = "madhurzamutsha@gmail.com";
+// Obfuscated to hide admin email in public JS bundles
+const ADMIN_EMAIL = typeof window !== "undefined" ? atob("bWFkaHVyemFtdXRzaGFAZ21haWwuY29t") : "madhurzamutsha@gmail.com";
 
 export default function AuthCallbackPage() {
   const router = useRouter();

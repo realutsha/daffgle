@@ -6,6 +6,7 @@ import { setUserOnline, setUserOffline } from "@/lib/presence";
 import { setupPushNotifications } from "@/lib/notifications";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
+import { toast } from "sonner";
 
 type Profile = {
   id: string;
@@ -130,6 +131,11 @@ export default function DashboardPage() {
     setRefreshing(false);
   }, [router]);
 
+  const handleRefresh = async () => {
+    await loadDashboard();
+    toast.success("Profiles synchronized successfully!");
+  };
+
   useEffect(() => {
     let userId = "";
     let interval: NodeJS.Timeout;
@@ -234,7 +240,7 @@ export default function DashboardPage() {
             </div>
 
             <button
-              onClick={loadDashboard}
+              onClick={handleRefresh}
               disabled={refreshing}
               className="rounded-2xl bg-[#2B5278] px-4 py-2 text-xs font-bold transition hover:scale-[1.02] hover:opacity-90 disabled:opacity-60"
             >

@@ -289,6 +289,32 @@ export default function PrivateChatPage() {
       .select("id, sender_id, conversation_id, message, created_at, seen")
       .single();
 
+    // Detailed diagnostic logging
+    const insertPayload = {
+      sender_id: currentUserId,
+      conversation_id: conversationId,
+      message: cleanText,
+      seen: false,
+    };
+    
+    // Execute a test diagnostic select query immediately
+    const { data: testFetchResult, error: testFetchError } = await supabase
+      .from("messages")
+      .select("id, sender_id, conversation_id, message, created_at, seen")
+      .eq("conversation_id", conversationId)
+      .order("created_at", { ascending: true });
+
+    console.log("--- RUNTIME DIAGNOSTICS LOGS ---");
+    console.log("1. Current conversation id from URL (userId param):", params.userId);
+    console.log("2. Active conversationId state variable:", conversationId);
+    console.log("3. Insert payload:", insertPayload);
+    console.log("4. Insert response data (inserted row):", data);
+    console.log("5. Insert response error:", error);
+    console.log("6. Fetch query filter:", `conversation_id = ${conversationId}`);
+    console.log("7. Fetch test query result:", testFetchResult);
+    console.log("8. Fetch test query error:", testFetchError);
+    console.log("---------------------------------");
+
     if (error) {
       console.error("Send message error:", error);
       // Rollback optimistic state and restore text field

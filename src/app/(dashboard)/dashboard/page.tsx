@@ -326,6 +326,8 @@ export default function HelpHubDashboardPage() {
   useEffect(() => {
     if (!profile?.hall || !currentUserId) return;
 
+    console.log("[Help Hub Realtime Listener Debug]: Initializing subscription for hall =", profile.hall);
+
     const alertChannel = supabase
       .channel("same-hall-alerts")
       .on(
@@ -336,9 +338,10 @@ export default function HelpHubDashboardPage() {
           table: "help_requests",
         },
         async (payload) => {
-          console.log("[Help Hub Realtime Change]: Received payload =", payload);
+          console.log("[Help Hub Realtime Listener Debug]: Received event payload =", payload);
           // Sync data in background for any changes (insert, update, delete)
           await loadData(true);
+          console.log("[Help Hub Realtime Listener Debug]: State auto-refreshed successfully.");
 
           if (payload.eventType === "INSERT") {
             const newReq = payload.new as Record<string, unknown>;
@@ -369,9 +372,12 @@ export default function HelpHubDashboardPage() {
           }
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log("[Help Hub Realtime Listener Debug]: Subscription status =", status);
+      });
 
     return () => {
+      console.log("[Help Hub Realtime Listener Debug]: Cleaning up and unsubscribing same-hall-alerts");
       supabase.removeChannel(alertChannel);
     };
   }, [profile?.hall, currentUserId, loadData, handleHelpNow]);
@@ -387,68 +393,93 @@ export default function HelpHubDashboardPage() {
       return;
     }
 
-    if (!profile || !profile.hall) return;
+    // 9. Verify profile.hall is not null.
+    if (!profile || !profile.hall) {
+      console.error("[Help Hub Create Request Error]: Profile or profile.hall is null.", profile);
+      toast.error("Please complete your profile to verify your residence hall first.");
+      return;
+    }
 
     try {
       setSubmitting(true);
 
-      const insertPayload = {
-        requester_id: currentUserId,
-        hall: profile.hall,
-        title: selectedItem,
-        description: `A verified student in ${profile.hall} needs a ${selectedItem.toLowerCase()}.`,
-        status: "open"
-      };
+      // 10. Verify requester_id uses authenticated auth user id.
+      const { data: authUserResult, error: authUserError } = await supabase.auth.getUser();
+      const authenticatedUserId = authUserResult?.user?.id;
 
-      // Task 1: Log details of creation
-      console.log("[Help Hub Create Request Debug]:");
-      console.log("- current user id:", currentUserId);
-      console.log("- user profile hall:", profile.hall);
-      console.log("- insert payload:", insertPayload);
-
-      const insertResult = await supabase
-        .from("help_requests")
-        .insert(insertPayload)
-        .select();
-
-      console.log("- insert result:", insertResult.data);
-      console.log("- insert error:", insertResult.error);
-
-      if (insertResult.error) {
-        console.error("[Help Hub] Supabase insert error:", insertResult.error);
-        if (insertResult.error.message.includes("cooldown")) {
-          toast.error("Hourly limit exceeded: Max 3 open help requests per hour.");
-        } else {
-          toast.error(insertResult.error.message || "Failed to submit request.");
-        }
+      if (authUserError || !authenticatedUserId) {
+        console.error("[Help Hub Create Request Error]: Authenticated user ID not verified.", authUserError);
+        toast.error("Failed to verify user session. Please log in again.");
         return;
       }
 
-      // Task 2: After successful insert, immediately fetch
-      const createdRow = insertResult.data?.[0] || null;
+      const payload = [
+        {
+          requester_id: authenticatedUserId,
+          hall: profile.hall,
+          title: selectedItem,
+          description: `A verified student in ${profile.hall} needs a ${selectedItem.toLowerCase()}.`,
+          status: "open"
+        }
+      ];
 
-      // help_requests where requester_id = current user id
-      const myRequestsFetch = await supabase
+      // 2. Add exact logs: console.log("INSERT PAYLOAD", payload)
+      console.log("INSERT PAYLOAD", payload);
+
+      // 3. Use ONLY this insert (DO NOT chain .select() or .single() after insert)
+      const { data, error } = await supabase
+        .from("help_requests")
+        .insert(payload);
+
+      // 2. Add exact logs: console.log("INSERT RESULT", data) and console.log("INSERT ERROR", error)
+      console.log("INSERT RESULT", data);
+      console.log("INSERT ERROR", error);
+
+      // 5. Only show success toast IF: error === null
+      if (error) {
+        console.error("[Help Hub] Supabase insert error:", error);
+        // 6. If insert fails: show actual error message from Supabase.
+        toast.error("Failed to submit request: " + (error.message || "Unknown Supabase database error"));
+        return;
+      }
+
+      toast.success("Help request broadcasted to your hall!");
+      setShowCreateModal(false);
+      setSelectedItem("");
+
+      // 7. Immediately refetch: Available Help, My Requests after successful insert.
+      const { data: myReqData, error: myReqErr } = await supabase
         .from("help_requests")
         .select("*, helper:profiles!helper_id(anonymous_username, department, gender, karma, warning_badge, is_online, last_seen)")
-        .eq("requester_id", currentUserId)
+        .eq("requester_id", authenticatedUserId)
         .order("created_at", { ascending: false });
 
-      // help_requests where hall = profile.hall and status = open
-      const availableRequestsFetch = await supabase
+      console.log("[Help Hub Immediate Refetch My Requests] count:", myReqData?.length, "error:", myReqErr);
+
+      if (myReqData) {
+        setMyRequests(myReqData);
+      }
+
+      const { data: availData, error: availErr } = await supabase
         .from("help_requests")
         .select("*, requester:profiles!requester_id(anonymous_username, department, gender, karma, warning_badge, is_online, last_seen)")
         .eq("status", "open")
         .eq("hall", profile.hall)
-        .neq("requester_id", currentUserId);
+        .neq("requester_id", authenticatedUserId);
 
-      // Task 3: Log immediate fetch results
-      console.log("[Help Hub Immediate Fetch Debug]:");
-      console.log("- created row:", createdRow);
-      console.log("- myRequests result count:", myRequestsFetch.data?.length, "Data:", myRequestsFetch.data);
-      console.log("- availableRequests result count:", availableRequestsFetch.data?.length, "Data:", availableRequestsFetch.data);
-      console.log("- myRequests Supabase errors:", myRequestsFetch.error);
-      console.log("- availableRequests Supabase errors:", availableRequestsFetch.error);
+      console.log("[Help Hub Immediate Refetch Available Help] count:", availData?.length, "error:", availErr);
+
+      if (availData) {
+        const sortedAvail = (availData || []).sort((a, b) => {
+          const karmaA = a.requester?.karma ?? 0;
+          const karmaB = b.requester?.karma ?? 0;
+          if (karmaB !== karmaA) {
+            return karmaB - karmaA; // Higher karma first
+          }
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime(); // Newest first
+        });
+        setAvailableRequests(sortedAvail);
+      }
 
       // Broadcast background push notification to same-hall students
       fetch("/api/send-notification", {
@@ -458,19 +489,9 @@ export default function HelpHubDashboardPage() {
           type: "same-hall-request",
           hall: profile.hall,
           itemId: selectedItem,
-          requesterId: currentUserId
+          requesterId: authenticatedUserId
         })
       }).catch((err) => console.error("Failed to dispatch push:", err));
-
-      // Task 9: Do not show success toast unless insert actually succeeds
-      toast.success("Help request broadcasted to your hall!");
-      setShowCreateModal(false);
-      setSelectedItem("");
-
-      // Task 8: Make request appear instantly after creation without page refresh
-      if (myRequestsFetch.data) {
-        setMyRequests(myRequestsFetch.data);
-      }
 
       await loadData(true);
     } catch (err) {

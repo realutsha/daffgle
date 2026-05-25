@@ -130,7 +130,10 @@ export default function HelpHubDashboardPage() {
       // 1. Insert conversation
       const { data: convData, error: convError } = await supabase
         .from("conversations")
-        .insert({})
+        .insert({
+          user_one: String(request.requester_id || ""),
+          user_two: currentUserId
+        })
         .select("id")
         .single();
 

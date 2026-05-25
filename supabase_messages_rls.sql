@@ -39,7 +39,7 @@ CREATE POLICY "conversations_insert_policy"
 ON conversations
 FOR INSERT
 TO authenticated
-WITH CHECK (true);
+WITH CHECK (auth.uid() = user_one OR auth.uid() = user_two);
 
 -- 5. Create RLS policies for messages table using conversation_id-based mapping
 CREATE POLICY "messages_select_policy"

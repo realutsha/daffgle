@@ -221,16 +221,15 @@ export default function HelpHubDashboardPage() {
 
     setProfile(profileData as Profile);
 
-    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-
     // 1. Fetch available requests and sort by requester(karma) DESC, then created_at DESC
-    const { data: availData } = await supabase
+    const { data: availData, error: availError } = await supabase
       .from("help_requests")
       .select("*, requester:profiles!requester_id(anonymous_username, department, gender, karma, warning_badge, is_online, last_seen)")
       .eq("status", "open")
       .eq("hall", profileData.hall)
-      .neq("requester_id", myId)
-      .gt("created_at", yesterday);
+      .neq("requester_id", myId);
+
+    console.log("[Help Hub Fetch Debug - Available Help]: count =", availData?.length, "error =", availError);
 
     const sortedAvail = (availData || []).sort((a, b) => {
       const karmaA = a.requester?.karma ?? 0;
@@ -244,20 +243,24 @@ export default function HelpHubDashboardPage() {
     setAvailableRequests(sortedAvail);
 
     // 2. Fetch requests created by the user
-    const { data: myReqData } = await supabase
+    const { data: myReqData, error: myReqError } = await supabase
       .from("help_requests")
       .select("*, helper:profiles!helper_id(anonymous_username, department, gender, karma, warning_badge, is_online, last_seen)")
       .eq("requester_id", myId)
       .order("created_at", { ascending: false });
 
+    console.log("[Help Hub Fetch Debug - My Requests]: count =", myReqData?.length, "error =", myReqError);
+
     setMyRequests(myReqData || []);
 
     // 3. Fetch requests accepted by the user as a helper
-    const { data: myHelpData } = await supabase
+    const { data: myHelpData, error: myHelpError } = await supabase
       .from("help_requests")
       .select("*, requester:profiles!requester_id(anonymous_username, department, gender, karma, warning_badge, is_online, last_seen)")
       .eq("helper_id", myId)
       .order("created_at", { ascending: false });
+
+    console.log("[Help Hub Fetch Debug - My Helping]: count =", myHelpData?.length, "error =", myHelpError);
 
     setMyHelpins(myHelpData || []);
 
@@ -333,6 +336,7 @@ export default function HelpHubDashboardPage() {
           table: "help_requests",
         },
         async (payload) => {
+          console.log("[Help Hub Realtime Change]: Received payload =", payload);
           // Sync data in background for any changes (insert, update, delete)
           await loadData(true);
 
@@ -393,8 +397,7 @@ export default function HelpHubDashboardPage() {
         hall: profile.hall,
         title: selectedItem,
         description: `A verified student in ${profile.hall} needs a ${selectedItem.toLowerCase()}.`,
-        status: "open",
-        karma_priority: profile.karma
+        status: "open"
       };
 
       // Task 1: Log details of creation

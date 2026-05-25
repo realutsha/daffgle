@@ -299,6 +299,17 @@ export default function PrivateChatPage() {
       setMessages((prev) =>
         prev.map((m) => (m.id === tempId ? { ...data, status: "sent" } : m))
       );
+
+      // Trigger background push notification to chat participant
+      fetch("/api/send-notification", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "new-message",
+          targetUserId: otherUser.id,
+          conversationId: conversationId
+        })
+      }).catch((err) => console.error("Failed to dispatch push message:", err));
     } else {
       await loadChat();
     }

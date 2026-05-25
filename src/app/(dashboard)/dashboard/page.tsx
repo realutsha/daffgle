@@ -160,6 +160,18 @@ export default function HelpHubDashboardPage() {
         message: `👋 I accepted your request for "${requestItem}"! I'm ready to help you.`
       });
 
+      // 4. Send background push notification to requester
+      fetch("/api/send-notification", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "request-accepted",
+          targetUserId: String(request.requester_id || ""),
+          conversationId: convData.id,
+          item: requestItem
+        })
+      }).catch((err) => console.error("Failed to dispatch push accepts:", err));
+
       toast.success("Connected! Opening anonymous private chat room...");
       router.push(`/chat/${convData.id}`);
     } catch {
@@ -389,6 +401,18 @@ export default function HelpHubDashboardPage() {
         return;
       }
 
+      // Broadcast background push notification to same-hall students
+      fetch("/api/send-notification", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "same-hall-request",
+          hall: profile.hall,
+          itemId: selectedItem,
+          requesterId: currentUserId
+        })
+      }).catch((err) => console.error("Failed to dispatch push:", err));
+
       toast.success("Help request broadcasted to your hall!");
       setShowCreateModal(false);
       setSelectedItem("");
@@ -424,6 +448,8 @@ export default function HelpHubDashboardPage() {
 
   const handleMarkSolved = async (requestId: string) => {
     try {
+      const req = myRequests.find((r) => r.id === requestId);
+
       const { error } = await supabase
         .from("help_requests")
         .update({ status: "solved" })
@@ -432,6 +458,18 @@ export default function HelpHubDashboardPage() {
       if (error) {
         toast.error(error.message);
         return;
+      }
+
+      if (req?.helper_id) {
+        fetch("/api/send-notification", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            type: "karma-completed",
+            targetUserId: req.helper_id,
+            item: req.item
+          })
+        }).catch((err) => console.error("Failed to dispatch push solves:", err));
       }
 
       toast.success("Request marked as solved! Helper awarded +1 Karma.");

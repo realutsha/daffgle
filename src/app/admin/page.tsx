@@ -264,6 +264,17 @@ export default function AdminPage() {
       `${user.anonymous_username} warning badge updated to: ${badge || "CLEARED"}`
     );
 
+    if (badge) {
+      fetch("/api/send-notification", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "admin-warning",
+          targetUserId: user.id
+        })
+      }).catch((err) => console.error("Failed to dispatch push warning:", err));
+    }
+
     toast.success(badge ? `Warning badge set: "${badge}"` : "Warning badge cleared!");
     loadAdmin();
   };
@@ -308,6 +319,16 @@ export default function AdminPage() {
       `REPORT_${status.toUpperCase()}`,
       `Report ${report.id} marked as ${status}`
     );
+
+    fetch("/api/send-notification", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        type: "report-update",
+        targetUserId: report.reporter_id,
+        status: status
+      })
+    }).catch((err) => console.error("Failed to dispatch push report update:", err));
 
     toast.success(`Report status marked as ${status}.`);
     loadAdmin();

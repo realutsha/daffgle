@@ -30,7 +30,7 @@ type HelpRequest = {
   action: string;
   status: 'open' | 'accepted' | 'solved' | 'cancelled';
   helper_id: string | null;
-  requester_hall: string;
+  hall: string;
   conversation_id?: string | null;
   created_at: string;
   updated_at: string;
@@ -227,7 +227,7 @@ export default function HelpHubDashboardPage() {
       .from("help_requests")
       .select("*, requester:profiles!requester_id(anonymous_username, department, gender, karma, warning_badge, is_online, last_seen)")
       .eq("status", "open")
-      .eq("requester_hall", profileData.hall)
+      .eq("hall", profileData.hall)
       .neq("requester_id", myId)
       .gt("created_at", yesterday);
 
@@ -318,7 +318,7 @@ export default function HelpHubDashboardPage() {
     };
   }, [loadData, router]);
 
-  // Realtime subscription for same-hall requests alert toast notifications
+  // Realtime subscription for same-hall requests alert toast notifications & dashboard updates
   useEffect(() => {
     if (!profile?.hall || !currentUserId) return;
 
@@ -327,37 +327,40 @@ export default function HelpHubDashboardPage() {
       .on(
         "postgres_changes",
         {
-          event: "INSERT",
+          event: "*",
           schema: "public",
           table: "help_requests",
         },
         async (payload) => {
-          const newReq = payload.new as Record<string, unknown>;
-          if (
-            newReq &&
-            newReq.requester_hall === profile.hall &&
-            newReq.requester_id !== currentUserId &&
-            newReq.status === "open"
-          ) {
-            // Fetch requester username for toast info
-            const { data: reqProfile } = await supabase
-              .from("profiles")
-              .select("anonymous_username")
-              .eq("id", String(newReq.requester_id || ""))
-              .single();
+          // Sync data in background for any changes (insert, update, delete)
+          await loadData(true);
 
-            const name = reqProfile?.anonymous_username || "Someone";
-            toast.info(`🔔 New request: "${newReq.item}" from @${name} in ${newReq.requester_hall}!`, {
-              duration: 10000,
-              action: {
-                label: "Accept",
-                onClick: () => {
-                  handleHelpNow(newReq);
+          if (payload.eventType === "INSERT") {
+            const newReq = payload.new as Record<string, unknown>;
+            if (
+              newReq &&
+              newReq.hall === profile.hall &&
+              newReq.requester_id !== currentUserId &&
+              newReq.status === "open"
+            ) {
+              // Fetch requester username for toast info
+              const { data: reqProfile } = await supabase
+                .from("profiles")
+                .select("anonymous_username")
+                .eq("id", String(newReq.requester_id || ""))
+                .single();
+
+              const name = reqProfile?.anonymous_username || "Someone";
+              toast.info(`🔔 New request: "${newReq.item}" from @${name} in ${newReq.hall}!`, {
+                duration: 10000,
+                action: {
+                  label: "Accept",
+                  onClick: () => {
+                    handleHelpNow(newReq);
+                  }
                 }
-              }
-            });
-
-            await loadData(true);
+              });
+            }
           }
         }
       )
@@ -384,19 +387,28 @@ export default function HelpHubDashboardPage() {
     try {
       setSubmitting(true);
 
+      console.log("[Help Hub] Broadcasting request payload:", {
+        requester_id: currentUserId,
+        item: selectedItem,
+        action: "I Need",
+        hall: profile.hall,
+        status: "open"
+      });
+
       const { error } = await supabase.from("help_requests").insert({
         requester_id: currentUserId,
         item: selectedItem,
         action: "I Need",
-        requester_hall: profile.hall,
+        hall: profile.hall,
         status: "open"
       });
 
       if (error) {
+        console.error("[Help Hub] Supabase insert error:", error);
         if (error.message.includes("cooldown")) {
           toast.error("Hourly limit exceeded: Max 3 open help requests per hour.");
         } else {
-          toast.error(error.message);
+          toast.error(error.message || "Failed to submit request.");
         }
         return;
       }
@@ -833,7 +845,7 @@ export default function HelpHubDashboardPage() {
 
                           <h3 className="text-xl font-black text-white">{req.item}</h3>
                           <p className="text-xs md:text-sm text-gray-400 leading-relaxed">
-                            A verified student in <span className="text-white font-semibold">{req.requester_hall}</span> needs a {req.item.toLowerCase()}.
+                            A verified student in <span className="text-white font-semibold">{req.hall}</span> needs a {req.item.toLowerCase()}.
                           </p>
                         </div>
 

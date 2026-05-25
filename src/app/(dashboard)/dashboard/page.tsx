@@ -26,11 +26,12 @@ type Profile = {
 type HelpRequest = {
   id: string;
   requester_id: string;
-  item: string;
-  action: string;
+  title: string;
+  description: string;
   status: 'open' | 'accepted' | 'solved' | 'cancelled';
   helper_id: string | null;
   hall: string;
+  karma_priority: number;
   conversation_id?: string | null;
   created_at: string;
   updated_at: string;
@@ -119,7 +120,7 @@ export default function HelpHubDashboardPage() {
 
   // Stable callback handler for accepting requests
   const handleHelpNow = useCallback(async (request: HelpRequest | Record<string, unknown>) => {
-    const requestItem = String(request.item || "");
+    const requestItem = String(request.title || "");
     const requestId = String(request.id || "");
 
     const confirmHelp = window.confirm(`Accept request for "${requestItem}"? This will open a private, secure, and anonymous 1-on-1 chat.`);
@@ -351,7 +352,7 @@ export default function HelpHubDashboardPage() {
                 .single();
 
               const name = reqProfile?.anonymous_username || "Someone";
-              toast.info(`🔔 New request: "${newReq.item}" from @${name} in ${newReq.hall}!`, {
+              toast.info(`🔔 New request: "${newReq.title}" from @${name} in ${newReq.hall}!`, {
                 duration: 10000,
                 action: {
                   label: "Accept",
@@ -387,31 +388,64 @@ export default function HelpHubDashboardPage() {
     try {
       setSubmitting(true);
 
-      console.log("[Help Hub] Broadcasting request payload:", {
+      const insertPayload = {
         requester_id: currentUserId,
-        item: selectedItem,
-        action: "I Need",
         hall: profile.hall,
-        status: "open"
-      });
+        title: selectedItem,
+        description: `A verified student in ${profile.hall} needs a ${selectedItem.toLowerCase()}.`,
+        status: "open",
+        karma_priority: profile.karma
+      };
 
-      const { error } = await supabase.from("help_requests").insert({
-        requester_id: currentUserId,
-        item: selectedItem,
-        action: "I Need",
-        hall: profile.hall,
-        status: "open"
-      });
+      // Task 1: Log details of creation
+      console.log("[Help Hub Create Request Debug]:");
+      console.log("- current user id:", currentUserId);
+      console.log("- user profile hall:", profile.hall);
+      console.log("- insert payload:", insertPayload);
 
-      if (error) {
-        console.error("[Help Hub] Supabase insert error:", error);
-        if (error.message.includes("cooldown")) {
+      const insertResult = await supabase
+        .from("help_requests")
+        .insert(insertPayload)
+        .select();
+
+      console.log("- insert result:", insertResult.data);
+      console.log("- insert error:", insertResult.error);
+
+      if (insertResult.error) {
+        console.error("[Help Hub] Supabase insert error:", insertResult.error);
+        if (insertResult.error.message.includes("cooldown")) {
           toast.error("Hourly limit exceeded: Max 3 open help requests per hour.");
         } else {
-          toast.error(error.message || "Failed to submit request.");
+          toast.error(insertResult.error.message || "Failed to submit request.");
         }
         return;
       }
+
+      // Task 2: After successful insert, immediately fetch
+      const createdRow = insertResult.data?.[0] || null;
+
+      // help_requests where requester_id = current user id
+      const myRequestsFetch = await supabase
+        .from("help_requests")
+        .select("*, helper:profiles!helper_id(anonymous_username, department, gender, karma, warning_badge, is_online, last_seen)")
+        .eq("requester_id", currentUserId)
+        .order("created_at", { ascending: false });
+
+      // help_requests where hall = profile.hall and status = open
+      const availableRequestsFetch = await supabase
+        .from("help_requests")
+        .select("*, requester:profiles!requester_id(anonymous_username, department, gender, karma, warning_badge, is_online, last_seen)")
+        .eq("status", "open")
+        .eq("hall", profile.hall)
+        .neq("requester_id", currentUserId);
+
+      // Task 3: Log immediate fetch results
+      console.log("[Help Hub Immediate Fetch Debug]:");
+      console.log("- created row:", createdRow);
+      console.log("- myRequests result count:", myRequestsFetch.data?.length, "Data:", myRequestsFetch.data);
+      console.log("- availableRequests result count:", availableRequestsFetch.data?.length, "Data:", availableRequestsFetch.data);
+      console.log("- myRequests Supabase errors:", myRequestsFetch.error);
+      console.log("- availableRequests Supabase errors:", availableRequestsFetch.error);
 
       // Broadcast background push notification to same-hall students
       fetch("/api/send-notification", {
@@ -425,11 +459,19 @@ export default function HelpHubDashboardPage() {
         })
       }).catch((err) => console.error("Failed to dispatch push:", err));
 
+      // Task 9: Do not show success toast unless insert actually succeeds
       toast.success("Help request broadcasted to your hall!");
       setShowCreateModal(false);
       setSelectedItem("");
-      await loadData();
-    } catch {
+
+      // Task 8: Make request appear instantly after creation without page refresh
+      if (myRequestsFetch.data) {
+        setMyRequests(myRequestsFetch.data);
+      }
+
+      await loadData(true);
+    } catch (err) {
+      console.error("[Help Hub] Unexpected catch error:", err);
       toast.error("Failed to create help request.");
     } finally {
       setSubmitting(false);
@@ -479,7 +521,7 @@ export default function HelpHubDashboardPage() {
           body: JSON.stringify({
             type: "karma-completed",
             targetUserId: req.helper_id,
-            item: req.item
+            item: req.title
           })
         }).catch((err) => console.error("Failed to dispatch push solves:", err));
       }
@@ -686,7 +728,7 @@ export default function HelpHubDashboardPage() {
                       </div>
 
                       <h3 className="mt-1 font-black text-white text-base">
-                        {req.item}
+                        {req.title}
                       </h3>
 
                       <p className="mt-1 text-xs text-gray-400">
@@ -817,7 +859,7 @@ export default function HelpHubDashboardPage() {
                         <div className="space-y-3">
                           <div className="flex items-center justify-between">
                             <span className="rounded-full bg-[#2AABEE]/10 px-3 py-1 text-[10px] font-black text-[#2AABEE] uppercase">
-                              {req.action}
+                              I Need
                             </span>
                             <span className="text-xs text-gray-500">{formatTimeAgo(req.created_at)}</span>
                           </div>
@@ -843,9 +885,9 @@ export default function HelpHubDashboardPage() {
                             </div>
                           </div>
 
-                          <h3 className="text-xl font-black text-white">{req.item}</h3>
+                          <h3 className="text-xl font-black text-white">{req.title}</h3>
                           <p className="text-xs md:text-sm text-gray-400 leading-relaxed">
-                            A verified student in <span className="text-white font-semibold">{req.hall}</span> needs a {req.item.toLowerCase()}.
+                            A verified student in <span className="text-white font-semibold">{req.hall}</span> needs a {req.title.toLowerCase()}.
                           </p>
                         </div>
 
@@ -896,7 +938,7 @@ export default function HelpHubDashboardPage() {
                       >
                         <div className="space-y-1">
                           <div className="flex flex-wrap items-center gap-2">
-                            <h3 className="text-lg md:text-xl font-black text-white">{req.item}</h3>
+                            <h3 className="text-lg md:text-xl font-black text-white">{req.title}</h3>
                             <span className={`rounded-full px-3 py-1 text-[10px] font-black uppercase ${
                               req.status === "open" ? "bg-green-500/10 text-green-400" :
                               req.status === "accepted" ? "bg-[#2AABEE]/10 text-[#2AABEE]" :
@@ -989,7 +1031,7 @@ export default function HelpHubDashboardPage() {
                         className="rounded-3xl border border-[#22303D] bg-[#17212B] p-6 shadow-2xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
                       >
                         <div className="space-y-1">
-                          <h3 className="text-lg md:text-xl font-black text-white">{req.item}</h3>
+                          <h3 className="text-lg md:text-xl font-black text-white">{req.title}</h3>
                           <div className="flex flex-wrap items-center gap-1.5">
                             <p className="text-xs text-gray-400">
                               Requested by: @{req.requester?.anonymous_username} ({req.requester?.department})

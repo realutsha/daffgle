@@ -132,6 +132,7 @@ export default function AdminPage() {
     try {
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData?.session?.access_token;
+      console.log("[Admin Page Debug] Access token retrieved:", token ? "YES (Length: " + token.length + ")" : "NO");
       
       if (token) {
         const res = await fetch("/api/admin/users", {
@@ -139,13 +140,21 @@ export default function AdminPage() {
             Authorization: `Bearer ${token}`
           }
         });
+        console.log("[Admin Page Debug] API response status:", res.status);
         const apiData = await res.json();
+        console.log("[Admin Page Debug] API response body:", apiData);
+        
         if (apiData.success && apiData.emails) {
           emailLookup = apiData.emails;
+          console.log("[Admin Page Debug] Real emails loaded successfully! Count:", Object.keys(emailLookup).length);
+        } else {
+          console.error("[Admin Page Debug] API returned error or invalid format:", apiData);
         }
+      } else {
+        console.error("[Admin Page Debug] Access token is missing, cannot call admin API.");
       }
     } catch (err) {
-      console.error("Failed to load real emails from API:", err);
+      console.error("[Admin Page Debug] Failed to load real emails from API:", err);
     }
 
     const mergedUsers =

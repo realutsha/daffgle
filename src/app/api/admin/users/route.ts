@@ -41,7 +41,7 @@ export async function GET(req: NextRequest) {
     }
 
     // B. Enforce email verification check for the designated administrator
-    if (user.email !== ADMIN_EMAIL) {
+    if (!user.email || user.email.toLowerCase() !== ADMIN_EMAIL.toLowerCase()) {
       console.warn(`[Admin Users API] Unauthorized access attempt by email: ${user.email}`);
       return NextResponse.json(
         { error: "Forbidden: You are not authorized to view this resource." },
@@ -79,6 +79,24 @@ export async function GET(req: NextRequest) {
         { status: 500 }
       );
     }
+
+    // Fetch database profiles to count matches
+    let profilesCount = 0;
+    let matchedCount = 0;
+    try {
+      const { data: profiles } = await adminClient.from("profiles").select("id");
+      if (profiles) {
+        profilesCount = profiles.length;
+        matchedCount = profiles.filter(p => (users || []).some(u => u.id === p.id)).length;
+      }
+    } catch (profileErr) {
+      console.error("[Admin Users API Debug] Failed to query profiles count:", profileErr);
+    }
+
+    // Temporary console logs for diagnostic tracing
+    console.log(`[Admin Users API Debug] Number of auth users fetched: ${users?.length || 0}`);
+    console.log(`[Admin Users API Debug] Number of profiles in database: ${profilesCount}`);
+    console.log(`[Admin Users API Debug] Number of profiles matched by ID: ${matchedCount}`);
 
     // 4. Build a secure dictionary mapping user IDs to their real emails
     const emailMap: Record<string, string> = {};

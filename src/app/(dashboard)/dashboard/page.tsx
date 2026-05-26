@@ -681,8 +681,6 @@ export default function HelpHubDashboardPage() {
               </div>
             </div>
           )}
-
-          {/* Navigation Options */}
           <div className="mt-4 grid grid-cols-2 gap-2">
             <button
               onClick={() => setActiveTab("available")}
@@ -700,6 +698,14 @@ export default function HelpHubDashboardPage() {
               My Chats
             </button>
           </div>
+
+          {/* Night Owl Entry */}
+          <button
+            onClick={() => router.push("/night-owl")}
+            className="w-full mt-2 rounded-2xl bg-[#0F1A24] border border-[#22303D] py-3 text-sm font-bold text-gray-300 transition hover:bg-[#182533] cursor-pointer flex items-center justify-center gap-2"
+          >
+            <span>🦉</span> Night Owl Mode
+          </button>
         </header>
 
         {/* Available Open Help Requests List */}
@@ -796,7 +802,7 @@ export default function HelpHubDashboardPage() {
 
         {/* Sidebar Nav Footer */}
         <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-[#22303D] bg-[#17212B]/95 px-4 py-4 backdrop-blur md:absolute md:right-auto md:w-107.5">
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-3 grid-rows-1 gap-3">
             <button
               onClick={() => router.push("/")}
               className="rounded-full bg-[#0F1A24] py-3 text-sm font-bold text-gray-300 transition duration-200 hover:bg-[#182533] cursor-pointer"
@@ -1112,15 +1118,15 @@ export default function HelpHubDashboardPage() {
         </div>
       </section>
 
-      {/* Floating Mobile Navigation Bar */}
-      <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-[#22303D] bg-[#17212B]/95 px-4 py-3 backdrop-blur md:hidden pb-safe">
-        <div className="mx-auto grid max-w-2xl grid-cols-4 gap-1">
+      {/* Floating Bottom Navigation Bar (Mobile only - 5 tabs layout) */}
+      <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-[#22303D] bg-[#17212B]/95 px-2 py-3 backdrop-blur md:hidden pb-safe">
+        <div className="mx-auto grid grid-cols-5 gap-1 max-w-md">
           <button
             onClick={() => router.push("/")}
             className="flex flex-col items-center gap-0.5 py-1.5 rounded-2xl text-gray-400 hover:bg-[#182533]/40 transition duration-200 cursor-pointer"
           >
             <span className="text-lg">🏠</span>
-            <span className="text-[10px] font-bold tracking-wide uppercase">Home</span>
+            <span className="text-[9px] font-bold tracking-wide uppercase">Home</span>
           </button>
 
           <button
@@ -1128,7 +1134,7 @@ export default function HelpHubDashboardPage() {
             className="flex flex-col items-center gap-0.5 py-1.5 rounded-2xl bg-[#2B5278]/20 text-[#2AABEE] transition duration-200 cursor-pointer"
           >
             <span className="text-lg">🤝</span>
-            <span className="text-[10px] font-black tracking-wide uppercase">Help Hub</span>
+            <span className="text-[9px] font-black tracking-wide uppercase">Help Hub</span>
           </button>
 
           <button
@@ -1136,7 +1142,15 @@ export default function HelpHubDashboardPage() {
             className="flex flex-col items-center gap-0.5 py-1.5 rounded-2xl text-gray-400 hover:bg-[#182533]/40 transition duration-200 cursor-pointer"
           >
             <span className="text-lg">💬</span>
-            <span className="text-[10px] font-bold tracking-wide uppercase">Chats</span>
+            <span className="text-[9px] font-bold tracking-wide uppercase">Chats</span>
+          </button>
+
+          <button
+            onClick={() => router.push("/night-owl")}
+            className="flex flex-col items-center gap-0.5 py-1.5 rounded-2xl text-gray-400 hover:bg-[#182533]/40 transition duration-200 cursor-pointer"
+          >
+            <span className="text-lg">🦉</span>
+            <span className="text-[9px] font-bold tracking-wide uppercase">Sanctuary</span>
           </button>
 
           <button
@@ -1144,7 +1158,10 @@ export default function HelpHubDashboardPage() {
             className="flex flex-col items-center gap-0.5 py-1.5 rounded-2xl text-gray-400 hover:bg-[#182533]/40 transition duration-200 cursor-pointer"
           >
             <span className="text-lg">👤</span>
-            <span className="text-[10px] font-bold tracking-wide uppercase">Profile</span>
+            <span className="text-[9px] font-bold tracking-wide uppercase">Profile</span>
+          </button>
+        </div>
+      </nav>percase">Profile</span>
           </button>
         </div>
       </nav>

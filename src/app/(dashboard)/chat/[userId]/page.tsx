@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { supabase } from "@/lib/supabase/client";
 import { setUserOnline, setUserOffline } from "@/lib/presence";
 import { isEmailAllowed } from "@/lib/validations/auth";
+import { censorText } from "@/lib/night-owl/profanity";
 
 type Profile = {
   id: string;
@@ -98,30 +99,54 @@ export default function PrivateChatPage() {
     setCurrentUserId(user.id);
     await setUserOnline(user.id);
 
-    // 1. Fetch the active help request matching this conversationId (include warning_badge)
+    // Try to load active help request matching this conversationId
+    let isNightOwl = false;
+    let otherProfile = null;
+    let resolvedRequestId: string | null = null;
+
     const { data: activeRequest, error: reqError } = await supabase
       .from("help_requests")
       .select("*, requester:profiles!requester_id(id, anonymous_username, department, is_online, last_seen, warning_badge), helper:profiles!helper_id(id, anonymous_username, department, is_online, last_seen, warning_badge)")
       .eq("conversation_id", conversationId)
-      .single();
+      .maybeSingle();
 
-    if (reqError || !activeRequest) {
-      console.warn("Active help request matching conversation_id not found:", reqError?.message);
-      toast.error("Private chat is only accessible after accepting a help request.");
-      router.replace("/dashboard");
-      return;
+    if (activeRequest) {
+      resolvedRequestId = activeRequest.id;
+      otherProfile = activeRequest.requester_id === user.id ? activeRequest.helper : activeRequest.requester;
+    } else {
+      // Fallback: Check active night_sessions instead!
+      const { data: nightSession, error: nsError } = await supabase
+        .from("night_sessions")
+        .select("*, requester:profiles!requester_id(id, anonymous_username, department, is_online, last_seen, warning_badge), accepter:profiles!accepter_id(id, anonymous_username, department, is_online, last_seen, warning_badge)")
+        .eq("conversation_id", conversationId)
+        .maybeSingle();
+
+      if (nightSession) {
+        isNightOwl = true;
+        resolvedRequestId = null; // Do not pass a request_id to reports because it references help_requests
+        const participantProfile = nightSession.requester_id === user.id ? nightSession.accepter : nightSession.requester;
+        
+        if (participantProfile) {
+          otherProfile = {
+            id: participantProfile.id,
+            anonymous_username: "Anonymous Owl",
+            department: "Night Owl Mode",
+            warning_badge: participantProfile.warning_badge,
+            is_online: participantProfile.is_online,
+            last_seen: participantProfile.last_seen
+          };
+        }
+      }
     }
 
-    setLinkedRequestId(activeRequest.id);
-
-    // 2. Identify the other participant's profile
-    const otherProfile = activeRequest.requester_id === user.id ? activeRequest.helper : activeRequest.requester;
     if (!otherProfile) {
-      toast.error("Participant profile not found.");
+      console.warn("Active chat session matching conversation_id not found.");
+      toast.error("Private chat is only accessible after accepting a help request or establishing a late-night session.");
       router.replace("/dashboard");
       return;
     }
 
+    setLinkedRequestId(resolvedRequestId || "");
     setOtherUser(otherProfile);
 
     // 3. Fetch messages for this conversation
@@ -256,7 +281,7 @@ export default function PrivateChatPage() {
   }, [messages, scrollToBottom]);
 
   const sendMessage = async () => {
-    const cleanText = text.trim();
+    const cleanText = censorText(text.trim());
 
     if (!cleanText || !currentUserId || !otherUser?.id || !conversationId) return;
 

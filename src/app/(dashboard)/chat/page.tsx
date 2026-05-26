@@ -91,8 +91,15 @@ export default function ChatPage() {
       .or(`requester_id.eq.${user.id},helper_id.eq.${user.id}`)
       .in("status", ["accepted", "solved"]);
 
-    if (error) {
-      console.warn("Chat load warning:", error.message);
+    // Fetch active Night Owl sessions where current user is requester or accepter
+    const { data: activeNightSessions, error: nightError } = await supabase
+      .from("night_sessions")
+      .select("*, requester:profiles!requester_id(id, anonymous_username, department, is_online, last_seen), accepter:profiles!accepter_id(id, anonymous_username, department, is_online, last_seen)")
+      .or(`requester_id.eq.${user.id},accepter_id.eq.${user.id}`)
+      .eq("active", true);
+
+    if (error && nightError) {
+      console.warn("Chat load warning:", error?.message, nightError?.message);
       setConversations([]);
       setLoading(false);
       return;
@@ -100,6 +107,7 @@ export default function ChatPage() {
 
     const finalChats: Conversation[] = [];
 
+    // Process Help Hub Chats
     for (const req of activeRequests || []) {
       const otherProfile = req.requester_id === user.id ? req.helper : req.requester;
       if (!otherProfile) continue;
@@ -129,6 +137,44 @@ export default function ChatPage() {
         id: req.conversation_id,
         anonymous_username: otherProfile.anonymous_username,
         department: otherProfile.department,
+        last_message: lastMsgText,
+        last_message_time: lastMsgTime,
+        unread_count: unreadCount,
+        is_online: otherProfile.is_online,
+        last_seen: otherProfile.last_seen,
+      });
+    }
+
+    // Process Night Owl Chats (Forcing complete anonymity)
+    for (const sess of activeNightSessions || []) {
+      const otherProfile = sess.requester_id === user.id ? sess.accepter : sess.requester;
+      if (!otherProfile) continue;
+
+      let lastMsgText = "👋 Night Owl chat accepted. Start conversing!";
+      let lastMsgTime = sess.created_at;
+      let unreadCount = 0;
+
+      if (sess.conversation_id) {
+        // Query the messages for this conversation with correct columns
+        const { data: messages } = await supabase
+          .from("messages")
+          .select("message, created_at, sender_id, seen")
+          .eq("conversation_id", sess.conversation_id)
+          .order("created_at", { ascending: false });
+
+        if (messages && messages.length > 0) {
+          lastMsgText = messages[0].message;
+          lastMsgTime = messages[0].created_at;
+          unreadCount = messages.filter(
+            (m) => m.sender_id !== user.id && m.seen === false
+          ).length;
+        }
+      }
+
+      finalChats.push({
+        id: sess.conversation_id,
+        anonymous_username: "Anonymous Owl",
+        department: "Night Owl Mode",
         last_message: lastMsgText,
         last_message_time: lastMsgTime,
         unread_count: unreadCount,
@@ -321,14 +367,14 @@ export default function ChatPage() {
         </section>
 
         {/* Floating Mobile Bottom Navigation Bar (4 tabs) */}
-        <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-[#22303D] bg-[#17212B]/95 px-4 py-3 backdrop-blur md:hidden pb-safe">
-          <div className="mx-auto grid max-w-2xl grid-cols-4 gap-1">
+        <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-[#22303D] bg-[#17212B]/95 px-2 py-3 backdrop-blur md:hidden pb-safe">
+          <div className="mx-auto grid grid-cols-5 gap-1 max-w-md">
             <button
               onClick={() => router.push("/")}
               className="flex flex-col items-center gap-0.5 py-1.5 rounded-2xl text-gray-400 hover:bg-[#182533]/40 transition duration-200 cursor-pointer"
             >
               <span className="text-lg">🏠</span>
-              <span className="text-[10px] font-bold tracking-wide uppercase">Home</span>
+              <span className="text-[9px] font-bold tracking-wide uppercase">Home</span>
             </button>
 
             <button
@@ -336,7 +382,7 @@ export default function ChatPage() {
               className="flex flex-col items-center gap-0.5 py-1.5 rounded-2xl text-gray-400 hover:bg-[#182533]/40 transition duration-200 cursor-pointer"
             >
               <span className="text-lg">🤝</span>
-              <span className="text-[10px] font-bold tracking-wide uppercase">Help Hub</span>
+              <span className="text-[9px] font-bold tracking-wide uppercase">Help Hub</span>
             </button>
 
             <button
@@ -344,7 +390,15 @@ export default function ChatPage() {
               className="flex flex-col items-center gap-0.5 py-1.5 rounded-2xl bg-[#2B5278]/20 text-[#2AABEE] transition duration-200 cursor-pointer"
             >
               <span className="text-lg">💬</span>
-              <span className="text-[10px] font-black tracking-wide uppercase">Chats</span>
+              <span className="text-[9px] font-black tracking-wide uppercase">Chats</span>
+            </button>
+
+            <button
+              onClick={() => router.push("/night-owl")}
+              className="flex flex-col items-center gap-0.5 py-1.5 rounded-2xl text-gray-400 hover:bg-[#182533]/40 transition duration-200 cursor-pointer"
+            >
+              <span className="text-lg">🦉</span>
+              <span className="text-[9px] font-bold tracking-wide uppercase">Sanctuary</span>
             </button>
 
             <button
@@ -352,7 +406,7 @@ export default function ChatPage() {
               className="flex flex-col items-center gap-0.5 py-1.5 rounded-2xl text-gray-400 hover:bg-[#182533]/40 transition duration-200 cursor-pointer"
             >
               <span className="text-lg">👤</span>
-              <span className="text-[10px] font-bold tracking-wide uppercase">Profile</span>
+              <span className="text-[9px] font-bold tracking-wide uppercase">Profile</span>
             </button>
           </div>
         </nav>

@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
 
-const ADMIN_EMAIL = "madhurzamutsha@gmail.com";
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "madhurzamutsha@gmail.com";
 
 export async function GET(req: NextRequest) {
   try {

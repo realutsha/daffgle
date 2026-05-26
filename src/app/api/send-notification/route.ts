@@ -3,6 +3,11 @@ import admin from "firebase-admin";
 import path from "path";
 import fs from "fs";
 import { createClient } from "@supabase/supabase-js";
+import { cookies } from "next/headers";
+import { createServerClient } from "@supabase/ssr";
+
+// Simple in-memory rate-limiter map to prevent notification floods
+const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
 
 // 1. Lazy initialize Firebase Admin SDK to prevent duplicate initialization errors in Next.js hot-reloads
 if (!admin.apps.length) {
@@ -53,6 +58,62 @@ const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
 
 export async function POST(request: Request) {
   try {
+    const anonAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
+    
+    // 1. Session Token Verification (Authorization Header OR Cookies)
+    const token = request.headers.get("authorization")?.replace("Bearer ", "");
+    let user: any = null;
+
+    if (token) {
+      const userClient = createClient(supabaseUrl, anonAnonKey);
+      const { data: { user: verifiedUser }, error: authError } = await userClient.auth.getUser(token);
+      if (!authError && verifiedUser) {
+        user = verifiedUser;
+      }
+    }
+
+    if (!user) {
+      // Fallback: Resolve session from cookies
+      try {
+        const cookieStore = await cookies();
+        const serverClient = createServerClient(supabaseUrl, anonAnonKey, {
+          cookies: {
+            getAll() {
+              return cookieStore.getAll().map((c) => ({ name: c.name, value: c.value }));
+            },
+            setAll() {}
+          }
+        });
+        const { data: { user: verifiedUser } } = await serverClient.auth.getUser();
+        user = verifiedUser;
+      } catch (cookieErr) {
+        console.error("[FCM Server] Failed to resolve session from cookies:", cookieErr);
+      }
+    }
+
+    if (!user) {
+      return NextResponse.json({ success: false, error: "Unauthorized access: Active session is required." }, { status: 401 });
+    }
+
+    // 2. In-Memory Rate Limiting Check (Max 60 requests per minute per user)
+    const now = Date.now();
+    const rateLimit = rateLimitMap.get(user.id);
+    if (rateLimit) {
+      if (now > rateLimit.resetTime) {
+        rateLimitMap.set(user.id, { count: 1, resetTime: now + 60000 });
+      } else {
+        rateLimit.count += 1;
+        if (rateLimit.count > 60) {
+          return NextResponse.json(
+            { success: false, error: "Too many requests. Rate limit exceeded (60 per minute)." },
+            { status: 429 }
+          );
+        }
+      }
+    } else {
+      rateLimitMap.set(user.id, { count: 1, resetTime: now + 60000 });
+    }
+
     const body = await request.json();
     const { type } = body;
 
@@ -66,12 +127,17 @@ export async function POST(request: Request) {
     let tag = "daffgle-alert";
     let targetUserIds: string[] = [];
 
-    // 3. Resolve notification details based on event type
+    // 3. Resolve notification details based on event type & perform security checks
     switch (type) {
       case "same-hall-request": {
         const { hall, itemId, requesterId } = body;
         if (!hall || !itemId || !requesterId) {
           return NextResponse.json({ success: false, error: "Missing required parameters for same-hall-request." }, { status: 400 });
+        }
+
+        // Security check: A user can only trigger help requests on their own behalf!
+        if (requesterId !== user.id) {
+          return NextResponse.json({ success: false, error: "Forbidden: Cannot broadcast requests on behalf of other users." }, { status: 403 });
         }
 
         // Fetch all other users in the same hall who have notifications enabled
@@ -104,6 +170,34 @@ export async function POST(request: Request) {
           return NextResponse.json({ success: false, error: "Missing parameters for request-accepted." }, { status: 400 });
         }
 
+        // Security check: Verify that the sender is the actual helper, and the target is the requester!
+        const { data: requestRecord, error: reqErr } = await supabaseAdmin
+          .from("help_requests")
+          .select("requester_id, helper_id")
+          .eq("conversation_id", conversationId)
+          .single();
+
+        if (reqErr || !requestRecord) {
+          // Fallback to checking active Night Owl session
+          const { data: nightSessionRecord, error: nsErr } = await supabaseAdmin
+            .from("night_sessions")
+            .select("requester_id, accepter_id")
+            .eq("conversation_id", conversationId)
+            .single();
+
+          if (nsErr || !nightSessionRecord) {
+            return NextResponse.json({ success: false, error: "Access denied: Conversation session reference not found." }, { status: 403 });
+          }
+
+          if (nightSessionRecord.accepter_id !== user.id || nightSessionRecord.requester_id !== targetUserId) {
+            return NextResponse.json({ success: false, error: "Forbidden: Unauthorized participant action." }, { status: 403 });
+          }
+        } else {
+          if (requestRecord.helper_id !== user.id || requestRecord.requester_id !== targetUserId) {
+            return NextResponse.json({ success: false, error: "Forbidden: Unauthorized participant action." }, { status: 403 });
+          }
+        }
+
         targetUserIds = [targetUserId];
         title = "Request Accepted";
         messageBody = "Your help request was accepted";
@@ -116,6 +210,24 @@ export async function POST(request: Request) {
         const { targetUserId, conversationId } = body;
         if (!targetUserId || !conversationId) {
           return NextResponse.json({ success: false, error: "Missing parameters for new-message." }, { status: 400 });
+        }
+
+        // Security check: Verify that the sender is an active participant of this conversation
+        const { data: conv, error: convErr } = await supabaseAdmin
+          .from("conversations")
+          .select("user_one, user_two")
+          .eq("id", conversationId)
+          .single();
+
+        if (convErr || !conv) {
+          return NextResponse.json({ success: false, error: "Access denied: Conversation not found." }, { status: 403 });
+        }
+
+        const isParticipant = conv.user_one === user.id || conv.user_two === user.id;
+        const isValidTarget = conv.user_one === targetUserId || conv.user_two === targetUserId;
+
+        if (!isParticipant || !isValidTarget) {
+          return NextResponse.json({ success: false, error: "Forbidden: You are not an active participant in this chat." }, { status: 403 });
         }
 
         targetUserIds = [targetUserId];
@@ -132,6 +244,17 @@ export async function POST(request: Request) {
           return NextResponse.json({ success: false, error: "Missing target user ID for admin-warning." }, { status: 400 });
         }
 
+        // Security check: Admin alerts can only be triggered by actual administrators
+        const { data: profileRecord } = await supabaseAdmin
+          .from("profiles")
+          .select("is_admin")
+          .eq("id", user.id)
+          .single();
+
+        if (!profileRecord?.is_admin) {
+          return NextResponse.json({ success: false, error: "Forbidden: Admin privileges required." }, { status: 403 });
+        }
+
         targetUserIds = [targetUserId];
         title = "System Alert";
         messageBody = "Admin reviewed a report";
@@ -144,6 +267,17 @@ export async function POST(request: Request) {
         const { targetUserId, status } = body;
         if (!targetUserId || !status) {
           return NextResponse.json({ success: false, error: "Missing parameters for report-update." }, { status: 400 });
+        }
+
+        // Security check: Admin reports updates can only be triggered by administrators
+        const { data: profileRecord } = await supabaseAdmin
+          .from("profiles")
+          .select("is_admin")
+          .eq("id", user.id)
+          .single();
+
+        if (!profileRecord?.is_admin) {
+          return NextResponse.json({ success: false, error: "Forbidden: Admin privileges required." }, { status: 403 });
         }
 
         targetUserIds = [targetUserId];

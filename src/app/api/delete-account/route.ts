@@ -101,23 +101,40 @@ export async function POST(req: NextRequest) {
       ?.map((r) => r.conversation_id)
       .filter((id): id is string => !!id) || [];
 
-    if (conversationIds.length > 0) {
-      // D. Delete messages inside those conversations first to satisfy foreign key constraints
+    // D. Find all conversations linked to Night Owl sessions where this user participated
+    const { data: nightSessions, error: nightSessionsFetchError } = await adminClient
+      .from("night_sessions")
+      .select("conversation_id")
+      .or(`requester_id.eq.${userId},accepter_id.eq.${userId}`);
+
+    if (nightSessionsFetchError) {
+      console.error(`[Account Purge] Error fetching conversation references from night sessions:`, nightSessionsFetchError);
+    }
+
+    const nightConvIds = nightSessions
+      ?.map((s) => s.conversation_id)
+      .filter((id): id is string => !!id) || [];
+
+    // Combine all unique conversation IDs from both sources
+    const allConversationIds = Array.from(new Set([...conversationIds, ...nightConvIds]));
+
+    if (allConversationIds.length > 0) {
+      // E. Delete messages inside those conversations first to satisfy foreign key constraints
       const { error: messagesDeleteError } = await adminClient
         .from("messages")
         .delete()
-        .in("conversation_id", conversationIds);
+        .in("conversation_id", allConversationIds);
       if (messagesDeleteError) {
         console.error(`[Account Purge] Error deleting conversation messages:`, messagesDeleteError);
       } else {
         console.log(`[Account Purge] Successfully deleted messages inside active conversations.`);
       }
 
-      // E. Delete the conversations themselves
+      // F. Delete the conversations themselves
       const { error: convsDeleteError } = await adminClient
         .from("conversations")
         .delete()
-        .in("id", conversationIds);
+        .in("id", allConversationIds);
       if (convsDeleteError) {
         console.error(`[Account Purge] Error deleting conversations:`, convsDeleteError);
       } else {

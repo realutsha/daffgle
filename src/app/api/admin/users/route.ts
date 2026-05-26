@@ -68,30 +68,38 @@ export async function GET(req: NextRequest) {
 
     // 2. Initialize admin client with service role key to securely fetch real emails
     // Enforce persistSession: false for clean server environment
-    const adminClient = createClient(supabaseUrl, serviceRoleKey, {
+    const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
       auth: {
         persistSession: false,
         autoRefreshToken: false,
       },
     });
-    
-    // 3. Retrieve the full list of auth users from Supabase Auth
-    const { data: { users }, error: listError } = await adminClient.auth.admin.listUsers();
 
-    if (listError) {
-      console.error("[Admin Users API] Failed to list auth users:", listError.message);
+    const {
+      data: { users },
+      error,
+    } = await supabaseAdmin.auth.admin.listUsers();
+
+    if (error) {
+      console.error("[Admin Users API] Failed to list auth users:", error.message);
       return NextResponse.json(
-        { error: "Database error listing users: " + listError.message },
+        { error: "Database error listing users: " + error.message },
         { status: 500 }
       );
     }
 
-    const authUsersList = users || [];
+    // Add temporary server log of the first user structure exactly as requested
+    if (users && users.length > 0) {
+      console.log("[Admin Users API Temporary Log] First user structure:");
+      console.log(users[0]);
+    } else {
+      console.log("[Admin Users API Temporary Log] No users found in auth database.");
+    }
 
     // Fetch database profiles
     let dbProfiles: any[] = [];
     try {
-      const { data: profiles, error: profileErr } = await adminClient.from("profiles").select("*");
+      const { data: profiles, error: profileErr } = await supabaseAdmin.from("profiles").select("*");
       if (profileErr) {
         console.error("[Admin Users API] Database error selecting profiles:", profileErr.message);
       }
@@ -100,30 +108,48 @@ export async function GET(req: NextRequest) {
       console.error("[Admin Users API] Failed to query database profiles:", profileErr);
     }
 
-    // Create authMap mapping user.id -> user.email
-    const authMap = new Map<string, string>(
-      authUsersList.map(user => [String(user.id).trim().toLowerCase(), String(user.email || "")])
+    const authMap = new Map(
+      users.map((user) => [user.id, user.email])
+    );
+
+    // 1. Add:
+    console.log("AUTH USERS:", users);
+
+    // 2. Add:
+    console.log("PROFILE IDS:", dbProfiles.map(p => p.id));
+
+    // 3. Add:
+    console.log("AUTH MAP:", Array.from(authMap.entries()));
+
+    // 4. Add:
+    console.log(
+      "MATCH TEST:",
+      dbProfiles.map(profile => ({
+        profileId: profile.id,
+        matchedEmail: authMap.get(profile.id),
+      }))
     );
 
     const emailMap: Record<string, string> = {};
 
     for (const profile of dbProfiles) {
-      const profileIdKey = String(profile.id || "").trim().toLowerCase();
-      const matchedEmail = authMap.get(profileIdKey) ?? "Not stored";
-
-      // Console logs requested
-      console.log(`profile.id: ${profile.id}`);
-      console.log(`matched email: ${matchedEmail}`);
+      // Use exact Map.get lookup as requested, with case-insensitive fallback for maximum safety
+      const matchedEmail = authMap.get(profile.id) ?? 
+                           authMap.get(String(profile.id).toLowerCase()) ?? 
+                           authMap.get(String(profile.id).toUpperCase()) ?? 
+                           "Not stored";
 
       if (profile.id) {
-        emailMap[String(profile.id).trim().toLowerCase()] = matchedEmail;
+        emailMap[profile.id] = matchedEmail;
+        emailMap[String(profile.id).toLowerCase()] = matchedEmail;
       }
     }
 
-
+    // 5. Return raw debug data temporarily:
     return NextResponse.json({
-      success: true,
-      emails: emailMap,
+      profiles: dbProfiles,
+      authUsers: users,
+      authMap: Array.from(authMap.entries())
     });
   } catch (err: unknown) {
     const errorMsg = err instanceof Error ? err.message : "Internal Server Error";

@@ -159,8 +159,9 @@ export default function AdminPage() {
 
     const mergedUsers =
       profileData?.map((profile: Record<string, unknown>) => {
-        const profileId = String(profile.id || "");
+        const profileId = String(profile.id || "").trim().toLowerCase();
         const realEmail = emailLookup[profileId] || "Not stored";
+        console.log(`[Admin Page Debug] Profile ID: ${profileId} -> Resolved Email: ${realEmail}`);
         
         return {
           ...profile,

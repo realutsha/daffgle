@@ -88,79 +88,38 @@ export async function GET(req: NextRequest) {
 
     const authUsersList = users || [];
 
-    // Console logs requested in Task 3
-    console.log("[Admin Users API Debug] authUsers.length:", authUsersList.length);
-    console.log("[Admin Users API Debug] First 3 auth users:");
-    authUsersList.slice(0, 3).forEach((u, i) => {
-      console.log(`  [${i}] ID: ${u.id}, Email: ${u.email}`);
-    });
-
     // Fetch database profiles
     let dbProfiles: any[] = [];
     try {
       const { data: profiles, error: profileErr } = await adminClient.from("profiles").select("*");
       if (profileErr) {
-        console.error("[Admin Users API Debug] Database error selecting profiles:", profileErr.message, profileErr.details);
+        console.error("[Admin Users API] Database error selecting profiles:", profileErr.message);
       }
       dbProfiles = profiles || [];
     } catch (profileErr) {
-      console.error("[Admin Users API Debug] Failed to query database profiles:", profileErr);
+      console.error("[Admin Users API] Failed to query database profiles:", profileErr);
     }
 
-    const profileIds = dbProfiles.map(p => p.id);
-    console.log("[Admin Users API Debug] Profile IDs from database:", profileIds);
+    // Create authMap mapping user.id -> user.email
+    const authMap = new Map<string, string>(
+      authUsersList.map(user => [String(user.id).trim().toLowerCase(), String(user.email || "")])
+    );
 
-    // 4. Match using ALL possible fields: profile.id, profile.user_id, profile.auth_user_id
     const emailMap: Record<string, string> = {};
 
     for (const profile of dbProfiles) {
-      const profileIdStr = String(profile.id || "").trim().toLowerCase();
-      const profileUserIdStr = String(profile.user_id || "").trim().toLowerCase();
-      const profileAuthUserIdStr = String(profile.auth_user_id || "").trim().toLowerCase();
+      const profileIdKey = String(profile.id || "").trim().toLowerCase();
+      const matchedEmail = authMap.get(profileIdKey) ?? "Not stored";
 
-      // Find matched auth user checking ALL fields
-      const matchedAuthUser = authUsersList.find(u => {
-        const uIdStr = String(u.id || "").trim().toLowerCase();
-        return (
-          (profile.id && uIdStr === profileIdStr) ||
-          (profile.user_id && uIdStr === profileUserIdStr) ||
-          (profile.auth_user_id && uIdStr === profileAuthUserIdStr)
-        );
-      });
+      // Console logs requested
+      console.log(`profile.id: ${profile.id}`);
+      console.log(`matched email: ${matchedEmail}`);
 
-      // 5. Return matched user email directly or null
-      const resolvedEmail = matchedAuthUser?.email || null;
-
-      if (resolvedEmail) {
-        // Store resolved email mapped to all possible matching ID formats to cover any front-end match keys
-        if (profile.id) {
-          emailMap[String(profile.id).trim().toLowerCase()] = resolvedEmail;
-        }
-        if (profile.user_id) {
-          emailMap[String(profile.user_id).trim().toLowerCase()] = resolvedEmail;
-        }
-        if (profile.auth_user_id) {
-          emailMap[String(profile.auth_user_id).trim().toLowerCase()] = resolvedEmail;
-        }
-      }
-
-      if (!matchedAuthUser) {
-        console.log(`[Admin Users API Debug] Profile ID failed to match: ${profile.id} (username: @${profile.anonymous_username || "unknown"})`);
+      if (profile.id) {
+        emailMap[String(profile.id).trim().toLowerCase()] = matchedEmail;
       }
     }
 
-    // Populate direct auth user id to email mapping as final fallback
-    for (const u of authUsersList) {
-      if (u.id && u.email) {
-        const lowerId = u.id.trim().toLowerCase();
-        if (!emailMap[lowerId]) {
-          emailMap[lowerId] = u.email;
-        }
-      }
-    }
-
-    // Temporary logs for resolved mapping
-    console.log("[Admin Users API Debug] Finished email matching. Total resolved keys:", Object.keys(emailMap).length);
 
     return NextResponse.json({
       success: true,

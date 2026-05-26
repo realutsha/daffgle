@@ -127,27 +127,53 @@ export default function AdminPage() {
       return;
     }
 
+    // Securely fetch real emails from our server admin endpoint
+    let emailLookup: Record<string, string> = {};
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+      
+      if (token) {
+        const res = await fetch("/api/admin/users", {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        });
+        const apiData = await res.json();
+        if (apiData.success && apiData.emails) {
+          emailLookup = apiData.emails;
+        }
+      }
+    } catch (err) {
+      console.error("Failed to load real emails from API:", err);
+    }
+
     const mergedUsers =
-      profileData?.map((profile: Record<string, unknown>) => ({
-        ...profile,
-        id: String(profile.id || ""),
-        anonymous_username: String(profile.anonymous_username || ""),
-        department: String(profile.department || ""),
-        gender: String(profile.gender || ""),
-        hall: profile.hall ? String(profile.hall) : undefined,
-        is_online: Boolean(profile.is_online),
-        is_admin: Boolean(profile.is_admin),
-        is_banned: Boolean(profile.is_banned),
-        is_muted: Boolean(profile.is_muted),
-        real_email: profile.real_email ? String(profile.real_email) : "Not stored",
-        last_seen: String(profile.last_seen || ""),
-        last_login_at: profile.last_login_at ? String(profile.last_login_at) : null,
-        created_at: String(profile.created_at || ""),
-        karma: Number(profile.karma || 0),
-        profile_edit_count: Number(profile.profile_edit_count || 0),
-        last_profile_edit_at: profile.last_profile_edit_at ? String(profile.last_profile_edit_at) : null,
-        warning_badge: profile.warning_badge ? String(profile.warning_badge) : null,
-      })) as UserRow[] || [];
+      profileData?.map((profile: Record<string, unknown>) => {
+        const profileId = String(profile.id || "");
+        const realEmail = emailLookup[profileId] || "Not stored";
+        
+        return {
+          ...profile,
+          id: profileId,
+          anonymous_username: String(profile.anonymous_username || ""),
+          department: String(profile.department || ""),
+          gender: String(profile.gender || ""),
+          hall: profile.hall ? String(profile.hall) : undefined,
+          is_online: Boolean(profile.is_online),
+          is_admin: Boolean(profile.is_admin),
+          is_banned: Boolean(profile.is_banned),
+          is_muted: Boolean(profile.is_muted),
+          real_email: realEmail,
+          last_seen: String(profile.last_seen || ""),
+          last_login_at: profile.last_login_at ? String(profile.last_login_at) : null,
+          created_at: String(profile.created_at || ""),
+          karma: Number(profile.karma || 0),
+          profile_edit_count: Number(profile.profile_edit_count || 0),
+          last_profile_edit_at: profile.last_profile_edit_at ? String(profile.last_profile_edit_at) : null,
+          warning_badge: profile.warning_badge ? String(profile.warning_badge) : null,
+        };
+      }) as UserRow[] || [];
 
     setUsers(mergedUsers);
 

@@ -1,8 +1,39 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 
+export const dynamic = "force-dynamic";
+
 export async function POST(req: NextRequest) {
   try {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+    // Strict environment validation with descriptive logging and error responses
+    if (!supabaseUrl) {
+      console.error("[Account Purge Error] NEXT_PUBLIC_SUPABASE_URL is missing.");
+      return NextResponse.json(
+        { error: "Configuration Error: NEXT_PUBLIC_SUPABASE_URL is missing on the server." },
+        { status: 500 }
+      );
+    }
+
+    if (!supabaseAnonKey) {
+      console.error("[Account Purge Error] NEXT_PUBLIC_SUPABASE_ANON_KEY is missing.");
+      return NextResponse.json(
+        { error: "Configuration Error: NEXT_PUBLIC_SUPABASE_ANON_KEY is missing on the server." },
+        { status: 500 }
+      );
+    }
+
+    if (!serviceRoleKey) {
+      console.error("[Account Purge Error] SUPABASE_SERVICE_ROLE_KEY is missing.");
+      return NextResponse.json(
+        { error: "Configuration Error: SUPABASE_SERVICE_ROLE_KEY is missing on the server." },
+        { status: 500 }
+      );
+    }
+
     // 1. Verify user's session token from the Authorization header
     const authHeader = req.headers.get("authorization");
     if (!authHeader) {
@@ -13,9 +44,6 @@ export async function POST(req: NextRequest) {
     }
 
     const token = authHeader.replace("Bearer ", "");
-    
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
     
     // Initialize anon client to verify user
     const userClient = createClient(supabaseUrl, supabaseAnonKey);
@@ -31,7 +59,6 @@ export async function POST(req: NextRequest) {
     const userId = user.id;
 
     // 2. Initialize admin client with secret service role key
-    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
     console.log(`[Account Purge] Starting secure server-side deletion for user: ${userId}`);

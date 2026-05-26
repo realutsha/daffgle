@@ -602,12 +602,7 @@ export default function AdminPage() {
                       </div>
 
                       <div className="grid gap-x-6 gap-y-1 sm:grid-cols-2 text-xs text-gray-400">
-                        <p>
-                          Real Email: <span className="text-white font-medium">{user.real_email || user.email || user.realEmail || user.auth_email || user.user_email || "Not stored"}</span>
-                          <span className="text-[10px] text-gray-500 ml-2 select-all">
-                            (Debug: {user.real_email || user.email || "No resolved email found"})
-                          </span>
-                        </p>
+                        <p>Real Email: <span className="text-white font-medium">{user.real_email || "Not stored"}</span></p>
                         <p>Dept/Gender: <span className="text-white font-medium">{user.department} • {user.gender}</span></p>
                         <p>Hall: <span className="text-white font-medium">{user.hall || "Not set"}</span></p>
                         <p>Edits count: <span className="text-white font-medium">{user.profile_edit_count} used</span></p>

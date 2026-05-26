@@ -67,7 +67,13 @@ export async function GET(req: NextRequest) {
     console.log(`[Admin Users API] Authorized fetch of auth.users list for admin: ${user.id}`);
 
     // 2. Initialize admin client with service role key to securely fetch real emails
-    const adminClient = createClient(supabaseUrl, serviceRoleKey);
+    // Enforce persistSession: false for clean server environment
+    const adminClient = createClient(supabaseUrl, serviceRoleKey, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+      },
+    });
     
     // 3. Retrieve the full list of auth users from Supabase Auth
     const { data: { users }, error: listError } = await adminClient.auth.admin.listUsers();
@@ -80,45 +86,81 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // Fetch database profiles to count matches and inspect columns
-    let profilesCount = 0;
-    let matchedIds: string[] = [];
-    let firstProfileKeys: string[] = [];
+    const authUsersList = users || [];
+
+    // Console logs requested in Task 3
+    console.log("[Admin Users API Debug] authUsers.length:", authUsersList.length);
+    console.log("[Admin Users API Debug] First 3 auth users:");
+    authUsersList.slice(0, 3).forEach((u, i) => {
+      console.log(`  [${i}] ID: ${u.id}, Email: ${u.email}`);
+    });
+
+    // Fetch database profiles
+    let dbProfiles: any[] = [];
     try {
-      const { data: profiles } = await adminClient.from("profiles").select("*");
-      if (profiles) {
-        profilesCount = profiles.length;
-        matchedIds = profiles.map(p => p.id);
-        if (profiles.length > 0) {
-          firstProfileKeys = Object.keys(profiles[0]);
+      const { data: profiles, error: profileErr } = await adminClient.from("profiles").select("*");
+      if (profileErr) {
+        console.error("[Admin Users API Debug] Database error selecting profiles:", profileErr.message, profileErr.details);
+      }
+      dbProfiles = profiles || [];
+    } catch (profileErr) {
+      console.error("[Admin Users API Debug] Failed to query database profiles:", profileErr);
+    }
+
+    const profileIds = dbProfiles.map(p => p.id);
+    console.log("[Admin Users API Debug] Profile IDs from database:", profileIds);
+
+    // 4. Match using ALL possible fields: profile.id, profile.user_id, profile.auth_user_id
+    const emailMap: Record<string, string> = {};
+
+    for (const profile of dbProfiles) {
+      const profileIdStr = String(profile.id || "").trim().toLowerCase();
+      const profileUserIdStr = String(profile.user_id || "").trim().toLowerCase();
+      const profileAuthUserIdStr = String(profile.auth_user_id || "").trim().toLowerCase();
+
+      // Find matched auth user checking ALL fields
+      const matchedAuthUser = authUsersList.find(u => {
+        const uIdStr = String(u.id || "").trim().toLowerCase();
+        return (
+          (profile.id && uIdStr === profileIdStr) ||
+          (profile.user_id && uIdStr === profileUserIdStr) ||
+          (profile.auth_user_id && uIdStr === profileAuthUserIdStr)
+        );
+      });
+
+      // 5. Return matched user email directly or null
+      const resolvedEmail = matchedAuthUser?.email || null;
+
+      if (resolvedEmail) {
+        // Store resolved email mapped to all possible matching ID formats to cover any front-end match keys
+        if (profile.id) {
+          emailMap[String(profile.id).trim().toLowerCase()] = resolvedEmail;
+        }
+        if (profile.user_id) {
+          emailMap[String(profile.user_id).trim().toLowerCase()] = resolvedEmail;
+        }
+        if (profile.auth_user_id) {
+          emailMap[String(profile.auth_user_id).trim().toLowerCase()] = resolvedEmail;
         }
       }
-    } catch (profileErr) {
-      console.error("[Admin Users API Debug] Failed to query profiles count:", profileErr);
-    }
 
-    // 4. Build a secure dictionary mapping user IDs to their real emails
-    const emailMap: Record<string, string> = {};
-    for (const u of users || []) {
-      if (u.id && u.email) {
-        emailMap[u.id.trim().toLowerCase()] = u.email;
+      if (!matchedAuthUser) {
+        console.log(`[Admin Users API Debug] Profile ID failed to match: ${profile.id} (username: @${profile.anonymous_username || "unknown"})`);
       }
     }
 
-    // Temporary console logs for diagnostic tracing
-    console.log("[Admin Users API Debug] Fetched auth users count:", users?.length || 0);
-    if (users) {
-      users.forEach(u => {
-        console.log(`[Admin Users API Debug] Auth User: ID=${u.id}, Email=${u.email}`);
-      });
+    // Populate direct auth user id to email mapping as final fallback
+    for (const u of authUsersList) {
+      if (u.id && u.email) {
+        const lowerId = u.id.trim().toLowerCase();
+        if (!emailMap[lowerId]) {
+          emailMap[lowerId] = u.email;
+        }
+      }
     }
-    console.log("[Admin Users API Debug] Matched profile IDs in DB:", matchedIds);
-    console.log("[Admin Users API Debug] Profiles table columns:", firstProfileKeys);
-    
-    // Print the resolved map
-    for (const [pId, email] of Object.entries(emailMap)) {
-      console.log(`[Admin Users API Debug] Resolved Email Match: Profile ID=${pId} -> Real Email=${email}`);
-    }
+
+    // Temporary logs for resolved mapping
+    console.log("[Admin Users API Debug] Finished email matching. Total resolved keys:", Object.keys(emailMap).length);
 
     return NextResponse.json({
       success: true,

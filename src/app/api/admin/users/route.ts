@@ -31,40 +31,34 @@ export async function GET(req: NextRequest) {
 
     // A. Verify token and retrieve user details from Supabase Auth
     const userClient = createClient(supabaseUrl, supabaseAnonKey);
-    const { data: { user }, error: authError } = await userClient.auth.getUser(token);
+    const { data: { user: currentUser }, error: authError } = await userClient.auth.getUser(token);
 
-    if (authError || !user) {
+    if (authError || !currentUser) {
       return NextResponse.json(
         { error: "Session expired or invalid: " + (authError?.message || "No user") },
         { status: 401 }
       );
     }
 
+    const currentEmail = currentUser.email || "";
+    const isAdmin = currentEmail.toLowerCase() === ADMIN_EMAIL.toLowerCase();
+
+    // 4. Console log:
+    //    - current authenticated email
+    //    - admin comparison result
+    console.log("Current Authenticated Email:", currentEmail);
+    console.log("Admin Comparison Result:", isAdmin);
+
     // B. Enforce email verification check for the designated administrator
-    if (!user.email || user.email.toLowerCase() !== ADMIN_EMAIL.toLowerCase()) {
-      console.warn(`[Admin Users API] Unauthorized access attempt by email: ${user.email}`);
-      return NextResponse.json(
-        { error: "Forbidden: You are not authorized to view this resource." },
-        { status: 403 }
-      );
-    }
-
-    // C. Verify is_admin is true in the database profile
-    const { data: profile, error: profileError } = await userClient
-      .from("profiles")
-      .select("is_admin")
-      .eq("id", user.id)
-      .single();
-
-    if (profileError || !profile || !profile.is_admin) {
-      console.warn(`[Admin Users API] Forbidden profile access for user: ${user.id}`);
+    if (!isAdmin) {
+      console.warn(`[Admin Users API] Forbidden access attempt by email: ${currentEmail}`);
       return NextResponse.json(
         { error: "Forbidden: Admin eyes only!" },
         { status: 403 }
       );
     }
 
-    console.log(`[Admin Users API] Authorized fetch of auth.users list for admin: ${user.id}`);
+    console.log(`[Admin Users API] Authorized fetch of auth.users list for admin: ${currentUser.id}`);
 
     // 2. Initialize admin client with service role key to securely fetch real emails
     // Enforce persistSession: false for clean server environment

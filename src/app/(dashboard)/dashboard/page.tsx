@@ -1161,9 +1161,6 @@ export default function HelpHubDashboardPage() {
             <span className="text-[9px] font-bold tracking-wide uppercase">Profile</span>
           </button>
         </div>
-      </nav>percase">Profile</span>
-          </button>
-        </div>
       </nav>
 
       {/* Modal to Create New Help Request */}

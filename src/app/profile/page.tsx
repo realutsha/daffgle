@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { supabase } from "@/lib/supabase/client";
 import { setUserOffline } from "@/lib/presence";
 import { isEmailAllowed } from "@/lib/validations/auth";
@@ -8,6 +8,17 @@ import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import { fetchProfileSafely, isProfileComplete, clearCachedProfile } from "@/utils/profile";
+import { 
+  PremiumCard, 
+  PremiumButton, 
+  PremiumInput, 
+  PremiumSelect, 
+  PremiumDialog, 
+  FloatingBottomNav, 
+  Skeleton, 
+  premiumSpring 
+} from "@/components/ui/PremiumUI";
+import { ArrowLeft, User, ShieldAlert, Award, Star, Compass, Trash2, Shield, Info, LogOut } from "lucide-react";
 
 type Profile = {
   id: string;
@@ -22,20 +33,33 @@ type Profile = {
 };
 
 const DEPARTMENTS = [
-  "CSE",
-  "SWE",
-  "EEE",
-  "CE",
-  "ME",
-  "TE",
-  "BBA",
-  "English",
-  "Pharmacy",
-  "Law"
+  { value: "CSE", label: "CSE" },
+  { value: "SWE", label: "SWE" },
+  { value: "EEE", label: "EEE" },
+  { value: "CE", label: "CE" },
+  { value: "ME", label: "ME" },
+  { value: "TE", label: "TE" },
+  { value: "BBA", label: "BBA" },
+  { value: "English", label: "English" },
+  { value: "Pharmacy", label: "Pharmacy" },
+  { value: "Law", label: "Law" }
 ];
 
-const MALE_HALLS = ["YKSG 1", "YKSG 2", "YKSG 3"];
-const FEMALE_HALLS = ["RASG 1", "RASG 2"];
+const GENDERS = [
+  { value: "Male", label: "Male" },
+  { value: "Female", label: "Female" }
+];
+
+const MALE_HALLS = [
+  { value: "YKSG 1", label: "YKSG 1" },
+  { value: "YKSG 2", label: "YKSG 2" },
+  { value: "YKSG 3", label: "YKSG 3" }
+];
+
+const FEMALE_HALLS = [
+  { value: "RASG 1", label: "RASG 1" },
+  { value: "RASG 2", label: "RASG 2" }
+];
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -107,7 +131,6 @@ export default function ProfilePage() {
   // Compute cooldown details safely in useEffect to keep render pure
   useEffect(() => {
     if (!profile || profile.profile_edit_count < 2 || !profile.last_profile_edit_at) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setCooldownActive(false);
       setCooldownRemainingDays(0);
       return;
@@ -124,13 +147,19 @@ export default function ProfilePage() {
     setCooldownRemainingDays(remaining);
   }, [profile]);
 
+  const hallOptions = useMemo(() => {
+    if (editGender === "Male") return MALE_HALLS;
+    if (editGender === "Female") return FEMALE_HALLS;
+    return [];
+  }, [editGender]);
+
   const handleGenderChange = (newGender: string) => {
     setEditGender(newGender);
     // Reset hall if gender mismatch occurs
     if (newGender === "Male") {
-      setEditHall(MALE_HALLS[0]);
+      setEditHall(MALE_HALLS[0].value);
     } else if (newGender === "Female") {
-      setEditHall(FEMALE_HALLS[0]);
+      setEditHall(FEMALE_HALLS[0].value);
     } else {
       setEditHall("");
     }
@@ -157,12 +186,14 @@ export default function ProfilePage() {
       return;
     }
 
-    // Hall gender constraints matching
-    if (editGender === "Male" && !MALE_HALLS.includes(editHall)) {
+    const maleHallValues = MALE_HALLS.map(h => h.value);
+    if (editGender === "Male" && !maleHallValues.includes(editHall)) {
       toast.error("Male students are restricted to YKSG male halls.");
       return;
     }
-    if (editGender === "Female" && !FEMALE_HALLS.includes(editHall)) {
+
+    const femaleHallValues = FEMALE_HALLS.map(h => h.value);
+    if (editGender === "Female" && !femaleHallValues.includes(editHall)) {
       toast.error("Female students are restricted to RASG female halls.");
       return;
     }
@@ -271,390 +302,346 @@ export default function ProfilePage() {
     }
   };
 
+  // Background Chats Unread Counter
+  const [unreadChatsCount, setUnreadChatsCount] = useState(0);
+  useEffect(() => {
+    if (!userId) return;
+    const fetchUnread = async () => {
+      const { data } = await supabase
+        .from("messages")
+        .select("id")
+        .neq("sender_id", userId)
+        .eq("seen", false);
+      setUnreadChatsCount(data?.length || 0);
+    };
+    fetchUnread();
+  }, [userId]);
+
+  // Floating Bottom Navigation Data
+  const bottomNavItems = [
+    { label: "Home", icon: "🏠", onClick: () => router.push("/"), isActive: false },
+    { label: "Help Hub", icon: "🤝", onClick: () => router.push("/dashboard"), isActive: false },
+    { label: "Chats", icon: "💬", onClick: () => router.push("/chat"), isActive: false, badge: unreadChatsCount },
+    { label: "Sanctuary", icon: "🦉", onClick: () => router.push("/night-owl"), isActive: false },
+    { label: "Profile", icon: "👤", onClick: () => router.push("/profile"), isActive: true },
+  ];
+
   if (loading) {
     return (
-      <main className="flex h-screen items-center justify-center bg-[#0E1621] text-white px-4">
-        <div className="flex flex-col items-center gap-4">
-          <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#2B5278]/30 border-t-[#2AABEE]" />
-          <p className="text-sm text-gray-400 font-medium animate-pulse">Loading Profile...</p>
+      <main className="flex h-screen items-center justify-center bg-[#111111] text-white px-4">
+        <div className="flex flex-col items-center gap-4 animate-pulse select-none">
+          <div className="h-10 w-10 animate-spin rounded-full border-4 border-white/5 border-t-brand-accent" />
+          <p className="text-sm text-brand-text-secondary font-medium">Loading Profile...</p>
         </div>
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen bg-[#0E1621] text-white pb-32">
+    <main className="min-h-screen bg-[#111111] text-brand-text-primary pb-32 pt-safe">
       <div className="mx-auto w-full max-w-2xl px-4 pt-8">
+        
         {/* Header */}
         <header className="mb-8 flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-black text-[#2AABEE] tracking-tight">
+            <h1 className="text-3xl font-black text-white tracking-tight">
               My Profile
             </h1>
-            <p className="mt-1 text-sm text-gray-400">
-              Manage your anonymous campus identity
+            <p className="mt-1 text-xs text-brand-text-secondary select-none">
+              Manage your anonymous campus statistics
             </p>
           </div>
 
-          <button
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
             onClick={() => router.push("/dashboard")}
-            className="rounded-2xl bg-[#2B5278] px-4 py-2 text-xs font-bold transition hover:scale-[1.02] hover:opacity-90 cursor-pointer"
+            className="rounded-2xl bg-brand-surface border border-white/5 px-4 py-2.5 text-xs font-bold text-[#C9D7F2] transition hover:bg-[#232323] cursor-pointer shadow-sm flex items-center gap-1.5"
           >
-            ← Help Hub
-          </button>
+            <ArrowLeft className="h-3.5 w-3.5" />
+            Help Hub
+          </motion.button>
         </header>
 
-        {/* Profile Details Container */}
+        {/* Profile Details Card Container */}
         <motion.div
           initial={{ opacity: 0, y: 15 }}
           animate={{ opacity: 1, y: 0 }}
-          className="rounded-3xl border border-[#22303D] bg-[#17212B] p-6 shadow-2xl space-y-6"
+          transition={premiumSpring}
+          className="space-y-6"
         >
-          {/* Top Info Banner */}
-          <div className="flex items-center gap-4 border-b border-[#22303D] pb-6">
-            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[#2B5278] text-2xl font-black text-white relative">
-              {profile?.anonymous_username?.charAt(0).toUpperCase() || "D"}
-              {profile?.warning_badge && (
-                <span className="absolute -top-1 -right-1 flex h-4.5 w-4.5 items-center justify-center rounded-full bg-red-650 text-[10px] font-black text-white animate-pulse">
-                  ⚠️
-                </span>
-              )}
-            </div>
-            <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <h2 className="text-xl font-bold text-white">
-                  {profile?.anonymous_username || "Not set"}
-                </h2>
+          <PremiumCard className="p-6 border-white/5 bg-brand-surface shadow-xl space-y-6">
+            
+            {/* Top Identity details */}
+            <div className="flex items-center gap-4 border-b border-white/5 pb-6">
+              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-brand-elevated border border-white/5 text-2xl font-black text-[#C9D7F2] relative select-none">
+                {profile?.anonymous_username?.charAt(0).toUpperCase() || "D"}
                 {profile?.warning_badge && (
-                  <span className="rounded-full bg-red-650/15 border border-red-500/25 px-2.5 py-0.5 text-[9px] font-black text-red-400 uppercase tracking-wide animate-pulse">
-                    ⚠️ {profile.warning_badge}
+                  <span className="absolute -top-1 -right-1 flex h-4.5 w-4.5 items-center justify-center rounded-full bg-red-500 text-[10px] font-black text-white animate-pulse">
+                    ⚠️
                   </span>
                 )}
               </div>
-              <p className="text-sm text-gray-400 mt-0.5">
-                Anonymous student with <span className="text-[#2AABEE] font-bold">{profile?.karma} Karma rating</span>
-              </p>
-            </div>
-          </div>
-
-          {/* Warning Message for limits */}
-          {!isEditing && (
-            <div className="rounded-2xl bg-[#0E1621] p-4 border border-[#22303D]/65">
-              <p className="text-xs text-gray-400 leading-normal">
-                📢 <span className="text-white font-bold">Identity limits:</span> You can edit profile parameters freely 2 times. Starting from the 3rd edit, a strict <span className="text-[#2AABEE] font-bold">30-day cooldown lock</span> applies.
-              </p>
-              <div className="mt-2.5 flex items-center justify-between">
-                <span className="text-[10px] font-bold uppercase text-gray-500 tracking-wider">
-                  Total edits count
-                </span>
-                <span className="rounded-full bg-[#17212B] px-3 py-1 text-xs font-black text-[#2AABEE] border border-[#22303D]">
-                  {profile?.profile_edit_count} used
-                </span>
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h2 className="text-lg font-bold text-white/95">
+                    {profile?.anonymous_username || "Not set"}
+                  </h2>
+                  {profile?.warning_badge && (
+                    <span className="rounded-full bg-red-500/10 border border-red-500/20 px-2 py-0.5 text-[8px] font-bold text-red-400 uppercase tracking-wider animate-pulse select-none">
+                      ⚠️ {profile.warning_badge}
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-brand-text-secondary mt-0.5">
+                  Verified student with <span className="text-[#C9D7F2] font-black">{profile?.karma} Karma point rating</span>
+                </p>
               </div>
             </div>
-          )}
 
-          {/* Editing State Form fields */}
-          {isEditing ? (
-            <div className="space-y-4">
-              {cooldownActive && (
-                <div className="rounded-2xl bg-red-950/20 border border-red-900/40 p-4">
-                  <p className="text-xs text-red-400 font-bold leading-normal">
-                    🚫 Editing is blocked! Cooldown active. You can edit details again in {cooldownRemainingDays} days.
-                  </p>
+            {/* Editing Limit Warning Box */}
+            {!isEditing && (
+              <div className="rounded-2xl bg-brand-secondary p-4 border border-white/5 select-none space-y-2.5 shadow-inner">
+                <p className="text-xs text-brand-text-secondary leading-normal flex items-start gap-2">
+                  <Info className="h-4 w-4 text-brand-accent shrink-0 mt-0.5" />
+                  <span>
+                    <span className="text-white font-semibold">Identity limits:</span> You can edit profile parameters freely 2 times. Starting from the 3rd edit, a strict <span className="text-[#C9D7F2] font-black">30-day cooldown lock</span> applies.
+                  </span>
+                </p>
+                <div className="flex items-center justify-between border-t border-white/5 pt-2.5">
+                  <span className="text-[9px] font-bold uppercase text-brand-text-secondary tracking-widest">
+                    Total Edits count
+                  </span>
+                  <span className="rounded-full bg-brand-elevated px-2.5 py-0.5 text-[10px] font-black text-brand-accent border border-white/5">
+                    {profile?.profile_edit_count} used
+                  </span>
                 </div>
-              )}
+              </div>
+            )}
 
-              {/* Username Input */}
-              <div className="space-y-1">
-                <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest ml-1">
-                  Anonymous Username
-                </label>
-                <input
-                  type="text"
+            {/* Editing State Form fields */}
+            {isEditing ? (
+              <div className="space-y-4">
+                
+                {/* Active Cooldown Lock Alert */}
+                {cooldownActive && (
+                  <div className="rounded-2xl bg-red-500/5 border border-red-500/15 p-4 flex gap-3 select-none">
+                    <ShieldAlert className="h-5 w-5 text-red-400 shrink-0 mt-0.5" />
+                    <p className="text-xs text-red-400 font-semibold leading-normal">
+                      🚫 Identity parameters are locked. Cooldown active. You can edit details again in {cooldownRemainingDays} days.
+                    </p>
+                  </div>
+                )}
+
+                {/* Username parameter */}
+                <PremiumInput
+                  label="Anonymous Username"
                   value={editUsername}
                   onChange={(e) => setEditUsername(e.target.value)}
                   disabled={saving || cooldownActive}
                   placeholder="Enter anonymous username..."
-                  className="w-full rounded-2xl border border-[#22303D] bg-[#0F1A24] px-4 py-3 text-white focus:border-[#2AABEE] outline-none transition disabled:opacity-50"
+                  leftIcon={<User className="h-4 w-4 opacity-50" />}
                 />
-              </div>
 
-              {/* Department Selector */}
-              <div className="space-y-1">
-                <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest ml-1">
-                  Department
-                </label>
-                <select
+                {/* Department selector */}
+                <PremiumSelect
+                  label="Academic Department"
                   value={editDepartment}
-                  onChange={(e) => setEditDepartment(e.target.value)}
+                  onChange={setEditDepartment}
+                  options={DEPARTMENTS}
+                  placeholder="Select department..."
                   disabled={saving || cooldownActive}
-                  className="w-full rounded-2xl border border-[#22303D] bg-[#0F1A24] px-4 py-3 text-white focus:border-[#2AABEE] outline-none transition disabled:opacity-50"
-                >
-                  <option value="">-- Choose department --</option>
-                  {DEPARTMENTS.map((dept) => (
-                    <option key={dept} value={dept}>
-                      {dept}
-                    </option>
-                  ))}
-                </select>
-              </div>
+                />
 
-              {/* Gender Selector */}
-              <div className="space-y-1">
-                <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest ml-1">
-                  Gender
-                </label>
-                <select
+                {/* Gender selector */}
+                <PremiumSelect
+                  label="Gender"
                   value={editGender}
-                  onChange={(e) => handleGenderChange(e.target.value)}
+                  onChange={handleGenderChange}
+                  options={GENDERS}
+                  placeholder="Select gender..."
                   disabled={saving || cooldownActive}
-                  className="w-full rounded-2xl border border-[#22303D] bg-[#0F1A24] px-4 py-3 text-white focus:border-[#2AABEE] outline-none transition disabled:opacity-50"
-                >
-                  <option value="">-- Choose gender --</option>
-                  <option value="Male">Male</option>
-                  <option value="Female">Female</option>
-                </select>
-              </div>
+                />
 
-              {/* Hall Selector (dependent on gender) */}
-              <div className="space-y-1">
-                <label className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest ml-1">
-                  Campus Hall
-                </label>
-                <select
+                {/* Hall selector */}
+                <PremiumSelect
+                  label="Residence Hall"
                   value={editHall}
-                  onChange={(e) => setEditHall(e.target.value)}
+                  onChange={setEditHall}
+                  options={hallOptions}
+                  placeholder={editGender ? "Choose residence hall..." : "Please select gender first"}
                   disabled={saving || cooldownActive || !editGender}
-                  className="w-full rounded-2xl border border-[#22303D] bg-[#0F1A24] px-4 py-3 text-white focus:border-[#2AABEE] outline-none transition disabled:opacity-50"
-                >
-                  <option value="">-- Choose hall --</option>
-                  {editGender === "Male" &&
-                    MALE_HALLS.map((hall) => (
-                      <option key={hall} value={hall}>
-                        {hall}
-                      </option>
-                    ))}
-                  {editGender === "Female" &&
-                    FEMALE_HALLS.map((hall) => (
-                      <option key={hall} value={hall}>
-                        {hall}
-                      </option>
-                    ))}
-                </select>
-              </div>
+                />
 
-              <div className="flex gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setIsEditing(false)}
-                  disabled={saving}
-                  className="flex-1 rounded-2xl bg-[#0F1A24] border border-[#22303D] py-3 text-sm font-bold text-gray-300 transition hover:bg-[#182533] cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={handleSaveProfile}
-                  disabled={saving || cooldownActive}
-                  className="flex-1 rounded-2xl bg-[#2AABEE] py-3 text-sm font-black text-white hover:opacity-90 transition disabled:opacity-50 cursor-pointer shadow-lg shadow-[#2AABEE]/20"
-                >
-                  {saving ? "Saving..." : "Save Identity"}
-                </button>
-              </div>
-            </div>
-          ) : (
-            /* Read Only view mode details grid */
-            <div className="space-y-6">
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="rounded-2xl border border-[#22303D]/60 bg-[#0F1A24] p-4">
-                  <span className="text-xs font-semibold text-gray-500 block mb-1">
-                    DEPARTMENT
-                  </span>
-                  <span className="text-base font-bold text-white">
-                    {profile?.department || "Not set"}
-                  </span>
-                </div>
-
-                <div className="rounded-2xl border border-[#22303D]/60 bg-[#0F1A24] p-4">
-                  <span className="text-xs font-semibold text-gray-500 block mb-1">
-                    GENDER
-                  </span>
-                  <span className="text-base font-bold text-white capitalize">
-                    {profile?.gender || "Not set"}
-                  </span>
-                </div>
-
-                <div className="rounded-2xl border border-[#22303D]/60 bg-[#0F1A24] p-4">
-                  <span className="text-xs font-semibold text-gray-500 block mb-1">
-                    CAMPUS HALL
-                  </span>
-                  <span className="text-base font-bold text-white">
-                    {profile?.hall || "Not set"}
-                  </span>
-                </div>
-
-                <div className="rounded-2xl border border-[#22303D]/60 bg-[#0F1A24] p-4">
-                  <span className="text-xs font-semibold text-gray-500 block mb-1">
-                    TRUST REPUTATION
-                  </span>
-                  <span className="text-base font-black text-[#2AABEE] flex items-center gap-1">
-                    🌟 {profile?.karma || 0} Karma rating
-                  </span>
+                <div className="flex gap-3 pt-2">
+                  <PremiumButton
+                    type="button"
+                    onClick={() => setIsEditing(false)}
+                    disabled={saving}
+                    variant="secondary"
+                    className="flex-1"
+                  >
+                    Cancel
+                  </PremiumButton>
+                  <PremiumButton
+                    type="button"
+                    onClick={handleSaveProfile}
+                    disabled={saving || cooldownActive}
+                    variant="primary"
+                    className="flex-1 font-bold shadow-lg"
+                  >
+                    {saving ? "Saving..." : "Save Identity"}
+                  </PremiumButton>
                 </div>
               </div>
+            ) : (
+              /* Read Only Grid */
+              <div className="space-y-6">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="rounded-2xl border border-white/5 bg-brand-secondary p-4 shadow-inner">
+                    <span className="text-[9px] font-bold text-brand-text-secondary uppercase tracking-widest block mb-1">
+                      DEPARTMENT
+                    </span>
+                    <span className="text-sm font-bold text-white">
+                      {profile?.department || "Not set"}
+                    </span>
+                  </div>
 
-              <div className="flex gap-2">
-                <button
+                  <div className="rounded-2xl border border-white/5 bg-brand-secondary p-4 shadow-inner">
+                    <span className="text-[9px] font-bold text-brand-text-secondary uppercase tracking-widest block mb-1">
+                      GENDER
+                    </span>
+                    <span className="text-sm font-bold text-white capitalize">
+                      {profile?.gender || "Not set"}
+                    </span>
+                  </div>
+
+                  <div className="rounded-2xl border border-white/5 bg-brand-secondary p-4 shadow-inner">
+                    <span className="text-[9px] font-bold text-brand-text-secondary uppercase tracking-widest block mb-1">
+                      CAMPUS HALL
+                    </span>
+                    <span className="text-sm font-bold text-white">
+                      {profile?.hall || "Not set"}
+                    </span>
+                  </div>
+
+                  <div className="rounded-2xl border border-white/5 bg-brand-secondary p-4 shadow-inner">
+                    <span className="text-[9px] font-bold text-brand-text-secondary uppercase tracking-widest block mb-1">
+                      TRUST REPUTATION
+                    </span>
+                    <span className="text-sm font-black text-brand-accent flex items-center gap-1 select-none">
+                      <Star className="h-4 w-4 text-brand-accent fill-brand-accent" />
+                      {profile?.karma || 0} Karma Points
+                    </span>
+                  </div>
+                </div>
+
+                <PremiumButton
                   onClick={() => setIsEditing(true)}
-                  className="w-full rounded-2xl bg-[#2AABEE] py-3.5 text-sm font-black text-white hover:scale-[1.01] transition shadow-lg shadow-[#2AABEE]/25 cursor-pointer"
+                  variant="accent"
+                  className="w-full font-bold shadow-md"
                 >
                   Edit Profile Details
-                </button>
+                </PremiumButton>
               </div>
+            )}
+
+            {/* Privacy Shield Info panel */}
+            <div className="rounded-2xl border border-white/5 bg-brand-secondary p-5 select-none space-y-1.5 shadow-inner">
+              <h3 className="text-xs font-bold text-white flex items-center gap-1.5">
+                <Shield className="h-4 w-4 text-brand-accent" />
+                🔒 Privacy Shield active
+              </h3>
+              <p className="text-[11px] text-brand-text-secondary leading-relaxed">
+                Your real university registration, email, phone number, and student ID are completely shielded. Only your custom anonymous identity parameters and Karma ratings are broadcasted inside Daffgle chat rooms and assistance feeds.
+              </p>
             </div>
-          )}
 
-          {/* Privacy Status */}
-          <div className="rounded-2xl border border-[#22303D]/60 bg-[#0F1A24] p-5">
-            <h3 className="text-sm font-bold text-white flex items-center gap-2 mb-2">
-              🔒 Privacy Shield
-            </h3>
-            <p className="text-xs md:text-sm text-gray-400 leading-6">
-              Your real identity, phone, and student email are completely shielded. 
-              Only your anonymous username (<span className="text-white font-medium">{profile?.anonymous_username}</span>), 
-              department, gender, hall, and trust rating are displayed to other students inside chats or help requests.
-            </p>
-          </div>
+            {/* Account Purging Dangerous Panel */}
+            <div className="rounded-2xl bg-red-500/5 border border-red-500/10 p-5 space-y-3.5 select-none shadow-inner">
+              <h3 className="text-xs font-bold text-red-400 flex items-center gap-1.5">
+                ⚠️ Permanent Account Deletion
+              </h3>
+              <p className="text-[11px] text-red-300/80 leading-relaxed">
+                Purging your identity is permanent, irreversible, and instantly deletes your profile parameters, active conversation feeds, messages history, help requests, moderation flags, and notification tokens.
+              </p>
+              <PremiumButton
+                onClick={() => setShowDeleteModal(true)}
+                variant="danger"
+                className="py-2.5 px-4 text-xs font-bold rounded-xl"
+              >
+                Purge Account Permanently
+              </PremiumButton>
+            </div>
 
-          {/* Warning / Account Purging Block */}
-          <div className="rounded-2xl bg-red-950/20 border border-red-900/35 p-5 space-y-4">
-            <h3 className="text-sm font-bold text-red-400 flex items-center gap-2">
-              ⚠️ Permanent Account Deletion
-            </h3>
-            <p className="text-xs text-red-300 leading-relaxed">
-              Deleting your account is permanent, irreversible, and instantly removes your profile details, open help requests, moderation logs, messages, reports, active conversations, and push notifications tokens.
-            </p>
-            <button
-              onClick={() => setShowDeleteModal(true)}
-              className="w-full sm:w-auto rounded-2xl bg-red-650/80 px-6 py-3 text-xs font-black text-white hover:bg-red-700 transition cursor-pointer"
-            >
-              Purge Account Permanently
-            </button>
-          </div>
+            {/* Logout actions */}
+            <div className="border-t border-white/5 pt-5">
+              <PremiumButton
+                onClick={handleLogout}
+                variant="secondary"
+                className="w-full py-3 text-xs font-bold rounded-xl flex items-center justify-center gap-1.5"
+              >
+                <LogOut className="h-3.5 w-3.5 opacity-75" />
+                Log Out of Daffgle
+              </PremiumButton>
+            </div>
 
-          {/* Logout Section */}
-          <div className="flex flex-col sm:flex-row gap-3 pt-2">
-            <button
-              onClick={handleLogout}
-              className="flex-1 rounded-2xl bg-[#0F1A24] border border-[#22303D] py-3.5 font-bold text-gray-300 transition hover:bg-[#182533] cursor-pointer text-center text-sm"
-            >
-              Log Out of Daffgle
-            </button>
-          </div>
+          </PremiumCard>
         </motion.div>
 
-        {/* Floating Mobile bottom navigation bar */}
-        <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-[#22303D] bg-[#17212B]/95 px-4 py-3 backdrop-blur md:hidden pb-safe">
-          <div className="mx-auto grid max-w-2xl grid-cols-4 gap-1">
-            <button
-              onClick={() => router.push("/")}
-              className="flex flex-col items-center gap-0.5 py-1.5 rounded-2xl text-gray-400 hover:bg-[#182533]/40 transition duration-200 cursor-pointer"
-            >
-              <span className="text-lg">🏠</span>
-              <span className="text-[10px] font-bold tracking-wide uppercase">Home</span>
-            </button>
+        {/* Floating Mobile Bottom Navigation Bar (Mobile only) */}
+        <FloatingBottomNav items={bottomNavItems} />
 
-            <button
-              onClick={() => router.push("/dashboard")}
-              className="flex flex-col items-center gap-0.5 py-1.5 rounded-2xl text-gray-400 hover:bg-[#182533]/40 transition duration-200 cursor-pointer"
-            >
-              <span className="text-lg">🤝</span>
-              <span className="text-[10px] font-bold tracking-wide uppercase">Help Hub</span>
-            </button>
+        {/* Account Deletion Confirmation Dialog */}
+        <PremiumDialog
+          isOpen={showDeleteModal}
+          onClose={() => {
+            setShowDeleteModal(false);
+            setDeleteConfirmText("");
+          }}
+          title="Irreversible Purge"
+          description="Are you absolutely certain? This will wipe your anonymous identity and erase all of your conversation histories permanently."
+        >
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <label className="text-[9px] font-bold text-brand-text-secondary uppercase tracking-widest block text-center select-none">
+                Type <span className="text-red-400 font-extrabold font-mono">delete my account</span> to confirm
+              </label>
+              <PremiumInput
+                value={deleteConfirmText}
+                onChange={(e) => setDeleteConfirmText(e.target.value)}
+                placeholder="Type confirmation text..."
+                disabled={deleting}
+                className="text-center font-semibold placeholder:text-white/10"
+              />
+            </div>
 
-            <button
-              onClick={() => router.push("/chat")}
-              className="flex flex-col items-center gap-0.5 py-1.5 rounded-2xl text-gray-400 hover:bg-[#182533]/40 transition duration-200 cursor-pointer"
-            >
-              <span className="text-lg">💬</span>
-              <span className="text-[10px] font-bold tracking-wide uppercase">Chats</span>
-            </button>
+            <div className="flex gap-3 pt-2">
+              <PremiumButton
+                onClick={() => {
+                  setShowDeleteModal(false);
+                  setDeleteConfirmText("");
+                }}
+                disabled={deleting}
+                variant="secondary"
+                className="flex-1"
+              >
+                Go Back
+              </PremiumButton>
 
-            <button
-              onClick={() => router.push("/profile")}
-              className="flex flex-col items-center gap-0.5 py-1.5 rounded-2xl bg-[#2B5278]/20 text-[#2AABEE] transition duration-200 cursor-pointer"
-            >
-              <span className="text-lg">👤</span>
-              <span className="text-[10px] font-black tracking-wide uppercase">Profile</span>
-            </button>
+              <PremiumButton
+                onClick={handleDeleteAccount}
+                disabled={deleting || deleteConfirmText.toLowerCase() !== "delete my account"}
+                variant="danger"
+                className="flex-1 font-bold"
+              >
+                {deleting ? "Purging..." : "Permanently Delete"}
+              </PremiumButton>
+            </div>
           </div>
-        </nav>
+        </PremiumDialog>
+
       </div>
-
-      {/* Account Deletion Confirmation Modal */}
-      <AnimatePresence>
-        {showDeleteModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-55 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
-          >
-            <motion.div
-              initial={{ scale: 0.95, y: 15 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.95, y: 15 }}
-              className="w-full max-w-md overflow-hidden rounded-3xl border border-red-900/35 bg-[#17212B] p-6 shadow-2xl space-y-6"
-            >
-              <div className="text-center space-y-2">
-                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-red-950/20 text-3xl">
-                  🚨
-                </div>
-                <h3 className="text-2xl font-black text-red-500 tracking-tight">Irreversible Deletion</h3>
-                <p className="text-xs text-gray-400 leading-normal">
-                  Are you absolutely certain? This will completely wipe all of your chats, requested items, ratings, and profile parameters. It cannot be recovered.
-                </p>
-              </div>
-
-              <div className="space-y-3">
-                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block text-center">
-                  Type <span className="text-red-400 font-extrabold font-mono">delete my account</span> to confirm
-                </label>
-                <input
-                  type="text"
-                  value={deleteConfirmText}
-                  onChange={(e) => setDeleteConfirmText(e.target.value)}
-                  placeholder="Type verification text..."
-                  disabled={deleting}
-                  className="w-full rounded-2xl border border-red-900/30 bg-[#0F1A24] px-4 py-3 text-white focus:border-red-500 outline-none text-center font-semibold text-sm transition"
-                />
-              </div>
-
-              <div className="flex gap-3">
-                <button
-                  onClick={() => {
-                    setShowDeleteModal(false);
-                    setDeleteConfirmText("");
-                  }}
-                  disabled={deleting}
-                  className="flex-1 rounded-2xl bg-[#0F1A24] border border-[#22303D] py-3 text-sm font-bold text-gray-300 transition hover:bg-[#182533] cursor-pointer"
-                >
-                  Go Back
-                </button>
-
-                <button
-                  onClick={handleDeleteAccount}
-                  disabled={deleting || deleteConfirmText.toLowerCase() !== "delete my account"}
-                  className="flex-1 rounded-2xl bg-red-650 py-3 text-sm font-black text-white hover:bg-red-700 transition disabled:opacity-40 cursor-pointer shadow-lg shadow-red-600/20"
-                >
-                  {deleting ? "Deleting..." : "Permanently Delete"}
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </main>
   );
 }

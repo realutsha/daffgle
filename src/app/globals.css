@@ -1,26 +1,81 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #111111;
+  --foreground: rgba(255, 255, 255, 0.92);
 }
 
-@theme inline {
+@theme {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+  
+  --color-brand-primary: #111111;
+  --color-brand-secondary: #1A1A1A;
+  --color-brand-surface: #1E1E1E;
+  --color-brand-elevated: #232323;
+  --color-brand-accent: #C9D7F2;
+  
+  --color-brand-text-primary: rgba(255, 255, 255, 0.92);
+  --color-brand-text-secondary: rgba(255, 255, 255, 0.55);
+  --color-brand-border: rgba(255, 255, 255, 0.06);
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --font-sans: "Inter", system-ui, -apple-system, sans-serif;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
+  overflow-x: hidden;
 }
+
+/* Premium utility styles */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Safe-area spacing for mobile notch devices */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.pt-safe {
+  padding-top: env(safe-area-inset-top);
+}
+
+/* Glowing/Pulsing Micro-animations */
+@keyframes pulseGlow {
+  0%, 100% {
+    opacity: 0.4;
+    transform: scale(1);
+    box-shadow: 0 0 10px rgba(201, 215, 242, 0.1);
+  }
+  50% {
+    opacity: 0.95;
+    transform: scale(1.05);
+    box-shadow: 0 0 20px rgba(201, 215, 242, 0.3);
+  }
+}
+
+.animate-pulse-glow {
+  animation: pulseGlow 3s infinite ease-in-out;
+}
+
+@keyframes starTwinkle {
+  0%, 100% {
+    opacity: 0.15;
+    transform: scale(0.85);
+  }
+  50% {
+    opacity: 0.85;
+    transform: scale(1.15);
+  }
+}
+
+.animate-star-twinkle {
+  animation: starTwinkle 4s infinite ease-in-out;
+}
+

@@ -6,6 +6,13 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { 
+  PremiumCard, 
+  PremiumButton, 
+  EmptyState,
+  premiumSpring 
+} from "@/components/ui/PremiumUI";
+import { RefreshCw, Moon, Sparkles, Clock, Lock, CheckCircle2, Star } from "lucide-react";
 
 const MOODS: { mood: NightMood; icon: string; desc: string }[] = [
   { mood: "Can’t sleep", icon: "🥱", desc: "Tossing and turning" },
@@ -52,10 +59,10 @@ export default function NightOwlPanel() {
 
   if (loading) {
     return (
-      <div className="flex h-full flex-col items-center justify-center bg-[#0E1621] text-white">
-        <div className="flex flex-col items-center gap-4">
-          <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#2B5278]/30 border-t-[#2AABEE]" />
-          <p className="text-sm text-gray-400 font-medium animate-pulse">
+      <div className="flex h-full flex-col items-center justify-center bg-[#111111] text-brand-text-primary px-4">
+        <div className="flex flex-col items-center gap-4 animate-pulse select-none">
+          <div className="h-10 w-10 animate-spin rounded-full border-4 border-white/5 border-t-brand-accent" />
+          <p className="text-sm text-brand-text-secondary font-medium">
             Connecting to Night Owl Network...
           </p>
         </div>
@@ -64,9 +71,10 @@ export default function NightOwlPanel() {
   }
 
   return (
-    <div className="relative flex h-full flex-col bg-[#0E1621] text-white overflow-hidden">
+    <div className="relative flex h-full flex-col bg-[#111111] text-brand-text-primary overflow-hidden">
+      
       {/* Cinematic Starry/Cosmic Sky background overlay */}
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-indigo-950/20 via-[#0E1621] to-[#0E1621] pointer-events-none" />
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#C9D7F2]/5 via-transparent to-transparent pointer-events-none" />
       
       {/* Star twinkling animation elements */}
       <div className="absolute inset-0 opacity-10 pointer-events-none">
@@ -76,11 +84,12 @@ export default function NightOwlPanel() {
         <div className="absolute top-1/2 left-1/2 w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
       </div>
 
-      <header className="sticky top-0 z-30 border-b border-[#22303D] bg-[#17212B]/90 backdrop-blur px-6 py-5 flex items-center justify-between">
+      <header className="sticky top-0 z-30 border-b border-white/5 bg-[#1A1A1A]/90 backdrop-blur px-6 py-5 flex items-center justify-between select-none">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-black tracking-tight text-[#2AABEE] flex items-center gap-2 select-none">
-              <span>🦉</span> Night Owl Mode
+            <h1 className="text-xl md:text-2xl font-black tracking-tight text-white flex items-center gap-2">
+              <Moon className="h-6 w-6 text-brand-accent shrink-0" />
+              Night Owl Mode
             </h1>
             <AnimatePresence>
               {timeState.isActive && (
@@ -88,65 +97,69 @@ export default function NightOwlPanel() {
                   initial={{ opacity: 0, scale: 0.8 }}
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.8 }}
-                  className="rounded-full bg-[#2AABEE]/15 border border-[#2AABEE]/30 px-2.5 py-0.5 text-[10px] font-black text-[#2AABEE] uppercase tracking-wider animate-pulse flex items-center gap-1 shadow-[0_0_8px_rgba(42,171,238,0.2)]"
+                  className="rounded-full bg-brand-accent/10 border border-brand-accent/30 px-2.5 py-0.5 text-[9px] font-black text-brand-accent uppercase tracking-wider animate-pulse flex items-center gap-1 shadow-[0_0_8px_rgba(201,215,242,0.15)]"
                 >
-                  <span className="h-1.5 w-1.5 rounded-full bg-[#2AABEE]" />
+                  <span className="h-1.5 w-1.5 rounded-full bg-brand-accent animate-ping" />
                   Live
                 </motion.span>
               )}
             </AnimatePresence>
           </div>
-          <p className="text-xs text-gray-400 font-semibold uppercase tracking-widest mt-0.5">
+          <p className="text-[10px] font-bold text-brand-text-secondary uppercase tracking-widest mt-1">
             Daffgle Late Night Sanctuary
           </p>
         </div>
 
-        <button
+        <PremiumButton
           onClick={refreshData}
           disabled={submitting}
-          className="rounded-2xl bg-[#2B5278] px-4 py-2 text-xs font-bold transition hover:scale-[1.02] hover:opacity-90 disabled:opacity-60 cursor-pointer"
+          variant="secondary"
+          className="py-2 px-3 text-xs font-bold rounded-xl flex items-center gap-1"
         >
+          <RefreshCw className="h-3 w-3 shrink-0" />
           Sync Feed
-        </button>
+        </PremiumButton>
       </header>
 
-      <div className="flex-1 overflow-y-auto px-6 py-8 z-10">
-        <div className="mx-auto max-w-4xl space-y-8">
+      <div className="flex-1 overflow-y-auto px-6 py-8 z-10 no-scrollbar">
+        <div className="mx-auto max-w-4xl space-y-8 pb-20">
           
           {/* LOCKED STATE: Outside 3:00 AM - 6:00 AM BDT */}
           {!timeState.isActive ? (
             <motion.div
               initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
-              className="mx-auto max-w-md rounded-4xl border border-[#22303D] bg-[#17212B]/95 p-8 shadow-2xl text-center space-y-6 relative"
+              className="mx-auto max-w-md"
             >
-              <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-3xl bg-[#0E1621] border border-[#22303D] text-4xl shadow-inner select-none animate-bounce">
-                🔒
-              </div>
+              <PremiumCard className="p-8 text-center space-y-6 relative border-white/5 bg-brand-surface shadow-2xl">
+                <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-3xl bg-brand-elevated border border-white/5 text-4xl shadow-inner select-none animate-bounce">
+                  <Lock className="h-8 w-8 text-brand-text-secondary" />
+                </div>
 
-              <div className="space-y-2">
-                <h2 className="text-2xl font-black text-gray-300">Night Owl is Closed</h2>
-                <p className="text-sm text-[#2AABEE] font-black tracking-wide uppercase">
-                  Opens at 3:00 AM BD Time
+                <div className="space-y-2">
+                  <h2 className="text-2xl font-black text-white">Night Owl is Closed</h2>
+                  <p className="text-xs text-brand-accent font-black tracking-widest uppercase">
+                    Opens at 3:00 AM BD Time
+                  </p>
+                </div>
+
+                <p className="text-xs text-brand-text-secondary leading-relaxed px-4">
+                  This sanctuary is only accessible between **3:00 AM and 6:00 AM Bangladesh Time (Asia/Dhaka)**. Join us then for anonymous late-night conversations.
                 </p>
-              </div>
 
-              <p className="text-xs text-gray-400 leading-relaxed px-4">
-                This sanctuary is only accessible between **3:00 AM and 6:00 AM Bangladesh Time (Asia/Dhaka)**. Join us then for anonymous late-night conversations.
-              </p>
+                <div className="rounded-3xl bg-brand-elevated p-5 border border-white/5 space-y-2 shadow-inner">
+                  <p className="text-[10px] font-bold text-brand-text-secondary uppercase tracking-widest">
+                    Sanctuary Unlocks In
+                  </p>
+                  <p className="text-3xl font-black text-white font-mono tracking-wider animate-pulse">
+                    {timeState.timeLeftFormatted}
+                  </p>
+                </div>
 
-              <div className="rounded-3xl bg-[#0E1621] p-5 border border-[#22303D]/60 space-y-2 shadow-inner">
-                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">
-                  Sanctuary Unlocks In
-                </p>
-                <p className="text-3xl font-black text-white font-mono tracking-wider animate-pulse">
-                  {timeState.timeLeftFormatted}
-                </p>
-              </div>
-
-              <div className="text-[10px] text-gray-500 font-semibold uppercase tracking-wider pt-2">
-                Current BD Time: {String(timeState.bdtTime.hour).padStart(2, "0")}:{String(timeState.bdtTime.minute).padStart(2, "0")} BDT
-              </div>
+                <div className="text-[10px] text-brand-text-secondary font-semibold uppercase tracking-wider pt-2">
+                  Current BD Time: {String(timeState.bdtTime.hour).padStart(2, "0")}:{String(timeState.bdtTime.minute).padStart(2, "0")} BDT
+                </div>
+              </PremiumCard>
             </motion.div>
           ) : (
             
@@ -156,20 +169,22 @@ export default function NightOwlPanel() {
               {/* Header Banner - Breathing Glow animation */}
               <motion.div
                 animate={{
-                  boxShadow: ["0 0 10px rgba(42,171,238,0.1)", "0 0 25px rgba(42,171,238,0.25)", "0 0 10px rgba(42,171,238,0.1)"]
+                  boxShadow: ["0 0 10px rgba(201,215,242,0.02)", "0 0 25px rgba(201,215,242,0.08)", "0 0 10px rgba(201,215,242,0.02)"]
                 }}
                 transition={{ repeat: Infinity, duration: 4, ease: "easeInOut" }}
-                className="rounded-3xl border border-[#2AABEE]/20 bg-[#17212B] p-6 shadow-2xl flex flex-col md:flex-row md:items-center justify-between gap-6"
+                className="rounded-[28px] border border-white/5 bg-brand-surface p-6 shadow-2xl flex flex-col md:flex-row md:items-center justify-between gap-6 select-none"
               >
                 <div className="space-y-1.5">
-                  <h2 className="text-xl md:text-2xl font-black text-white">Night Owl is Live! 🦉</h2>
-                  <p className="text-xs text-gray-400 leading-relaxed max-w-xl">
+                  <h2 className="text-xl md:text-2xl font-black text-white flex items-center gap-2">
+                    Night Owl is Live! 🦉
+                  </h2>
+                  <p className="text-xs text-brand-text-secondary leading-relaxed max-w-xl">
                     Share a late-night mood anonymously. Other students staying up can accept and connect. Chat messages and sessions automatically vanish at 6:00 AM BDT.
                   </p>
                 </div>
                 
-                <div className="rounded-2xl bg-[#0E1621] px-5 py-3 border border-[#22303D] shrink-0 text-center md:text-right">
-                  <p className="text-[9px] font-bold text-[#2AABEE] uppercase tracking-widest mb-0.5">
+                <div className="rounded-2xl bg-brand-elevated px-5 py-3 border border-white/5 shrink-0 text-center md:text-right">
+                  <p className="text-[9px] font-bold text-brand-accent uppercase tracking-widest mb-0.5">
                     Sanctuary Closes In
                   </p>
                   <p className="text-xl font-extrabold text-white font-mono tracking-wide">
@@ -184,62 +199,65 @@ export default function NightOwlPanel() {
                   
                   {/* CASE A: Active Ongoing Chat Session */}
                   {activeSession ? (
-                    <div className="rounded-3xl border border-green-500/25 bg-[#17212B] p-6 shadow-2xl space-y-4">
-                      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-green-500/10 text-2xl select-none">
+                    <PremiumCard className="p-6 shadow-2xl space-y-4 border-brand-accent/20 bg-brand-surface relative overflow-hidden">
+                      <div className="absolute top-0 right-0 h-24 w-24 bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-brand-accent/10 via-transparent to-transparent pointer-events-none" />
+                      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-accent/10 border border-brand-accent/20 text-2xl select-none">
                         🤝
                       </div>
                       <div className="space-y-1">
-                        <h3 className="text-lg font-black text-green-400">Connection Connected!</h3>
-                        <p className="text-xs text-gray-400 leading-relaxed">
+                        <h3 className="text-lg font-black text-brand-accent">Connection Connected!</h3>
+                        <p className="text-xs text-brand-text-secondary leading-relaxed">
                           Your secure, private 1-on-1 chat room is active. Dive back in.
                         </p>
                       </div>
-                      <button
+                      <PremiumButton
                         onClick={() => router.push(`/chat/${activeSession.conversation_id}`)}
-                        className="w-full rounded-2xl bg-green-600 hover:bg-green-700 py-3.5 text-xs font-black text-white shadow-lg transition duration-200 cursor-pointer"
+                        variant="primary"
+                        className="w-full py-3.5 text-xs font-black shadow-lg font-bold rounded-2xl"
                       >
                         Enter Anonymous Chat Room
-                      </button>
-                    </div>
+                      </PremiumButton>
+                    </PremiumCard>
                   ) :
                   
                   /* CASE B: User Has Active Broadcast Request */
                   myActiveRequest ? (
-                    <div className="rounded-3xl border border-[#22303D] bg-[#17212B] p-6 shadow-2xl space-y-5">
+                    <PremiumCard className="p-6 shadow-2xl space-y-5 border-white/5 bg-brand-surface">
                       <div className="flex items-center justify-between">
-                        <span className="rounded-full bg-[#2AABEE]/15 px-3 py-1 text-[10px] font-black text-[#2AABEE] uppercase tracking-wide">
+                        <span className="rounded-full bg-brand-accent/10 border border-brand-accent/20 px-3 py-1 text-[10px] font-black text-brand-accent uppercase tracking-wide">
                           Your Active Mood
                         </span>
-                        <span className="text-[10px] text-gray-500">
+                        <span className="text-[10px] text-brand-text-secondary">
                           Waiting for peer...
                         </span>
                       </div>
                       
-                      <div className="rounded-2xl bg-[#0E1621] p-4 border border-[#22303D] flex items-center gap-3">
+                      <div className="rounded-2xl bg-brand-elevated p-4 border border-white/5 flex items-center gap-3">
                         <span className="text-3xl select-none">
                           {MOODS.find(m => m.mood === myActiveRequest.mood)?.icon || "👻"}
                         </span>
                         <div>
-                          <p className="text-base font-black text-white">{myActiveRequest.mood}</p>
-                          <p className="text-xs text-gray-400">Broadcasting anonymously</p>
+                          <p className="text-sm font-black text-white">{myActiveRequest.mood}</p>
+                          <p className="text-[10px] text-brand-text-secondary">Broadcasting anonymously</p>
                         </div>
                       </div>
 
-                      <button
+                      <PremiumButton
                         onClick={() => deleteRequest(myActiveRequest.id)}
                         disabled={submitting}
-                        className="w-full rounded-2xl bg-red-650/20 border border-red-500/20 py-3 text-xs font-bold text-red-400 hover:bg-red-650/30 transition duration-200 cursor-pointer"
+                        variant="danger"
+                        className="w-full py-3 rounded-2xl text-xs font-bold"
                       >
                         {submitting ? "Cancelling..." : "Cancel Broadcast"}
-                      </button>
-                    </div>
+                      </PremiumButton>
+                    </PremiumCard>
                   ) : (
                     
                     /* CASE C: Eligible to Create a Request */
-                    <div className="rounded-3xl border border-[#22303D] bg-[#17212B] p-6 shadow-2xl space-y-6">
+                    <PremiumCard className="p-6 shadow-2xl space-y-6 border-white/5 bg-brand-surface">
                       <div>
-                        <h3 className="text-lg font-black text-white">How is your night going?</h3>
-                        <p className="text-xs text-gray-400 mt-1">
+                        <h3 className="text-lg font-black text-white">How is your night?</h3>
+                        <p className="text-xs text-brand-text-secondary mt-1">
                           Select a mood to broadcast anonymous peer help.
                         </p>
                       </div>
@@ -253,46 +271,47 @@ export default function NightOwlPanel() {
                               onClick={() => setSelectedMood(mood)}
                               className={`w-full rounded-2xl border p-3 flex items-center justify-between text-left transition duration-200 cursor-pointer ${
                                 isSel
-                                  ? "border-[#2AABEE] bg-[#2AABEE]/10 shadow-[0_0_8px_rgba(42,171,238,0.1)]"
-                                  : "border-[#22303D]/60 bg-[#0F1A24] hover:bg-[#182533]"
+                                  ? "border-brand-accent bg-brand-accent/10 shadow-[0_0_8px_rgba(201,215,242,0.1)] text-white"
+                                  : "border-white/5 bg-brand-elevated/40 hover:bg-brand-elevated/80 text-brand-text-primary"
                               }`}
                             >
                               <div className="flex items-center gap-3">
                                 <span className="text-2xl select-none">{icon}</span>
                                 <div>
-                                  <p className={`text-xs font-extrabold ${isSel ? "text-[#2AABEE]" : "text-white"}`}>
+                                  <p className={`text-xs font-extrabold ${isSel ? "text-brand-accent" : "text-white"}`}>
                                     {mood}
                                   </p>
-                                  <p className="text-[10px] text-gray-500 mt-0.5">{desc}</p>
+                                  <p className="text-[9px] text-brand-text-secondary mt-0.5">{desc}</p>
                                 </div>
                               </div>
-                              {isSel && <span className="text-xs text-[#2AABEE] font-bold">✓</span>}
+                              {isSel && <span className="text-xs text-brand-accent font-bold">✓</span>}
                             </button>
                           );
                         })}
                       </div>
 
-                      <button
+                      <PremiumButton
                         onClick={handleCreate}
                         disabled={submitting || !selectedMood}
-                        className="w-full rounded-2xl bg-[#2AABEE] hover:opacity-90 py-3.5 text-xs font-black text-white shadow-lg shadow-[#2AABEE]/20 transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                        variant="primary"
+                        className="w-full py-3.5 text-xs font-black shadow-lg font-bold rounded-2xl"
                       >
                         {submitting ? "Broadcasting..." : "Broadcast Mood"}
-                      </button>
-                    </div>
+                      </PremiumButton>
+                    </PremiumCard>
                   )}
                 </div>
 
                 {/* Right side: Live Peer Requests List */}
                 <div className="md:col-span-7 space-y-4">
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between select-none">
                     <div>
                       <h3 className="text-lg font-black text-white">Stay Up Together</h3>
-                      <p className="text-xs text-gray-400">
+                      <p className="text-xs text-brand-text-secondary">
                         Peer moods awaiting connections
                       </p>
                     </div>
-                    <span className="rounded-full bg-[#17212B] px-3.5 py-1 text-xs font-bold text-[#2AABEE] border border-[#22303D]">
+                    <span className="rounded-full bg-brand-surface px-3 py-1 text-xs font-bold text-brand-accent border border-white/5">
                       {requests.length} open
                     </span>
                   </div>
@@ -304,42 +323,45 @@ export default function NightOwlPanel() {
                           key={req.id}
                           initial={{ opacity: 0, y: 10 }}
                           animate={{ opacity: 1, y: 0 }}
-                          className="rounded-3xl border border-[#22303D] bg-[#17212B] p-5 shadow-xl flex items-center justify-between gap-4"
+                          transition={premiumSpring}
                         >
-                          <div className="flex items-center gap-3 min-w-0">
-                            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#0E1621] border border-[#22303D] text-2xl select-none">
-                              {MOODS.find(m => m.mood === req.mood)?.icon || "👻"}
-                            </div>
-                            <div className="min-w-0">
-                              <span className="rounded-full bg-[#2AABEE]/10 border border-[#2AABEE]/25 px-2 py-0.2 text-[8px] font-black text-[#2AABEE] uppercase tracking-wide">
-                                Anonymous Owl
-                              </span>
-                              <h4 className="font-extrabold text-sm text-white truncate mt-1">
-                                {req.mood}
-                              </h4>
-                              <p className="text-[10px] text-gray-500 mt-0.5">
-                                Stayed up • {new Date(req.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                              </p>
-                            </div>
-                          </div>
-
-                          <button
-                            onClick={() => handleAccept(req)}
-                            disabled={submitting || !!activeSession}
-                            className="rounded-xl bg-[#2AABEE] hover:opacity-90 px-4 py-2.5 text-xs font-black text-white shadow-md transition duration-200 disabled:opacity-40 disabled:cursor-not-allowed shrink-0 cursor-pointer"
+                          <PremiumCard
+                            className="p-5 shadow-xl flex items-center justify-between gap-4 border-white/5 bg-brand-surface"
                           >
-                            Connect
-                          </button>
+                            <div className="flex items-center gap-3 min-w-0">
+                              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-brand-elevated border border-white/5 text-2xl select-none">
+                                {MOODS.find(m => m.mood === req.mood)?.icon || "👻"}
+                              </div>
+                              <div className="min-w-0">
+                                <span className="rounded-full bg-brand-accent/10 border border-brand-accent/20 px-2 py-0.2 text-[8px] font-black text-brand-accent uppercase tracking-wide">
+                                  Anonymous Owl
+                                </span>
+                                <h4 className="font-extrabold text-sm text-white truncate mt-1">
+                                  {req.mood}
+                                </h4>
+                                <p className="text-[10px] text-brand-text-secondary mt-0.5">
+                                  Stayed up • {new Date(req.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </p>
+                              </div>
+                            </div>
+
+                            <PremiumButton
+                              onClick={() => handleAccept(req)}
+                              disabled={submitting || !!activeSession}
+                              variant="accent"
+                              className="py-2.5 px-4 text-xs font-bold rounded-xl shrink-0"
+                            >
+                              Connect
+                            </PremiumButton>
+                          </PremiumCard>
                         </motion.div>
                       ))
                     ) : (
-                      <div className="py-16 text-center border border-dashed border-[#22303D] rounded-3xl bg-[#17212B]/40">
-                        <p className="text-4xl select-none">🌙</p>
-                        <h4 className="mt-4 text-base font-bold text-gray-300">Quiet at the moment</h4>
-                        <p className="mt-2 text-xs text-gray-400 max-w-sm mx-auto leading-relaxed px-4">
-                          No anonymous late-night requests are broadcasted right now. Check back shortly or share your own mood to start a secure conversation!
-                        </p>
-                      </div>
+                      <EmptyState
+                        icon="🌙"
+                        title="Quiet at the moment"
+                        description="No anonymous late-night requests are broadcasted right now. Check back shortly or share your own mood to start a secure conversation!"
+                      />
                     )}
                   </div>
                 </div>

@@ -1,16 +1,11 @@
 import PWAInstall from "@/components/PWAInstall";
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Inter } from "next/font/google";
 import { Toaster } from "sonner";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const inter = Inter({
+  variable: "--font-inter",
   subsets: ["latin"],
 });
 
@@ -22,7 +17,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport = {
-  themeColor: "#0E1621",
+  themeColor: "#111111",
 };
 
 export default function RootLayout({
@@ -33,9 +28,9 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${inter.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col bg-[#0E1621] text-white">
+      <body className="min-h-full flex flex-col bg-[#111111] text-white/92 font-sans selection:bg-[#C9D7F2]/20 selection:text-[#C9D7F2]">
         {children}
         <PWAInstall />
         <Toaster position="top-center" theme="dark" richColors closeButton />

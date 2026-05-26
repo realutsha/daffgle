@@ -8,6 +8,14 @@ import { supabase } from "@/lib/supabase/client";
 import { setUserOnline, setUserOffline } from "@/lib/presence";
 import { isEmailAllowed } from "@/lib/validations/auth";
 import { censorText } from "@/lib/night-owl/profanity";
+import { 
+  PremiumButton, 
+  PremiumDialog, 
+  PremiumSelect, 
+  Skeleton, 
+  premiumSpring 
+} from "@/components/ui/PremiumUI";
+import { ArrowLeft, Flag, Check, CheckCheck, Loader2, Send, Trash2 } from "lucide-react";
 
 type Profile = {
   id: string;
@@ -29,12 +37,12 @@ type Message = {
 };
 
 const REPORT_REASONS = [
-  "Fake helper",
-  "Did not help",
-  "Abusive behavior",
-  "Harassment",
-  "Spam",
-  "Suspicious activity"
+  { value: "Fake helper", label: "Fake helper" },
+  { value: "Did not help", label: "Did not help" },
+  { value: "Abusive behavior", label: "Abusive behavior" },
+  { value: "Harassment", label: "Harassment" },
+  { value: "Spam", label: "Spam" },
+  { value: "Suspicious activity", label: "Suspicious activity" }
 ];
 
 function formatTime(date: string) {
@@ -55,7 +63,7 @@ function isUserActuallyOnline(isOnline: boolean | undefined, lastSeen: string | 
 export default function PrivateChatPage() {
   const router = useRouter();
   const params = useParams();
-  const conversationId = params.userId as string; // Treated directly as conversation_id from URL
+  const conversationId = params.userId as string;
 
   const bottomRef = useRef<HTMLDivElement | null>(null);
 
@@ -100,11 +108,10 @@ export default function PrivateChatPage() {
     await setUserOnline(user.id);
 
     // Try to load active help request matching this conversationId
-    let isNightOwl = false;
     let otherProfile = null;
     let resolvedRequestId: string | null = null;
 
-    const { data: activeRequest, error: reqError } = await supabase
+    const { data: activeRequest } = await supabase
       .from("help_requests")
       .select("*, requester:profiles!requester_id(id, anonymous_username, department, is_online, last_seen, warning_badge), helper:profiles!helper_id(id, anonymous_username, department, is_online, last_seen, warning_badge)")
       .eq("conversation_id", conversationId)
@@ -115,15 +122,14 @@ export default function PrivateChatPage() {
       otherProfile = activeRequest.requester_id === user.id ? activeRequest.helper : activeRequest.requester;
     } else {
       // Fallback: Check active night_sessions instead!
-      const { data: nightSession, error: nsError } = await supabase
+      const { data: nightSession } = await supabase
         .from("night_sessions")
         .select("*, requester:profiles!requester_id(id, anonymous_username, department, is_online, last_seen, warning_badge), accepter:profiles!accepter_id(id, anonymous_username, department, is_online, last_seen, warning_badge)")
         .eq("conversation_id", conversationId)
         .maybeSingle();
 
       if (nightSession) {
-        isNightOwl = true;
-        resolvedRequestId = null; // Do not pass a request_id to reports because it references help_requests
+        resolvedRequestId = null;
         const participantProfile = nightSession.requester_id === user.id ? nightSession.accepter : nightSession.requester;
         
         if (participantProfile) {
@@ -149,7 +155,7 @@ export default function PrivateChatPage() {
     setLinkedRequestId(resolvedRequestId || "");
     setOtherUser(otherProfile);
 
-    // 3. Fetch messages for this conversation
+    // Fetch messages for this conversation
     const { data: messageData, error } = await supabase
       .from("messages")
       .select("id, sender_id, conversation_id, message, created_at, seen")
@@ -157,12 +163,12 @@ export default function PrivateChatPage() {
       .order("created_at", { ascending: true });
 
     if (error) {
-      console.error("Error loading chat messages:", error.message, error.details);
+      console.error("Error loading chat messages:", error.message);
     } else if (messageData) {
       setMessages(messageData);
     }
 
-    // 4. Mark incoming messages as seen
+    // Mark incoming messages as seen
     await supabase
       .from("messages")
       .update({ seen: true })
@@ -288,7 +294,7 @@ export default function PrivateChatPage() {
     setSending(true);
     setText("");
 
-    // 1. Create temporary message for optimistic rendering
+    // Create temporary message for optimistic rendering
     const tempId = `temp-${Date.now()}`;
     const optimisticMessage: Message = {
       id: tempId,
@@ -303,7 +309,7 @@ export default function PrivateChatPage() {
     setMessages((prev) => [...prev, optimisticMessage]);
     scrollToBottom();
 
-    // 2. Insert to database
+    // Insert to database
     const { data, error } = await supabase
       .from("messages")
       .insert({
@@ -395,24 +401,25 @@ export default function PrivateChatPage() {
 
   if (loading) {
     return (
-      <main className="flex h-dvh flex-col overflow-hidden bg-[#0E1621] text-white">
-        <header className="z-30 border-b border-[#22303D] bg-[#17212B]/95 px-4 py-3 backdrop-blur">
-          <div className="mx-auto flex max-w-5xl items-center gap-3">
-            <div className="h-11 w-11 animate-pulse rounded-2xl bg-[#0F1A24] border border-[#22303D]/10" />
-            <div className="h-12 w-12 animate-pulse rounded-2xl bg-[#2B5278]/25" />
-            <div className="min-w-0 flex-1 space-y-2">
-              <div className="h-4 w-32 animate-pulse rounded bg-[#2AABEE]/20" />
+      <main className="flex h-dvh flex-col overflow-hidden bg-[#111111] text-white">
+        <header className="z-30 border-b border-white/5 bg-[#1A1A1A]/95 px-4 py-3.5 backdrop-blur-md">
+          <div className="mx-auto flex max-w-4xl items-center gap-3">
+            <Skeleton className="h-10 w-10 rounded-xl" />
+            <Skeleton className="h-12 w-12 rounded-2xl shrink-0" variant="avatar" />
+            <div className="min-w-0 flex-1 space-y-1.5">
+              <Skeleton className="h-4 w-32 rounded-md" />
+              <Skeleton className="h-3 w-16 rounded-md" />
             </div>
           </div>
         </header>
 
-        <section className="flex-1 overflow-y-auto bg-[#0F1A24] px-4 py-5 space-y-4">
-          <div className="mx-auto max-w-5xl space-y-4">
+        <section className="flex-1 overflow-y-auto bg-[#111111] px-4 py-6 space-y-6">
+          <div className="mx-auto max-w-4xl space-y-4">
             <div className="flex justify-start">
-              <div className="h-12 w-[60%] animate-pulse rounded-3xl rounded-bl-md bg-[#182533]/60" />
+              <Skeleton className="h-12 w-[60%] rounded-2xl rounded-bl-md" />
             </div>
             <div className="flex justify-end">
-              <div className="h-14 w-[50%] animate-pulse rounded-3xl rounded-br-md bg-[#2B5278]/40" />
+              <Skeleton className="h-14 w-[50%] rounded-2xl rounded-br-md" />
             </div>
           </div>
         </section>
@@ -420,52 +427,68 @@ export default function PrivateChatPage() {
     );
   }
 
-  return (
-    <main className="flex h-dvh flex-col overflow-hidden bg-[#0E1621] text-white">
-      {/* Header */}
-      <header className="z-30 border-b border-[#22303D] bg-[#17212B]/95 px-4 py-3 backdrop-blur">
-        <div className="mx-auto flex max-w-5xl items-center gap-3">
-          <button
-            onClick={() => router.push("/chat")}
-            className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#0F1A24] text-xl font-black transition hover:bg-[#182533] cursor-pointer"
-          >
-            ‹
-          </button>
+  const isOnline = isUserActuallyOnline(otherUser?.is_online, otherUser?.last_seen);
 
-          <div className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#2B5278] text-lg font-black">
+  return (
+    <main className="flex h-dvh flex-col overflow-hidden bg-[#111111] text-brand-text-primary">
+      
+      {/* Dynamic Header */}
+      <header className="z-30 border-b border-white/5 bg-[#1A1A1A]/90 backdrop-blur-md px-4 py-3.5 pt-safe">
+        <div className="mx-auto flex max-w-4xl items-center gap-3">
+          
+          {/* Back Action */}
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => router.push("/chat")}
+            className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-elevated/40 border border-white/5 text-lg font-bold text-white transition hover:bg-brand-elevated cursor-pointer"
+          >
+            <ArrowLeft className="h-4 w-4 text-white/80" />
+          </motion.button>
+
+          {/* User Details */}
+          <div className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-brand-elevated border border-white/5 text-[15px] font-black text-[#C9D7F2] shadow-inner select-none">
             {otherUser?.anonymous_username?.charAt(0).toUpperCase() || "U"}
-            {isUserActuallyOnline(otherUser?.is_online, otherUser?.last_seen) && (
-              <span className="absolute -right-0.5 -top-0.5 h-4 w-4 rounded-full border-2 border-[#17212B] bg-green-400" />
+            {isOnline && (
+              <span className="absolute -right-0.5 -top-0.5 h-4 w-4 rounded-full border-2 border-brand-secondary bg-green-500 shadow-sm animate-pulse-glow" />
             )}
           </div>
 
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-1.5">
-              <h1 className="truncate text-base font-black">
+              <h1 className="truncate text-[15px] font-bold text-white">
                 {otherUser?.anonymous_username}
               </h1>
               {otherUser?.warning_badge && (
-                <span className="rounded-full bg-red-650/15 border border-red-500/25 px-2 py-0.5 text-[8px] font-black text-red-400 uppercase tracking-wide animate-pulse">
+                <span className="rounded-full bg-red-500/10 border border-red-500/20 px-2 py-0.5 text-[8px] font-bold text-red-400 uppercase tracking-wider animate-pulse shrink-0">
                   ⚠️ {otherUser.warning_badge}
                 </span>
               )}
             </div>
-            <p className="truncate text-xs text-gray-400">
-              {isUserActuallyOnline(otherUser?.is_online, otherUser?.last_seen) ? "Online now" : otherUser?.department}
+            <p className="truncate text-[11px] font-semibold text-brand-text-secondary select-none">
+              {isOnline ? (
+                <span className="text-green-400 font-bold">Online now</span>
+              ) : (
+                otherUser?.department
+              )}
             </p>
           </div>
 
+          {/* Action Tools */}
           <div className="flex gap-2">
-            <button
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
               onClick={() => setShowReportModal(true)}
-              className="rounded-2xl bg-red-950/20 border border-red-900/35 px-4 py-2 text-xs font-bold text-red-400 hover:bg-red-950/45 transition cursor-pointer"
+              className="rounded-xl bg-red-500/10 border border-red-500/15 px-3 py-2 text-[11px] font-bold text-red-400 hover:bg-red-500/20 transition cursor-pointer flex items-center gap-1"
             >
-              Report User
-            </button>
+              <Flag className="h-3 w-3" />
+              Report
+            </motion.button>
 
             <button
               onClick={() => router.push("/dashboard")}
-              className="rounded-2xl bg-[#2AABEE] px-4 py-2 text-xs font-black cursor-pointer hidden sm:block"
+              className="rounded-xl bg-brand-elevated border border-white/5 px-4 py-2 text-[11px] font-bold transition hover:bg-brand-surface cursor-pointer hidden sm:block"
             >
               Help Hub
             </button>
@@ -473,85 +496,98 @@ export default function PrivateChatPage() {
         </div>
       </header>
 
-      {/* Messages List Area */}
-      <section className="flex-1 overflow-y-auto bg-[#0F1A24] px-4 py-5">
-        <div className="mx-auto max-w-5xl">
-          <div className="mb-5 flex justify-center">
-            <div className="rounded-2xl border border-[#22303D] bg-[#17212B] px-4 py-2 text-center text-xs text-gray-400">
-              Messages auto-delete after 7 days. Keep Daffgle safe, respectful, and anonymized.
+      {/* Messages Scroll Grid */}
+      <section className="flex-1 overflow-y-auto bg-[#111111] px-4 py-6">
+        <div className="mx-auto max-w-4xl">
+          
+          <div className="mb-6 flex justify-center">
+            <div className="rounded-2xl border border-white/5 bg-brand-surface/65 px-4 py-2 text-center text-[10px] font-bold text-brand-text-secondary select-none tracking-wide max-w-sm uppercase">
+              🔒 Encrypted • auto-purged after 7 days
             </div>
           </div>
 
-          {messages.length === 0 ? (
-            <div className="mt-24 text-center">
-              <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-4xl bg-[#17212B] text-4xl">
-                👻
-              </div>
-              <h2 className="text-xl font-black">Start the conversation</h2>
-              <p className="mt-2 text-sm text-gray-400">
-                Send the first anonymous message.
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {messages.map((message, index) => {
-                const isMine = message.sender_id === currentUserId;
+          <AnimatePresence>
+            {messages.length === 0 ? (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.96 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="mt-20 text-center space-y-4"
+              >
+                <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-3xl bg-brand-surface border border-white/5 text-4xl shadow-inner select-none">
+                  🕊️
+                </div>
+                <h2 className="text-lg font-bold text-white">Start the conversation</h2>
+                <p className="text-xs text-brand-text-secondary max-w-xs mx-auto leading-relaxed">
+                  Send the first completely anonymous verified message. Always stay polite and helpful.
+                </p>
+              </motion.div>
+            ) : (
+              <div className="space-y-4">
+                {messages.map((message, index) => {
+                  const isMine = message.sender_id === currentUserId;
 
-                return (
-                  <motion.div
-                    key={message.id}
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.005 }}
-                    className={`flex ${isMine ? "justify-end" : "justify-start"}`}
-                  >
-                    <div
-                      onDoubleClick={() => isMine && deleteMessage(message.id)}
-                      className={`max-w-[82%] rounded-3xl px-4 py-3 shadow-lg md:max-w-[60%] ${
-                        isMine
-                           ? "rounded-br-md bg-[#2B5278] text-white"
-                           : "rounded-bl-md bg-[#182533] text-white"
-                      }`}
+                  return (
+                    <motion.div
+                      key={message.id}
+                      initial={{ opacity: 0, y: 10, scale: 0.98 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      transition={{ ...premiumSpring, delay: index * 0.003 }}
+                      className={`flex ${isMine ? "justify-end" : "justify-start"}`}
                     >
-                      <p className="whitespace-pre-wrap break-words text-[15px] leading-6">
-                        {message.message}
-                      </p>
-
                       <div
-                        className={`mt-1 flex items-center justify-end gap-1.5 text-[10px] ${
-                          isMine ? "text-blue-100/90" : "text-gray-400"
+                        onDoubleClick={() => isMine && deleteMessage(message.id)}
+                        className={`max-w-[82%] sm:max-w-[65%] px-4 py-3 shadow-lg transition duration-200 select-none group relative ${
+                          isMine
+                            ? "bg-brand-accent text-brand-primary rounded-[20px] rounded-br-[4px]"
+                            : "bg-brand-surface border border-white/5 text-brand-text-primary rounded-[20px] rounded-bl-[4px]"
                         }`}
                       >
-                        <span>{formatTime(message.created_at)}</span>
+                        <p className="whitespace-pre-wrap break-words text-[14px] leading-relaxed">
+                          {message.message}
+                        </p>
+
+                        <div
+                          className={`mt-1.5 flex items-center justify-end gap-1 text-[9px] font-bold uppercase tracking-wider ${
+                            isMine ? "text-brand-primary/60" : "text-brand-text-secondary"
+                          }`}
+                        >
+                          <span>{formatTime(message.created_at)}</span>
+                          
+                          {isMine && (
+                            <span className="flex items-center select-none font-bold">
+                              {message.status === "sending" ? (
+                                <Loader2 className="h-2.5 w-2.5 animate-spin opacity-80" />
+                              ) : message.seen ? (
+                                <CheckCheck className="h-3 w-3 text-green-700 font-extrabold" />
+                              ) : (
+                                <Check className="h-3 w-3 text-brand-primary/50" />
+                              )}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Double tap delete visual cue */}
                         {isMine && (
-                          <span className="flex items-center gap-0.5 select-none font-bold">
-                            {message.status === "sending" ? (
-                              <svg className="h-3 w-3 animate-spin text-blue-100" fill="none" viewBox="0 0 24 24">
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                              </svg>
-                            ) : message.seen ? (
-                              <span className="text-green-300 font-extrabold text-[11px] tracking-tighter">✓✓</span>
-                            ) : (
-                              <span className="text-blue-200 font-semibold text-[11px] tracking-tighter">✓</span>
-                            )}
+                          <span className="absolute -left-8 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-60 transition duration-150 cursor-pointer p-1 text-red-400" onClick={() => deleteMessage(message.id)}>
+                            <Trash2 className="h-3.5 w-3.5" />
                           </span>
                         )}
                       </div>
-                    </div>
-                  </motion.div>
-                );
-              })}
-            </div>
-          )}
+                    </motion.div>
+                  );
+                })}
+              </div>
+            )}
+          </AnimatePresence>
 
           <div ref={bottomRef} />
         </div>
       </section>
 
-      {/* Footer Text Area */}
-      <footer className="border-t border-[#22303D] bg-[#17212B]/95 px-4 py-3 backdrop-blur pb-safe">
-        <div className="mx-auto flex max-w-5xl items-end gap-3">
+      {/* Modern Static Bottom Input Area */}
+      <footer className="border-t border-white/5 bg-[#1A1A1A]/95 px-4 py-3.5 backdrop-blur-md pb-safe">
+        <div className="mx-auto flex max-w-4xl items-end gap-3">
+          
           <textarea
             value={text}
             onChange={(e) => setText(e.target.value)}
@@ -561,105 +597,84 @@ export default function PrivateChatPage() {
                 sendMessage();
               }
             }}
-            placeholder="Write a message..."
+            placeholder="Write an encrypted message..."
             rows={1}
-            className="max-h-32 min-h-12 flex-1 resize-none rounded-3xl border border-[#22303D] bg-[#0E1621] px-5 py-3 text-sm text-white outline-none placeholder:text-gray-500 focus:border-[#2AABEE]"
+            className="max-h-32 min-h-12 flex-1 resize-none rounded-2xl border border-white/5 bg-[#111111] px-4 py-3 text-sm text-white outline-none placeholder:text-white/20 focus:border-brand-accent/25 transition duration-150 leading-relaxed"
           />
 
-          <button
+          <PremiumButton
             onClick={sendMessage}
             disabled={!canSend}
-            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#2AABEE] text-lg font-black shadow-lg shadow-[#2AABEE]/20 transition hover:scale-[1.04] disabled:cursor-not-allowed disabled:opacity-50"
+            variant="primary"
+            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl p-0 hover:scale-105"
           >
-            ➤
-          </button>
+            <Send className="h-4 w-4 text-brand-primary" />
+          </PremiumButton>
         </div>
 
-        <p className="mx-auto mt-2 max-w-5xl px-2 text-[10px] text-gray-500">
-          Tip: double click your own message to delete it.
+        <p className="mx-auto mt-2 max-w-4xl px-2 text-[9px] font-semibold text-brand-text-secondary select-none tracking-wide uppercase text-center">
+          💡 Double tap (or click trash icon) on your own message to retract it.
         </p>
       </footer>
 
-      {/* Modal to Report Participant */}
-      <AnimatePresence>
-        {showReportModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
-          >
-            <motion.div
-              initial={{ scale: 0.95, y: 15 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.95, y: 15 }}
-              className="w-full max-w-md overflow-hidden rounded-3xl border border-[#22303D] bg-[#17212B] p-6 shadow-2xl space-y-6"
+      {/* Custom Moderation Report Dialog */}
+      <PremiumDialog
+        isOpen={showReportModal}
+        onClose={() => {
+          setShowReportModal(false);
+          setReportReason("");
+          setReportDetails("");
+        }}
+        title="Report Participant"
+        description={`File an anonymous report against @${otherUser?.anonymous_username || "User"} to Daffgle moderation center for immediate audit.`}
+      >
+        <div className="space-y-4">
+          <PremiumSelect
+            label="Report Category"
+            value={reportReason}
+            onChange={setReportReason}
+            options={REPORT_REASONS}
+            placeholder="Select a category..."
+          />
+
+          <div className="space-y-1.5 flex flex-col">
+            <label className="text-[10px] font-bold text-brand-text-secondary uppercase tracking-widest ml-1 select-none">
+              Additional Audit Context
+            </label>
+            <textarea
+              value={reportDetails}
+              onChange={(e) => setReportDetails(e.target.value)}
+              placeholder="Provide context logs, screenshot links, or details regarding harassment..."
+              rows={4}
+              className="w-full rounded-2xl border border-white/5 bg-[#111111] px-4 py-3 text-white outline-none focus:border-red-400 text-sm resize-none"
+            />
+          </div>
+
+          <div className="flex gap-3 pt-2">
+            <PremiumButton
+              onClick={() => {
+                setShowReportModal(false);
+                setReportReason("");
+                setReportDetails("");
+              }}
+              variant="secondary"
+              className="flex-1"
+              disabled={submittingReport}
             >
-              <div>
-                <h3 className="text-2xl font-black text-red-400 tracking-tight">Report Participant</h3>
-                <p className="text-xs text-gray-400 mt-1">
-                  Report student @<span className="text-white font-bold">{otherUser?.anonymous_username}</span> to Daffgle moderation center.
-                </p>
-              </div>
+              Cancel
+            </PremiumButton>
 
-              <div className="space-y-4">
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block ml-1">
-                    Select Report Reason
-                  </label>
-                  <select
-                    value={reportReason}
-                    onChange={(e) => setReportReason(e.target.value)}
-                    className="w-full rounded-2xl border border-[#22303D] bg-[#0F1A24] px-4 py-3 text-white focus:border-red-400 outline-none transition"
-                  >
-                    <option value="">-- Choose reason --</option>
-                    {REPORT_REASONS.map((reason) => (
-                      <option key={reason} value={reason}>
-                        {reason}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block ml-1">
-                    Provide Audit Details
-                  </label>
-                  <textarea
-                    value={reportDetails}
-                    onChange={(e) => setReportDetails(e.target.value)}
-                    placeholder="Enter details, harassment logs, abusive behavior context..."
-                    rows={4}
-                    className="w-full rounded-2xl border border-[#22303D] bg-[#0F1A24] px-4 py-3 text-white outline-none focus:border-red-400 text-sm resize-none"
-                  />
-                </div>
-              </div>
-
-              <div className="flex gap-3">
-                <button
-                  onClick={() => {
-                    setShowReportModal(false);
-                    setReportReason("");
-                    setReportDetails("");
-                  }}
-                  disabled={submittingReport}
-                  className="flex-1 rounded-2xl bg-[#0F1A24] border border-[#22303D] py-3 text-sm font-bold text-gray-300 transition hover:bg-[#182533] cursor-pointer"
-                >
-                  Cancel
-                </button>
-
-                <button
-                  onClick={handleReportParticipant}
-                  disabled={submittingReport || !reportReason}
-                  className="flex-1 rounded-2xl bg-red-650 py-3 text-sm font-black text-white hover:opacity-90 transition disabled:opacity-50 cursor-pointer shadow-lg shadow-red-600/20"
-                >
-                  {submittingReport ? "Submitting..." : "Submit Report"}
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            <PremiumButton
+              onClick={handleReportParticipant}
+              disabled={submittingReport || !reportReason}
+              variant="danger"
+              className="flex-1"
+            >
+              {submittingReport ? "Auditing..." : "File Report"}
+            </PremiumButton>
+          </div>
+        </div>
+      </PremiumDialog>
     </main>
   );
 }

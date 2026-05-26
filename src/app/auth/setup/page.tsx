@@ -1,28 +1,49 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { supabase } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { isEmailAllowed } from "@/lib/validations/auth";
 import { toast } from "sonner";
 import { fetchProfileSafely, isProfileComplete, setCachedProfile } from "@/utils/profile";
+import { 
+  PremiumInput, 
+  PremiumSelect, 
+  PremiumButton, 
+  PremiumCard, 
+  premiumSpring 
+} from "@/components/ui/PremiumUI";
+import { ShieldCheck, User, School, Sparkles, AlertCircle } from "lucide-react";
 
-const departments = [
-  "CSE",
-  "SWE",
-  "EEE",
-  "CE",
-  "ME",
-  "TE",
-  "BBA",
-  "English",
-  "Pharmacy",
-  "Law"
+const DEPARTMENTS = [
+  { value: "CSE", label: "CSE" },
+  { value: "SWE", label: "SWE" },
+  { value: "EEE", label: "EEE" },
+  { value: "CE", label: "CE" },
+  { value: "ME", label: "ME" },
+  { value: "TE", label: "TE" },
+  { value: "BBA", label: "BBA" },
+  { value: "English", label: "English" },
+  { value: "Pharmacy", label: "Pharmacy" },
+  { value: "Law", label: "Law" }
 ];
 
-const maleHalls = ["YKSG 1", "YKSG 2", "YKSG 3"];
-const femaleHalls = ["RASG 1", "RASG 2"];
+const GENDERS = [
+  { value: "Male", label: "Male" },
+  { value: "Female", label: "Female" }
+];
+
+const MALE_HALLS = [
+  { value: "YKSG 1", label: "YKSG 1" },
+  { value: "YKSG 2", label: "YKSG 2" },
+  { value: "YKSG 3", label: "YKSG 3" }
+];
+
+const FEMALE_HALLS = [
+  { value: "RASG 1", label: "RASG 1" },
+  { value: "RASG 2", label: "RASG 2" }
+];
 
 export default function SetupPage() {
   const router = useRouter();
@@ -80,6 +101,12 @@ export default function SetupPage() {
     loadUserAndProfile();
   }, [router]);
 
+  const hallOptions = useMemo(() => {
+    if (gender === "Male") return MALE_HALLS;
+    if (gender === "Female") return FEMALE_HALLS;
+    return [];
+  }, [gender]);
+
   const handleSetup = async () => {
     if (!anonymousUsername.trim() || !department || !gender || !hall) {
       setMessage("Please fill all fields.");
@@ -91,12 +118,14 @@ export default function SetupPage() {
       return;
     }
 
-    if (gender === "Male" && !maleHalls.includes(hall)) {
+    const maleHallValues = MALE_HALLS.map(h => h.value);
+    if (gender === "Male" && !maleHallValues.includes(hall)) {
       setMessage("Invalid hall selected for Male.");
       return;
     }
 
-    if (gender === "Female" && !femaleHalls.includes(hall)) {
+    const femaleHallValues = FEMALE_HALLS.map(h => h.value);
+    if (gender === "Female" && !femaleHallValues.includes(hall)) {
       setMessage("Invalid hall selected for Female.");
       return;
     }
@@ -140,120 +169,124 @@ export default function SetupPage() {
 
   if (loading) {
     return (
-      <main className="flex h-screen items-center justify-center bg-[#0E1621] text-white px-4">
-        <div className="flex flex-col items-center gap-4">
-          <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#2B5278]/30 border-t-[#2AABEE]" />
-          <p className="text-sm text-gray-400 font-medium animate-pulse">Syncing profile status...</p>
+      <main className="flex h-screen items-center justify-center bg-[#111111] text-white px-4">
+        <div className="flex flex-col items-center gap-4 animate-pulse select-none">
+          <div className="h-10 w-10 animate-spin rounded-full border-4 border-white/5 border-t-brand-accent" />
+          <p className="text-sm text-brand-text-secondary font-medium">Syncing profile status...</p>
         </div>
       </main>
     );
   }
 
   return (
-    <main className="flex h-screen items-center justify-center bg-[#0E1621] px-4">
-      <motion.div
-        initial={{ opacity: 0, y: 24 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-md rounded-3xl border border-[#22303D] bg-[#17212B] p-8 shadow-2xl space-y-6"
-      >
-        <div>
-          <h1 className="text-center text-3xl font-black text-[#2AABEE] tracking-tight">
-            Setup Profile
-          </h1>
-          <p className="mt-1.5 text-center text-xs text-gray-400">
-            Real emails, student IDs, and phone numbers remain strictly hidden.
-          </p>
-        </div>
+    <main className="flex min-h-screen items-center justify-center bg-[#111111] px-4 py-8 relative overflow-hidden">
+      
+      {/* Starry Sky Atmosphere & Glow overlays */}
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-brand-accent/5 via-transparent to-transparent pointer-events-none" />
+      <div className="absolute top-1/4 left-1/3 w-1.5 h-1.5 bg-white rounded-full animate-star-twinkle pointer-events-none" />
+      <div className="absolute top-1/2 left-2/3 w-1 h-1 bg-white rounded-full animate-star-twinkle pointer-events-none" />
 
-        <div className="space-y-4">
-          <div className="space-y-1">
-            <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest ml-1">
-              Anonymous Username
-            </label>
-            <input
+      <motion.div
+        initial={{ opacity: 0, y: 15 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={premiumSpring}
+        className="w-full max-w-md z-10"
+      >
+        <PremiumCard className="p-8 border-white/5 bg-brand-surface shadow-2xl space-y-6">
+          
+          {/* Welcoming cinematic Header */}
+          <div className="text-center space-y-2">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-accent/5 border border-brand-accent/15 shadow-inner">
+              <Sparkles className="h-6 w-6 text-brand-accent" />
+            </div>
+
+            <h1 className="text-2xl font-black tracking-tight text-white/95">
+              Welcome to Daffgle
+            </h1>
+            <p className="text-xs text-brand-text-secondary max-w-xs mx-auto leading-relaxed select-none">
+              Verify your campus residence and establish your anonymous identity. Real names, student IDs, and emails remain hidden.
+            </p>
+          </div>
+
+          {/* Form setup fields */}
+          <div className="space-y-4">
+            
+            {/* Username Input */}
+            <PremiumInput
+              label="Anonymous Username"
               value={anonymousUsername}
               onChange={(e) => setAnonymousUsername(e.target.value)}
-              placeholder="Enter username..."
-              className="w-full rounded-2xl border border-[#22303D] bg-[#0F1A24] px-4 py-3 text-white focus:border-[#2AABEE] outline-none transition"
+              placeholder="e.g., SilentOwl, CyberSwan..."
+              leftIcon={<User className="h-4 w-4 opacity-50" />}
+              disabled={saving}
             />
-          </div>
 
-          <div className="space-y-1">
-            <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest ml-1">
-              Department
-            </label>
-            <select
+            {/* Department Dropdown Selector */}
+            <PremiumSelect
+              label="Academic Department"
               value={department}
-              onChange={(e) => setDepartment(e.target.value)}
-              className="w-full rounded-2xl border border-[#22303D] bg-[#0F1A24] px-4 py-3 text-white focus:border-[#2AABEE] outline-none transition"
-            >
-              <option value="">Select department</option>
-              {departments.map((dept) => (
-                <option key={dept} value={dept}>
-                  {dept}
-                </option>
-              ))}
-            </select>
-          </div>
+              onChange={setDepartment}
+              options={DEPARTMENTS}
+              placeholder="Select your department..."
+              disabled={saving}
+            />
 
-          <div className="space-y-1">
-            <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest ml-1">
-              Gender
-            </label>
-            <select
+            {/* Gender Dropdown Selector */}
+            <PremiumSelect
+              label="Gender"
               value={gender}
-              onChange={(e) => {
-                setGender(e.target.value);
+              onChange={(val) => {
+                setGender(val);
                 setHall("");
               }}
-              className="w-full rounded-2xl border border-[#22303D] bg-[#0F1A24] px-4 py-3 text-white focus:border-[#2AABEE] outline-none transition"
-            >
-              <option value="">Select gender</option>
-              <option value="Male">Male</option>
-              <option value="Female">Female</option>
-            </select>
-          </div>
+              options={GENDERS}
+              placeholder="Choose gender..."
+              disabled={saving}
+            />
 
-          <div className="space-y-1">
-            <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest ml-1">
-              Campus Hall
-            </label>
-            <select
+            {/* Campus Hall Dropdown Selector */}
+            <PremiumSelect
+              label="Campus Residence Hall"
               value={hall}
-              onChange={(e) => setHall(e.target.value)}
-              disabled={!gender}
-              className="w-full rounded-2xl border border-[#22303D] bg-[#0F1A24] px-4 py-3 text-white disabled:opacity-50 focus:border-[#2AABEE] outline-none transition"
+              onChange={setHall}
+              options={hallOptions}
+              placeholder={gender ? "Select residence hall..." : "Please select gender first"}
+              disabled={saving || !gender}
+            />
+
+            {/* Shield Callout info */}
+            <div className="rounded-2xl border border-brand-accent/10 bg-brand-accent/5 p-4 flex gap-3 select-none">
+              <ShieldCheck className="h-5 w-5 text-[#C9D7F2] shrink-0 mt-0.5" />
+              <p className="text-[11px] text-brand-text-secondary leading-normal">
+                <span className="text-white font-semibold">Privacy Shield active</span>: Daffgle restricts student verification to campus networks and halls to guarantee academic anonymity.
+              </p>
+            </div>
+
+            {/* Primary Action Setup Button */}
+            <PremiumButton
+              onClick={handleSetup}
+              isLoading={saving}
+              variant="primary"
+              className="w-full font-bold py-3.5 mt-2 shadow-lg"
             >
-              <option value="">Select hall</option>
-              {gender === "Male" &&
-                maleHalls.map((h) => (
-                  <option key={h} value={h}>
-                    {h}
-                  </option>
-                ))}
-              {gender === "Female" &&
-                femaleHalls.map((h) => (
-                  <option key={h} value={h}>
-                    {h}
-                  </option>
-                ))}
-            </select>
+              Enter Daffgle
+            </PremiumButton>
+
+            <AnimatePresence>
+              {message && (
+                <motion.p
+                  initial={{ opacity: 0, y: -4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                  className="text-center text-xs text-red-400 font-bold leading-normal flex items-center justify-center gap-1 mt-2 select-none"
+                >
+                  <AlertCircle className="h-3.5 w-3.5" />
+                  {message}
+                </motion.p>
+              )}
+            </AnimatePresence>
           </div>
-
-          <button
-            onClick={handleSetup}
-            disabled={saving}
-            className="w-full rounded-2xl bg-[#2AABEE] py-3.5 font-bold text-white cursor-pointer hover:opacity-95 transition shadow-lg shadow-[#2AABEE]/20 mt-2"
-          >
-            {saving ? "Saving profile..." : "Enter Daffgle"}
-          </button>
-
-          {message && (
-            <p className="text-center text-sm text-red-400 font-semibold leading-normal animate-shake">
-              ⚠️ {message}
-            </p>
-          )}
-        </div>
+        </PremiumCard>
       </motion.div>
     </main>
   );

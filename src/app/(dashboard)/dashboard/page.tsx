@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase/client";
 import { setUserOnline, setUserOffline } from "@/lib/presence";
 import { setupPushNotifications } from "@/lib/notifications";
@@ -9,6 +9,18 @@ import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import { isEmailAllowed } from "@/lib/validations/auth";
 import { fetchProfileSafely, isProfileComplete, clearCachedProfile } from "@/utils/profile";
+import { 
+  PremiumCard, 
+  PremiumButton, 
+  PremiumInput, 
+  PremiumSelect, 
+  PremiumDialog, 
+  FloatingBottomNav, 
+  Skeleton, 
+  EmptyState, 
+  premiumSpring 
+} from "@/components/ui/PremiumUI";
+import { Search, Plus, Sparkles, MessageSquare, AlertTriangle, ShieldCheck, Flame, RefreshCw } from "lucide-react";
 
 type Profile = {
   id: string;
@@ -56,23 +68,23 @@ type HelpRequest = {
 };
 
 const PREDEFINED_ITEMS = [
-  "Calculator",
-  "Charger",
-  "Pen",
-  "Notebook",
-  "Water Bottle",
-  "Umbrella",
-  "Power Bank",
-  "Extension Cable"
+  { value: "Calculator", label: "Calculator" },
+  { value: "Charger", label: "Charger" },
+  { value: "Pen", label: "Pen" },
+  { value: "Notebook", label: "Notebook" },
+  { value: "Water Bottle", label: "Water Bottle" },
+  { value: "Umbrella", label: "Umbrella" },
+  { value: "Power Bank", label: "Power Bank" },
+  { value: "Extension Cable", label: "Extension Cable" }
 ];
 
 const REPORT_REASONS = [
-  "Fake helper",
-  "Did not help",
-  "Abusive behavior",
-  "Harassment",
-  "Spam",
-  "Suspicious activity"
+  { value: "Fake helper", label: "Fake helper" },
+  { value: "Did not help", label: "Did not help" },
+  { value: "Abusive behavior", label: "Abusive behavior" },
+  { value: "Harassment", label: "Harassment" },
+  { value: "Spam", label: "Spam" },
+  { value: "Suspicious activity", label: "Suspicious activity" }
 ];
 
 function formatTimeAgo(date: string) {
@@ -91,6 +103,14 @@ function formatTimeAgo(date: string) {
   return `${diffDays}d ago`;
 }
 
+function isUserActuallyOnline(isOnline: boolean | undefined, lastSeen: string | undefined) {
+  if (!isOnline) return false;
+  if (!lastSeen) return false;
+  const lastSeenDate = new Date(lastSeen).getTime();
+  const now = Date.now();
+  return now - lastSeenDate < 90000;
+}
+
 export default function HelpHubDashboardPage() {
   const router = useRouter();
 
@@ -103,6 +123,9 @@ export default function HelpHubDashboardPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedItem, setSelectedItem] = useState("");
   const [submitting, setSubmitting] = useState(false);
+
+  // Background Chats Unread Counter
+  const [unreadChatsCount, setUnreadChatsCount] = useState(0);
 
   // Reporting state
   const [showReportModal, setShowReportModal] = useState(false);
@@ -119,7 +142,7 @@ export default function HelpHubDashboardPage() {
   const [myHelpins, setMyHelpins] = useState<HelpRequest[]>([]);
 
   // Stable callback handler for accepting requests
-  const handleHelpNow = useCallback(async (request: HelpRequest | Record<string, unknown>) => {
+  const handleHelpNow = useCallback(async (request: HelpRequest | Record<string, any>) => {
     const requestItem = String(request.title || "");
     const requestId = String(request.id || "");
 
@@ -202,6 +225,14 @@ export default function HelpHubDashboardPage() {
     // Sync presence & notifications
     await setupPushNotifications(myId).catch(() => {});
     await setUserOnline(myId);
+
+    // Load unread chats count for bottom nav badge
+    const { data: unreadMessages } = await supabase
+      .from("messages")
+      .select("id")
+      .neq("sender_id", myId)
+      .eq("seen", false);
+    setUnreadChatsCount(unreadMessages?.length || 0);
 
     // Fetch user profile using unified safe utility
     const { data: profileData } = await fetchProfileSafely(myId);
@@ -342,19 +373,17 @@ export default function HelpHubDashboardPage() {
         },
         async (payload) => {
           console.log("[Help Hub Realtime Listener Debug]: Received event payload =", payload);
-          // Sync data in background for any changes (insert, update, delete)
           await loadData(true);
           console.log("[Help Hub Realtime Listener Debug]: State auto-refreshed successfully.");
 
           if (payload.eventType === "INSERT") {
-            const newReq = payload.new as Record<string, unknown>;
+            const newReq = payload.new as Record<string, any>;
             if (
               newReq &&
               newReq.hall === profile.hall &&
               newReq.requester_id !== currentUserId &&
               newReq.status === "open"
             ) {
-              // Fetch requester username for toast info
               const { data: reqProfile } = await supabase
                 .from("profiles")
                 .select("anonymous_username")
@@ -396,7 +425,6 @@ export default function HelpHubDashboardPage() {
       return;
     }
 
-    // 9. Verify profile.hall is not null.
     if (!profile || !profile.hall) {
       console.error("[Help Hub Create Request Error]: Profile or profile.hall is null.", profile);
       toast.error("Please complete your profile to verify your residence hall first.");
@@ -406,7 +434,6 @@ export default function HelpHubDashboardPage() {
     try {
       setSubmitting(true);
 
-      // 10. Verify requester_id uses authenticated auth user id.
       const { data: authUserResult, error: authUserError } = await supabase.auth.getUser();
       const authenticatedUserId = authUserResult?.user?.id;
 
@@ -426,22 +453,17 @@ export default function HelpHubDashboardPage() {
         }
       ];
 
-      // 2. Add exact logs: console.log("INSERT PAYLOAD", payload)
       console.log("INSERT PAYLOAD", payload);
 
-      // 3. Use ONLY this insert (DO NOT chain .select() or .single() after insert)
       const { data, error } = await supabase
         .from("help_requests")
         .insert(payload);
 
-      // 2. Add exact logs: console.log("INSERT RESULT", data) and console.log("INSERT ERROR", error)
       console.log("INSERT RESULT", data);
       console.log("INSERT ERROR", error);
 
-      // 5. Only show success toast IF: error === null
       if (error) {
         console.error("[Help Hub] Supabase insert error:", error);
-        // 6. If insert fails: show actual error message from Supabase.
         toast.error("Failed to submit request: " + (error.message || "Unknown Supabase database error"));
         return;
       }
@@ -450,36 +472,32 @@ export default function HelpHubDashboardPage() {
       setShowCreateModal(false);
       setSelectedItem("");
 
-      // 7. Immediately refetch: Available Help, My Requests after successful insert.
-      const { data: myReqData, error: myReqErr } = await supabase
+      // Immediately refetch: Available Help, My Requests after successful insert
+      const { data: myReqData } = await supabase
         .from("help_requests")
         .select("*, helper:profiles!helper_id(anonymous_username, department, gender, karma, warning_badge, is_online, last_seen)")
         .eq("requester_id", authenticatedUserId)
         .order("created_at", { ascending: false });
 
-      console.log("[Help Hub Immediate Refetch My Requests] count:", myReqData?.length, "error:", myReqErr);
-
       if (myReqData) {
         setMyRequests(myReqData);
       }
 
-      const { data: availData, error: availErr } = await supabase
+      const { data: availData } = await supabase
         .from("help_requests")
         .select("*, requester:profiles!requester_id(anonymous_username, department, gender, karma, warning_badge, is_online, last_seen)")
         .eq("status", "open")
         .eq("hall", profile.hall)
         .neq("requester_id", authenticatedUserId);
 
-      console.log("[Help Hub Immediate Refetch Available Help] count:", availData?.length, "error:", availErr);
-
       if (availData) {
         const sortedAvail = (availData || []).sort((a, b) => {
           const karmaA = a.requester?.karma ?? 0;
           const karmaB = b.requester?.karma ?? 0;
           if (karmaB !== karmaA) {
-            return karmaB - karmaA; // Higher karma first
+            return karmaB - karmaA;
           }
-          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime(); // Newest first
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
         });
         setAvailableRequests(sortedAvail);
       }
@@ -602,241 +620,222 @@ export default function HelpHubDashboardPage() {
     }
   };
 
+  // Floating Bottom Navigation Data
+  const bottomNavItems = [
+    { label: "Home", icon: "🏠", onClick: () => router.push("/"), isActive: false },
+    { label: "Help Hub", icon: "🤝", onClick: () => setActiveTab("available"), isActive: true },
+    { label: "Chats", icon: "💬", onClick: () => router.push("/chat"), isActive: false, badge: unreadChatsCount },
+    { label: "Sanctuary", icon: "🦉", onClick: () => router.push("/night-owl"), isActive: false },
+    { label: "Profile", icon: "👤", onClick: () => router.push("/profile"), isActive: false },
+  ];
+
   if (loading) {
     return (
-      <main className="flex h-dvh items-center justify-center bg-[#0E1621] text-white">
-        <div className="mx-auto w-full max-w-3xl space-y-4 px-5">
-          <div className="rounded-4xl border border-[#22303D] bg-[#17212B]/95 p-6 shadow-xl shadow-black/20 animate-pulse">
-            <div className="flex items-center justify-between gap-4">
-              <div className="h-10 w-28 rounded-full bg-[#2AABEE]/20" />
-              <div className="h-10 w-24 rounded-full bg-[#2AABEE]/10" />
-            </div>
-            <div className="mt-6 space-y-3">
-              <div className="h-4 w-3/4 rounded-full bg-[#2AABEE]/10" />
-              <div className="h-4 rounded-full bg-[#2AABEE]/08" />
-            </div>
-          </div>
-          <p className="text-center text-sm text-gray-400 font-medium">Syncing Daffgle Network...</p>
+      <main className="flex h-dvh items-center justify-center bg-[#111111] text-white px-5 pt-safe">
+        <div className="mx-auto w-full max-w-3xl space-y-4">
+          <Skeleton className="h-32 rounded-3xl w-full" variant="card" />
+          <p className="text-center text-sm text-brand-text-secondary font-medium animate-pulse">
+            Syncing Daffgle Networks...
+          </p>
         </div>
       </main>
     );
   }
 
   return (
-    <main className="flex h-dvh overflow-hidden bg-[#0E1621] text-white">
-      {/* Desktop Sidebar Panel */}
-      <aside className="hidden w-full flex-col bg-[#17212B] md:flex md:w-107.5 md:border-r md:border-[#22303D]">
-        <header className="sticky top-0 z-30 border-b border-[#22303D] bg-[#17212B]/95 px-6 py-5 backdrop-blur">
-          <div className="flex flex-col gap-4 px-1 py-1 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h1 className="text-2xl font-black tracking-tight text-[#2AABEE]">
-                Daffgle Help Hub
-              </h1>
-              <p className="text-xs text-gray-400 font-semibold uppercase tracking-widest mt-0.5">
-                Campus Assistance
-              </p>
+    <main className="flex h-dvh overflow-hidden bg-[#111111] text-brand-text-primary pt-safe">
+      
+      {/* Desktop Left Sidebar Panel */}
+      <aside className="hidden w-full flex-col bg-[#1A1A1A] md:flex md:w-96 md:border-r md:border-white/5 relative">
+        <div className="absolute top-0 left-0 right-0 h-32 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#C9D7F2]/5 via-transparent to-transparent pointer-events-none" />
+
+        <header className="sticky top-0 z-30 border-b border-white/5 bg-[#1A1A1A]/95 px-6 py-5 backdrop-blur-md">
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-2xl font-black tracking-tight text-white/95">
+                  Daffgle Help Hub
+                </h1>
+                <p className="text-[10px] font-bold text-brand-text-secondary uppercase tracking-widest mt-1 select-none">
+                  Campus Assistance Feed
+                </p>
+              </div>
+
+              <PremiumButton
+                onClick={handleRefresh}
+                disabled={refreshing}
+                variant="accent"
+                className="py-1.5 px-3 rounded-xl text-xs shrink-0"
+              >
+                <RefreshCw className={`h-3 w-3 ${refreshing ? "animate-spin" : ""}`} />
+              </PremiumButton>
             </div>
 
-            <button
-              onClick={handleRefresh}
-              disabled={refreshing}
-              className="rounded-2xl bg-[#2B5278] px-4 py-2 text-xs font-bold transition hover:scale-[1.02] hover:opacity-90 disabled:opacity-60 cursor-pointer"
-            >
-              {refreshing ? "Syncing..." : "Sync"}
-            </button>
-          </div>
-
-          {/* User Profile Summary */}
-          {profile && (
-            <div className="mt-4 rounded-3xl border border-[#22303D] bg-[#0F1A24] p-4 shadow-xl shadow-black/10">
-              <div className="flex items-center gap-3">
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#2B5278] text-lg font-black relative">
-                  {profile.anonymous_username.charAt(0).toUpperCase()}
-                  {profile.warning_badge && (
-                    <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-655 text-[9px] font-black text-white animate-pulse">
-                      ⚠️
-                    </span>
-                  )}
-                </div>
-
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1.5">
-                    <p className="truncate font-bold">
-                      {profile.anonymous_username}
-                    </p>
+            {/* Profile Brief */}
+            {profile && (
+              <div className="rounded-[20px] border border-white/5 bg-brand-surface p-4 shadow-lg shadow-black/10 select-none">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-elevated border border-white/5 text-lg font-black text-[#C9D7F2] relative">
+                    {profile.anonymous_username.charAt(0).toUpperCase()}
                     {profile.warning_badge && (
-                      <span className="rounded-full bg-red-600/10 border border-red-500/20 px-2.5 py-0.5 text-[8px] font-bold text-red-400 tracking-wide uppercase shrink-0 animate-pulse">
-                        ⚠️ Suspect
+                      <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-black text-white animate-pulse">
+                        ⚠️
                       </span>
                     )}
                   </div>
-                  <p className="truncate text-xs text-gray-400">
-                    {profile.department} • {profile.hall} • <span className="text-[#2AABEE] font-bold">{profile.karma} Karma</span>
-                  </p>
-                </div>
 
-                <div className="rounded-full bg-green-500/10 px-3 py-1 text-[11px] font-bold text-green-400 shrink-0">
-                  ● Online
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5">
+                      <p className="truncate font-bold text-white/90">
+                        {profile.anonymous_username}
+                      </p>
+                      {profile.warning_badge && (
+                        <span className="rounded-full bg-red-500/10 border border-red-500/20 px-2 py-0.5 text-[8px] font-bold text-red-400 uppercase tracking-wide shrink-0">
+                          ⚠️ Suspect
+                        </span>
+                      )}
+                    </div>
+                    <p className="truncate text-xs text-brand-text-secondary">
+                      {profile.department} • {profile.hall} • <span className="text-[#C9D7F2] font-black">{profile.karma} Karma</span>
+                    </p>
+                  </div>
+
+                  <div className="rounded-full bg-green-500/10 px-2.5 py-0.5 text-[9px] font-bold text-green-400 shrink-0 select-none">
+                    ● Online
+                  </div>
                 </div>
               </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-2">
+              <PremiumButton
+                onClick={() => setActiveTab("available")}
+                variant={activeTab === "available" ? "primary" : "secondary"}
+                className="py-2.5 text-xs font-bold rounded-xl"
+              >
+                Help Hub
+              </PremiumButton>
+
+              <PremiumButton
+                onClick={() => router.push("/chat")}
+                variant="secondary"
+                className="py-2.5 text-xs font-bold rounded-xl"
+              >
+                My Chats
+              </PremiumButton>
             </div>
-          )}
-          <div className="mt-4 grid grid-cols-2 gap-2">
-            <button
-              onClick={() => setActiveTab("available")}
-              className={`rounded-2xl py-3 text-sm font-black transition cursor-pointer ${
-                activeTab === "available" ? "bg-[#2AABEE] text-white shadow-lg shadow-[#2AABEE]/25" : "bg-[#0F1A24] text-gray-300 hover:bg-[#182533]"
-              }`}
-            >
-              Help Hub
-            </button>
 
-            <button
-              onClick={() => router.push("/chat")}
-              className="rounded-2xl bg-[#0F1A24] py-3 text-sm font-bold text-gray-300 transition hover:bg-[#182533] cursor-pointer"
+            <PremiumButton
+              onClick={() => router.push("/night-owl")}
+              variant="accent"
+              className="py-2.5 text-xs font-bold rounded-xl flex items-center justify-center gap-1.5"
             >
-              My Chats
-            </button>
+              🦉 Night Owl sanctuary
+            </PremiumButton>
           </div>
-
-          {/* Night Owl Entry */}
-          <button
-            onClick={() => router.push("/night-owl")}
-            className="w-full mt-2 rounded-2xl bg-[#0F1A24] border border-[#22303D] py-3 text-sm font-bold text-gray-300 transition hover:bg-[#182533] cursor-pointer flex items-center justify-center gap-2"
-          >
-            <span>🦉</span> Night Owl Mode
-          </button>
         </header>
 
-        {/* Available Open Help Requests List */}
-        <section className="flex-1 overflow-y-auto px-5 pb-36 pt-4">
-          <div className="mb-4 flex items-center justify-between">
+        {/* Sidebar Left available Requests list */}
+        <section className="flex-1 overflow-y-auto px-5 pt-4 pb-24">
+          <div className="mb-4 flex items-center justify-between select-none">
             <div>
-              <h2 className="text-lg font-black">Open Requests</h2>
-              <p className="text-xs text-gray-400">
-                Help someone from {profile?.hall || "your hall"}
+              <h2 className="text-sm font-bold text-white/90">Open Requests Feed</h2>
+              <p className="text-[10px] text-brand-text-secondary font-medium mt-0.5">
+                Students needing help in {profile?.hall}
               </p>
             </div>
 
-            <span className="rounded-full bg-[#0F1A24] px-3 py-1 text-xs font-bold text-[#2AABEE]">
+            <span className="rounded-full bg-[#111111] px-2.5 py-0.5 text-[10px] font-black text-brand-accent border border-white/5 shadow-inner">
               {availableRequests.length} active
             </span>
           </div>
 
           <div className="space-y-3">
             {availableRequests.length > 0 ? (
-              availableRequests.map((req, index) => (
-                <motion.div
+              availableRequests.map((req) => (
+                <PremiumCard
                   key={req.id}
-                  initial={{ opacity: 0, y: 12 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.02 }}
-                  className="w-full rounded-3xl border border-[#22303D] bg-[#0F1A24] p-5 shadow-lg shadow-black/20 space-y-4"
+                  hoverable
+                  className="p-4 space-y-3 border-white/5 bg-brand-surface shadow-md"
                 >
-                  <div className="flex items-start gap-4">
-                    <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[#2B5278] text-2xl font-black relative">
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-elevated border border-white/5 text-lg font-black text-white relative">
                       📦
                       {req.requester?.warning_badge && (
-                        <span className="absolute -top-1 -right-1 flex h-4.5 w-4.5 items-center justify-center rounded-full bg-red-655 text-[10px] font-black text-white animate-pulse">
+                        <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-black text-white animate-pulse">
                           ⚠️
                         </span>
                       )}
                     </div>
 
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center justify-between gap-2 select-none">
                         <div className="flex items-center gap-1 min-w-0">
-                          <p className="text-xs font-bold text-[#2AABEE] uppercase tracking-wide truncate">
+                          <p className="text-[10px] font-bold text-brand-accent uppercase tracking-wider truncate">
                             @{req.requester?.anonymous_username}
                           </p>
-                          {req.requester?.warning_badge && (
-                            <span className="text-[7px] font-black bg-red-655/15 border border-red-500/20 px-1 py-0.2 rounded-full text-red-400 uppercase tracking-widest shrink-0 animate-pulse">
-                              ⚠️ Badged
-                            </span>
-                          )}
                         </div>
-                        <span className="text-[11px] text-gray-500 shrink-0">
+                        <span className="text-[9px] font-medium text-brand-text-secondary shrink-0">
                           {formatTimeAgo(req.created_at)}
                         </span>
                       </div>
 
-                      <h3 className="mt-1 font-black text-white text-base">
+                      <h3 className="mt-1 font-bold text-white text-sm truncate">
                         {req.title}
                       </h3>
 
-                      <p className="mt-1 text-xs text-gray-400">
-                        Karma rating: <span className="text-[#2AABEE] font-bold">{req.requester?.karma ?? 0}</span>
+                      <p className="mt-0.5 text-[10px] font-medium text-brand-text-secondary select-none">
+                        Karma rating: <span className="text-[#C9D7F2] font-black">{req.requester?.karma ?? 0}</span>
                       </p>
 
-                      <div className="mt-4 flex gap-2">
-                        <button
+                      <div className="mt-3.5 flex gap-2">
+                        <PremiumButton
                           onClick={() => handleHelpNow(req)}
-                          className="flex-1 rounded-xl bg-[#2AABEE] py-2 text-xs font-black text-white hover:scale-[1.01] transition cursor-pointer text-center"
+                          variant="primary"
+                          className="flex-1 py-1.5 px-3 rounded-xl text-[10px] font-bold"
                         >
                           Help Now
-                        </button>
-                        <button
+                        </PremiumButton>
+                        
+                        <PremiumButton
                           onClick={() => openReportModal(req.requester_id, req.requester?.anonymous_username || "User", req.id)}
-                          className="rounded-xl bg-red-950/20 border border-red-900/30 px-3 py-2 text-xs font-extrabold text-red-400 hover:bg-red-950/50 transition cursor-pointer shrink-0"
+                          variant="danger"
+                          className="py-1.5 px-2.5 rounded-xl text-[10px]"
                         >
                           Report
-                        </button>
+                        </PremiumButton>
                       </div>
                     </div>
                   </div>
-                </motion.div>
+                </PremiumCard>
               ))
             ) : (
-              <div className="mt-12 rounded-3xl border border-[#22303D] bg-[#0F1A24] p-8 text-center">
-                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-3xl bg-[#17212B] text-3xl">
-                  🙌
-                </div>
-                <h3 className="text-base font-black">No open requests</h3>
-                <p className="mt-2 text-xs text-gray-400 leading-normal">
-                  All requests in {profile?.hall || "your hall"} are solved! Check back later.
-                </p>
+              <div className="mt-8">
+                <EmptyState
+                  icon="🙌"
+                  title="Feed is clear"
+                  description={`All student requests inside ${profile?.hall || "your hall"} have been solved successfully!`}
+                />
               </div>
             )}
           </div>
         </section>
-
-        {/* Sidebar Nav Footer */}
-        <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-[#22303D] bg-[#17212B]/95 px-4 py-4 backdrop-blur md:absolute md:right-auto md:w-107.5">
-          <div className="grid grid-cols-3 grid-rows-1 gap-3">
-            <button
-              onClick={() => router.push("/")}
-              className="rounded-full bg-[#0F1A24] py-3 text-sm font-bold text-gray-300 transition duration-200 hover:bg-[#182533] cursor-pointer"
-            >
-              Home
-            </button>
-
-            <button
-              onClick={() => router.push("/dashboard")}
-              className="rounded-full bg-[#2AABEE] py-3 text-sm font-black text-white shadow-lg shadow-[#2AABEE]/20 transition duration-200 hover:scale-[1.02] cursor-pointer"
-            >
-              Help Hub
-            </button>
-
-            <button
-              onClick={() => router.push("/profile")}
-              className="rounded-full bg-[#0F1A24] py-3 text-sm font-bold text-gray-300 transition duration-200 hover:bg-[#182533] cursor-pointer"
-            >
-              Profile
-            </button>
-          </div>
-        </nav>
       </aside>
 
-      {/* Main Panel / Right Panel */}
-      <section className="flex flex-1 flex-col bg-[#0F1A24] overflow-x-hidden w-full pb-safe">
-        {/* Navigation Tabs Header */}
-        <header className="sticky top-0 z-30 border-b border-[#22303D] bg-[#17212B] px-4 md:px-8 py-5">
+      {/* Main Right panel containing Feeds & Tabs */}
+      <section className="flex flex-1 flex-col bg-[#111111] overflow-x-hidden w-full pb-safe">
+        <div className="absolute top-0 left-0 right-0 h-44 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#C9D7F2]/5 via-transparent to-transparent pointer-events-none" />
+
+        {/* Dynamic header navbar tabs */}
+        <header className="sticky top-0 z-30 border-b border-white/5 bg-[#111111]/90 backdrop-blur-md px-4 md:px-8 py-5">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div className="flex gap-2 overflow-x-auto no-scrollbar scroll-smooth">
+            
+            {/* Filter pills */}
+            <div className="flex gap-1.5 overflow-x-auto no-scrollbar scroll-smooth p-1 bg-brand-surface rounded-2xl border border-white/5 max-w-fit shadow-inner">
               <button
                 onClick={() => setActiveTab("available")}
-                className={`rounded-2xl px-5 py-2.5 text-xs md:text-sm font-bold transition cursor-pointer shrink-0 ${
-                  activeTab === "available" ? "bg-[#2AABEE] text-white shadow-md shadow-[#2AABEE]/15" : "bg-[#0E1621] text-gray-400 hover:bg-[#182533]"
+                className={`rounded-xl px-4 py-2 text-xs font-bold transition cursor-pointer select-none ${
+                  activeTab === "available" ? "bg-brand-accent text-brand-primary font-black shadow-md shadow-brand-accent/15" : "text-brand-text-secondary hover:text-white"
                 }`}
               >
                 Available Help
@@ -844,8 +843,8 @@ export default function HelpHubDashboardPage() {
 
               <button
                 onClick={() => setActiveTab("my_requests")}
-                className={`rounded-2xl px-5 py-2.5 text-xs md:text-sm font-bold transition cursor-pointer shrink-0 ${
-                  activeTab === "my_requests" ? "bg-[#2AABEE] text-white shadow-md shadow-[#2AABEE]/15" : "bg-[#0E1621] text-gray-400 hover:bg-[#182533]"
+                className={`rounded-xl px-4 py-2 text-xs font-bold transition cursor-pointer select-none ${
+                  activeTab === "my_requests" ? "bg-brand-accent text-brand-primary font-black shadow-md shadow-brand-accent/15" : "text-brand-text-secondary hover:text-white"
                 }`}
               >
                 My Requests ({myRequests.length})
@@ -853,480 +852,435 @@ export default function HelpHubDashboardPage() {
 
               <button
                 onClick={() => setActiveTab("my_helpins")}
-                className={`rounded-2xl px-5 py-2.5 text-xs md:text-sm font-bold transition cursor-pointer shrink-0 ${
-                  activeTab === "my_helpins" ? "bg-[#2AABEE] text-white shadow-md shadow-[#2AABEE]/15" : "bg-[#0E1621] text-gray-400 hover:bg-[#182533]"
+                className={`rounded-xl px-4 py-2 text-xs font-bold transition cursor-pointer select-none ${
+                  activeTab === "my_helpins" ? "bg-brand-accent text-brand-primary font-black shadow-md shadow-brand-accent/15" : "text-brand-text-secondary hover:text-white"
                 }`}
               >
-                My Helpin&apos;s ({myHelpins.length})
+                My Helpins ({myHelpins.length})
               </button>
             </div>
 
-            <button
+            <PremiumButton
               onClick={() => setShowCreateModal(true)}
-              className="rounded-2xl bg-[#2AABEE] px-5 py-3 text-xs md:text-sm font-black text-white hover:scale-[1.02] transition cursor-pointer shadow-lg shadow-[#2AABEE]/20 shrink-0 self-start sm:self-auto"
+              variant="accent"
+              className="py-3 px-4 text-xs font-bold rounded-2xl self-start sm:self-auto shadow-md"
             >
-              + Create Help Request
-            </button>
+              <Plus className="h-3.5 w-3.5 mr-1" />
+              Create Help Request
+            </PremiumButton>
           </div>
         </header>
 
-        {/* Tab Contents Panel */}
+        {/* Scrollable feed panels */}
         <div className="flex-1 overflow-y-auto p-4 md:p-8 pb-32 md:pb-8">
-          <div className="mx-auto max-w-4xl">
-            {activeTab === "available" && (
-              <div className="space-y-6">
-                <div>
-                  <h2 className="text-2xl md:text-3xl font-black">Help Requests in {profile?.hall}</h2>
-                  <p className="mt-1.5 text-gray-400 text-xs md:text-sm leading-relaxed">
-                    Only students belonging to <span className="text-white font-medium">{profile?.hall}</span> can view and accept these. Request feed is sorted automatically by <span className="text-[#2AABEE] font-bold">Helper Karma</span> prioritizing our most helpful students!
-                  </p>
-                </div>
+          <div className="mx-auto max-w-3xl">
+            <AnimatePresence mode="wait">
+              
+              {/* Tab: Available Help Feed */}
+              {activeTab === "available" && (
+                <motion.div
+                  key="avail-tab"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 8 }}
+                  className="space-y-6"
+                >
+                  <div className="select-none">
+                    <h2 className="text-2xl font-black text-white/95 flex items-center gap-2">
+                      Help Requests in {profile?.hall} <Flame className="h-5 w-5 text-brand-accent" />
+                    </h2>
+                    <p className="mt-1.5 text-brand-text-secondary text-xs leading-relaxed">
+                      Encrypted peer-to-peer assistance feed. Restricted to verified residents in <span className="text-white font-semibold">{profile?.hall}</span> at database level. Sorted automatically byhelper Karma.
+                    </p>
+                  </div>
 
-                <div className="grid gap-4 sm:grid-cols-2">
-                  {availableRequests.length > 0 ? (
-                    availableRequests.map((req) => (
-                      <div
-                        key={req.id}
-                        className="rounded-3xl border border-[#22303D] bg-[#17212B] p-6 shadow-2xl space-y-4 flex flex-col justify-between"
-                      >
-                        <div className="space-y-3">
-                          <div className="flex items-center justify-between">
-                            <span className="rounded-full bg-[#2AABEE]/10 px-3 py-1 text-[10px] font-black text-[#2AABEE] uppercase">
-                              I Need
-                            </span>
-                            <span className="text-xs text-gray-500">{formatTimeAgo(req.created_at)}</span>
-                          </div>
-
-                          <div>
-                            <div className="flex items-center gap-1.5">
-                              <p className="text-xs text-gray-400 font-bold">
-                                Broadcasted by @{req.requester?.anonymous_username}
-                              </p>
-                              {req.requester?.warning_badge && (
-                                <span className="rounded-full bg-red-655/15 border border-red-500/20 px-1.5 py-0.2 text-[8px] font-black text-red-400 uppercase tracking-wide shrink-0 animate-pulse">
-                                  ⚠️ Suspect
-                                </span>
-                              )}
-                            </div>
-                            <div className="mt-1 flex items-center gap-3">
-                              <span className="text-xs text-gray-500">
-                                Karma: <span className="text-[#2AABEE] font-extrabold">{req.requester?.karma ?? 0}</span>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    {availableRequests.length > 0 ? (
+                      availableRequests.map((req) => (
+                        <PremiumCard
+                          key={req.id}
+                          className="flex flex-col justify-between p-6 border-white/5 bg-brand-surface shadow-xl"
+                        >
+                          <div className="space-y-4">
+                            <div className="flex items-center justify-between select-none">
+                              <span className="rounded-full bg-[#111111] border border-white/5 px-2.5 py-0.5 text-[9px] font-black text-brand-accent tracking-widest uppercase">
+                                I Need help
                               </span>
-                              <span className="text-xs text-gray-500">
-                                Dept: <span className="text-white font-semibold">{req.requester?.department}</span>
-                              </span>
+                              <span className="text-[10px] font-medium text-brand-text-secondary">{formatTimeAgo(req.created_at)}</span>
                             </div>
-                          </div>
 
-                          <h3 className="text-xl font-black text-white">{req.title}</h3>
-                          <p className="text-xs md:text-sm text-gray-400 leading-relaxed">
-                            A verified student in <span className="text-white font-semibold">{req.hall}</span> needs a {req.title.toLowerCase()}.
-                          </p>
-                        </div>
-
-                        <div className="flex gap-2 pt-2">
-                          <button
-                            onClick={() => handleHelpNow(req)}
-                            className="flex-1 rounded-2xl bg-[#2AABEE] py-3 text-xs md:text-sm font-black text-white hover:opacity-90 transition cursor-pointer text-center"
-                          >
-                            Help Now
-                          </button>
-                          <button
-                            onClick={() => openReportModal(req.requester_id, req.requester?.anonymous_username || "User", req.id)}
-                            className="rounded-2xl bg-red-950/20 border border-red-900/35 px-4 py-3 text-xs md:text-sm font-bold text-red-400 hover:bg-red-950/40 transition cursor-pointer shrink-0"
-                          >
-                            Report
-                          </button>
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="col-span-2 py-16 text-center border border-dashed border-[#22303D] rounded-3xl bg-[#17212B]/40">
-                      <p className="text-4xl">🕊️</p>
-                      <h3 className="mt-4 text-lg md:text-xl font-bold">No active requests</h3>
-                      <p className="mt-2 text-xs md:text-sm text-gray-400 max-w-sm mx-auto leading-relaxed px-4">
-                        There are no active, open help requests in your hall right now. Check back later or create a request.
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {activeTab === "my_requests" && (
-              <div className="space-y-6">
-                <div>
-                  <h2 className="text-2xl md:text-3xl font-black">My Help Requests</h2>
-                  <p className="mt-1.5 text-gray-400 text-xs md:text-sm">
-                    Manage requests you have created. You can cancel active requests or mark them as solved when you receive assistance.
-                  </p>
-                </div>
-
-                <div className="space-y-3">
-                  {myRequests.length > 0 ? (
-                    myRequests.map((req) => (
-                      <div
-                        key={req.id}
-                        className="rounded-3xl border border-[#22303D] bg-[#17212B] p-6 shadow-2xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
-                      >
-                        <div className="space-y-1">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <h3 className="text-lg md:text-xl font-black text-white">{req.title}</h3>
-                            <span className={`rounded-full px-3 py-1 text-[10px] font-black uppercase ${
-                              req.status === "open" ? "bg-green-500/10 text-green-400" :
-                              req.status === "accepted" ? "bg-[#2AABEE]/10 text-[#2AABEE]" :
-                              req.status === "solved" ? "bg-amber-500/10 text-amber-400" :
-                              "bg-gray-500/10 text-gray-400"
-                            }`}>
-                              {req.status}
-                            </span>
-                          </div>
-                          <p className="text-xs text-gray-400">
-                            Created: {new Date(req.created_at).toLocaleString()}
-                          </p>
-
-                          {req.status === "accepted" && req.helper && (
-                            <div className="flex items-center gap-1.5 mt-1">
-                              <p className="text-xs text-green-400 font-extrabold">
-                                🤝 Helper @{req.helper.anonymous_username} ({req.helper.department})
-                              </p>
-                              {req.helper.warning_badge && (
-                                <span className="rounded-full bg-red-655/15 border border-red-500/20 px-1.5 py-0.2 text-[8px] font-bold text-red-400 uppercase animate-pulse">
-                                  ⚠️ Suspect
-                                </span>
-                              )}
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-1.5 select-none">
+                                <p className="text-[11px] font-bold text-brand-text-secondary truncate">
+                                  Broadcasted by @{req.requester?.anonymous_username}
+                                </p>
+                                {req.requester?.warning_badge && (
+                                  <span className="rounded-full bg-red-500/10 border border-red-500/20 px-1.5 py-0.2 text-[7px] font-black text-red-400 uppercase tracking-wider shrink-0 animate-pulse">
+                                    ⚠️ Suspect
+                                  </span>
+                                )}
+                              </div>
+                              
+                              <div className="flex items-center gap-3 select-none text-[10px] text-brand-text-secondary font-medium">
+                                <span>Karma rating: <span className="text-brand-accent font-bold">{req.requester?.karma ?? 0}</span></span>
+                                <span>Dept: <span className="text-white font-semibold">{req.requester?.department}</span></span>
+                              </div>
                             </div>
-                          )}
-                        </div>
 
-                        <div className="flex gap-2 shrink-0">
-                          {req.status === "open" && (
-                            <button
-                              onClick={() => handleCancelRequest(req.id)}
-                              className="rounded-xl bg-red-600/20 px-4 py-2.5 text-xs font-bold text-red-400 hover:bg-red-600/30 transition cursor-pointer"
-                            >
-                              Cancel Request
-                            </button>
-                          )}
-
-                          {req.status === "accepted" && (
-                            <>
-                              <button
-                                onClick={() => router.push(`/chat/${req.conversation_id}`)}
-                                className="rounded-xl bg-[#2AABEE] px-4 py-2.5 text-xs font-bold text-white hover:opacity-90 transition cursor-pointer"
-                              >
-                                Open Chat
-                              </button>
-                              <button
-                                onClick={() => handleMarkSolved(req.id)}
-                                className="rounded-xl bg-green-600 px-4 py-2.5 text-xs font-bold text-white hover:bg-green-700 transition cursor-pointer"
-                              >
-                                Solved
-                              </button>
-                            </>
-                          )}
-                          
-                          {(req.status === "solved" || req.status === "cancelled") && (
-                            <span className="text-xs text-gray-500 italic font-medium px-4 py-2 bg-[#0E1621] rounded-xl">
-                              Archived
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="py-16 text-center border border-dashed border-[#22303D] rounded-3xl bg-[#17212B]/40">
-                      <p className="text-4xl">📝</p>
-                      <h3 className="mt-4 text-xl font-bold">No requests created</h3>
-                      <p className="mt-2 text-xs md:text-sm text-gray-400 max-w-sm mx-auto leading-relaxed px-4">
-                        You have not created any help requests yet. Need something? Click the create button.
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {activeTab === "my_helpins" && (
-              <div className="space-y-6">
-                <div>
-                  <h2 className="text-2xl md:text-3xl font-black">My Helpin&apos;s</h2>
-                  <p className="mt-1.5 text-gray-400 text-xs md:text-sm">
-                    Track campus help requests you accepted. Keep communication friendly and open to help your fellow students.
-                  </p>
-                </div>
-
-                <div className="space-y-3">
-                  {myHelpins.length > 0 ? (
-                    myHelpins.map((req) => (
-                      <div
-                        key={req.id}
-                        className="rounded-3xl border border-[#22303D] bg-[#17212B] p-6 shadow-2xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
-                      >
-                        <div className="space-y-1">
-                          <h3 className="text-lg md:text-xl font-black text-white">{req.title}</h3>
-                          <div className="flex flex-wrap items-center gap-1.5">
-                            <p className="text-xs text-gray-400">
-                              Requested by: @{req.requester?.anonymous_username} ({req.requester?.department})
+                            <h3 className="text-lg font-bold text-white">{req.title}</h3>
+                            <p className="text-xs text-brand-text-secondary leading-relaxed">
+                              A verified DIU student residing in <span className="text-white/80 font-medium">{req.hall}</span> requires a {req.title.toLowerCase()} inside campus grounds.
                             </p>
-                            {req.requester?.warning_badge && (
-                              <span className="rounded-full bg-red-655/15 border border-red-500/20 px-1.5 py-0.2 text-[8px] font-bold text-red-400 uppercase animate-pulse">
-                                  ⚠️ Suspect
+                          </div>
+
+                          <div className="flex gap-2 pt-5">
+                            <PremiumButton
+                              onClick={() => handleHelpNow(req)}
+                              variant="primary"
+                              className="flex-1 py-2.5 px-4 rounded-xl text-xs font-bold"
+                            >
+                              Help Now
+                            </PremiumButton>
+                            
+                            <PremiumButton
+                              onClick={() => openReportModal(req.requester_id, req.requester?.anonymous_username || "User", req.id)}
+                              variant="danger"
+                              className="py-2.5 px-3 rounded-xl text-xs font-bold"
+                            >
+                              Report
+                            </PremiumButton>
+                          </div>
+                        </PremiumCard>
+                      ))
+                    ) : (
+                      <div className="col-span-2 mt-4">
+                        <EmptyState
+                          icon="🕊️"
+                          title="No active requests"
+                          description={`All help requests inside ${profile?.hall} have been solved successfully. Check back shortly or share a request.`}
+                          actionLabel="Broadcast request"
+                          onActionClick={() => setShowCreateModal(true)}
+                        />
+                      </div>
+                    )}
+                  </div>
+                </motion.div>
+              )}
+
+              {/* Tab: My Requests Feed */}
+              {activeTab === "my_requests" && (
+                <motion.div
+                  key="my-req-tab"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 8 }}
+                  className="space-y-6"
+                >
+                  <div className="select-none">
+                    <h2 className="text-2xl font-black text-white/95">My Help Requests</h2>
+                    <p className="mt-1.5 text-brand-text-secondary text-xs">
+                      Manage help requests created by you. Cancel open requests if no longer needed, or mark accepted items as solved to reward your helper.
+                    </p>
+                  </div>
+
+                  <div className="space-y-3">
+                    {myRequests.length > 0 ? (
+                      myRequests.map((req) => (
+                        <PremiumCard
+                          key={req.id}
+                          className="p-6 border-white/5 bg-brand-surface shadow-lg flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
+                        >
+                          <div className="space-y-1.5">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <h3 className="text-lg font-bold text-white">{req.title}</h3>
+                              <span className={`rounded-full px-2.5 py-0.5 text-[8px] font-black uppercase tracking-wider select-none ${
+                                req.status === "open" ? "bg-green-500/10 text-green-400 border border-green-500/15" :
+                                req.status === "accepted" ? "bg-brand-accent/10 text-brand-accent border border-brand-accent/15 animate-pulse" :
+                                req.status === "solved" ? "bg-amber-500/10 text-amber-400 border border-amber-500/15" :
+                                "bg-gray-500/10 text-gray-400 border border-white/5"
+                              }`}>
+                                {req.status}
+                              </span>
+                            </div>
+                            
+                            <p className="text-[10px] font-semibold text-brand-text-secondary uppercase select-none">
+                              Created: {new Date(req.created_at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
+                            </p>
+
+                            {req.status === "accepted" && req.helper && (
+                              <div className="flex items-center gap-1.5 select-none text-[11px] text-green-400 font-bold bg-green-500/5 border border-green-500/10 rounded-lg px-2.5 py-1 max-w-fit">
+                                🤝 Helper @{req.helper.anonymous_username} ({req.helper.department})
+                                {req.helper.warning_badge && (
+                                  <span className="rounded-full bg-red-500/15 border border-red-500/20 px-1 py-0.2 text-[8px] font-bold text-red-400 uppercase">
+                                    ⚠️ Suspect
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="flex gap-2 shrink-0 self-start sm:self-auto">
+                            {req.status === "open" && (
+                              <PremiumButton
+                                onClick={() => handleCancelRequest(req.id)}
+                                variant="danger"
+                                className="py-2 px-3 text-xs rounded-xl"
+                              >
+                                Cancel Request
+                              </PremiumButton>
+                            )}
+
+                            {req.status === "accepted" && (
+                              <>
+                                <PremiumButton
+                                  onClick={() => router.push(`/chat/${req.conversation_id}`)}
+                                  variant="primary"
+                                  className="py-2 px-3 text-xs rounded-xl font-bold"
+                                >
+                                  Open Chat
+                                </PremiumButton>
+                                <PremiumButton
+                                  onClick={() => handleMarkSolved(req.id)}
+                                  variant="accent"
+                                  className="py-2 px-3 text-xs rounded-xl font-bold"
+                                >
+                                  Solved
+                                </PremiumButton>
+                              </>
+                            )}
+                            
+                            {(req.status === "solved" || req.status === "cancelled") && (
+                              <span className="text-[11px] text-brand-text-secondary italic font-semibold px-3 py-1.5 bg-[#111111] rounded-xl border border-white/5 select-none uppercase tracking-widest shadow-inner">
+                                Archived
                               </span>
                             )}
                           </div>
-                          <p className="text-xs text-gray-500">
-                            Status: <span className="capitalize font-semibold text-white">{req.status}</span>
-                          </p>
-                        </div>
+                        </PremiumCard>
+                      ))
+                    ) : (
+                      <EmptyState
+                        icon="📝"
+                        title="No requests created"
+                        description="You have not requested assistance yet. Need a classroom charger or calculator? Broadcast a request."
+                        actionLabel="Create Request"
+                        onActionClick={() => setShowCreateModal(true)}
+                      />
+                    )}
+                  </div>
+                </motion.div>
+              )}
 
-                        <div className="flex gap-2 shrink-0">
-                          {req.status === "accepted" && (
-                            <button
-                               onClick={() => router.push(`/chat/${req.conversation_id}`)}
-                              className="rounded-xl bg-[#2AABEE] px-5 py-2.5 text-xs font-bold text-white hover:opacity-90 transition cursor-pointer"
-                            >
-                              Open Chat
-                            </button>
-                          )}
-                          {req.status === "solved" && (
-                            <span className="text-xs text-green-400 font-bold px-4 py-2 flex items-center gap-1 bg-green-950/20 rounded-xl">
-                              ✓ Solved successfully
-                            </span>
-                          )}
-                          {req.status === "cancelled" && (
-                            <span className="text-xs text-gray-500 italic px-4 py-2 bg-[#0E1621] rounded-xl">
-                              Cancelled by requester
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="py-16 text-center border border-dashed border-[#22303D] rounded-3xl bg-[#17212B]/40">
-                      <p className="text-4xl">🤝</p>
-                      <h3 className="mt-4 text-xl font-bold">No accepted help requests</h3>
-                      <p className="mt-2 text-xs md:text-sm text-gray-400 max-w-sm mx-auto leading-relaxed px-4">
-                        You haven&apos;t offered help on any requests yet. View active requests in your hall and click &quot;Help Now&quot; to connect.
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
+              {/* Tab: My Helpin's Feed */}
+              {activeTab === "my_helpins" && (
+                <motion.div
+                  key="my-help-tab"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 8 }}
+                  className="space-y-6"
+                >
+                  <div className="select-none">
+                    <h2 className="text-2xl font-black text-white/95">My Helping Actions</h2>
+                    <p className="mt-1.5 text-brand-text-secondary text-xs">
+                      Track campus help requests accepted by you. Keep chats open, friendly, and respectful to guide your classmates safely.
+                    </p>
+                  </div>
+
+                  <div className="space-y-3">
+                    {myHelpins.length > 0 ? (
+                      myHelpins.map((req) => (
+                        <PremiumCard
+                          key={req.id}
+                          className="p-6 border-white/5 bg-brand-surface shadow-lg flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
+                        >
+                          <div className="space-y-1.5">
+                            <h3 className="text-lg font-bold text-white">{req.title}</h3>
+                            
+                            <div className="flex flex-wrap items-center gap-1.5 select-none text-xs text-brand-text-secondary font-medium">
+                              <span>Requested by: @{req.requester?.anonymous_username} ({req.requester?.department})</span>
+                              {req.requester?.warning_badge && (
+                                <span className="rounded-full bg-red-500/15 border border-red-500/20 px-1 py-0.2 text-[8px] font-bold text-red-400 uppercase">
+                                  ⚠️ Suspect
+                                </span>
+                              )}
+                            </div>
+                            
+                            <p className="text-[10px] font-bold text-brand-text-secondary uppercase select-none">
+                              Status: <span className="text-white font-black">{req.status}</span>
+                            </p>
+                          </div>
+
+                          <div className="flex gap-2 shrink-0 self-start sm:self-auto">
+                            {req.status === "accepted" && (
+                              <PremiumButton
+                                 onClick={() => router.push(`/chat/${req.conversation_id}`)}
+                                 variant="primary"
+                                 className="py-2 px-3 text-xs rounded-xl font-bold"
+                              >
+                                Open Chat
+                              </PremiumButton>
+                            )}
+                            
+                            {req.status === "solved" && (
+                              <span className="text-[10px] text-green-400 font-bold px-3 py-1.5 flex items-center gap-1 bg-green-500/5 border border-green-500/10 rounded-xl select-none uppercase tracking-wider">
+                                ✓ Solved successfully
+                              </span>
+                            )}
+                            
+                            {req.status === "cancelled" && (
+                              <span className="text-[10px] text-brand-text-secondary italic px-3 py-1.5 bg-[#111111] rounded-xl border border-white/5 select-none uppercase tracking-wider">
+                                Cancelled by requester
+                              </span>
+                            )}
+                          </div>
+                        </PremiumCard>
+                      ))
+                    ) : (
+                      <EmptyState
+                        icon="🤝"
+                        title="No active commitments"
+                        description="You haven't accepted any open student requests in your hall yet. Browse the Help Feed and connect with classmates."
+                      />
+                    )}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         </div>
       </section>
 
-      {/* Floating Bottom Navigation Bar (Mobile only - 5 tabs layout) */}
-      <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-[#22303D] bg-[#17212B]/95 px-2 py-3 backdrop-blur md:hidden pb-safe">
-        <div className="mx-auto grid grid-cols-5 gap-1 max-w-md">
-          <button
-            onClick={() => router.push("/")}
-            className="flex flex-col items-center gap-0.5 py-1.5 rounded-2xl text-gray-400 hover:bg-[#182533]/40 transition duration-200 cursor-pointer"
-          >
-            <span className="text-lg">🏠</span>
-            <span className="text-[9px] font-bold tracking-wide uppercase">Home</span>
-          </button>
+      {/* Floating Bottom Navigation Bar (Mobile only) */}
+      <FloatingBottomNav items={bottomNavItems} />
 
-          <button
-            onClick={() => setActiveTab("available")}
-            className="flex flex-col items-center gap-0.5 py-1.5 rounded-2xl bg-[#2B5278]/20 text-[#2AABEE] transition duration-200 cursor-pointer"
-          >
-            <span className="text-lg">🤝</span>
-            <span className="text-[9px] font-black tracking-wide uppercase">Help Hub</span>
-          </button>
+      {/* Premium Create Request modal */}
+      <PremiumDialog
+        isOpen={showCreateModal}
+        onClose={() => {
+          setShowCreateModal(false);
+          setSelectedItem("");
+        }}
+        title="Broadcast Help Request"
+        description={`File an anonymous, location-bounded help request visible exclusively to verified students inside ${profile?.hall}.`}
+      >
+        <div className="space-y-4">
+          <div className="rounded-2xl bg-brand-surface p-4 border border-white/5 select-none">
+            <span className="text-[10px] font-bold text-brand-text-secondary uppercase tracking-widest block mb-1">
+              Required Request Action
+            </span>
+            <span className="text-base font-black text-white flex items-center gap-1.5">
+              📦 Student Needs Item Assistance
+            </span>
+          </div>
 
-          <button
-            onClick={() => router.push("/chat")}
-            className="flex flex-col items-center gap-0.5 py-1.5 rounded-2xl text-gray-400 hover:bg-[#182533]/40 transition duration-200 cursor-pointer"
-          >
-            <span className="text-lg">💬</span>
-            <span className="text-[9px] font-bold tracking-wide uppercase">Chats</span>
-          </button>
+          <PremiumSelect
+            label="Select Needed Item"
+            value={selectedItem}
+            onChange={setSelectedItem}
+            options={PREDEFINED_ITEMS}
+            placeholder="Select a campus item..."
+          />
 
-          <button
-            onClick={() => router.push("/night-owl")}
-            className="flex flex-col items-center gap-0.5 py-1.5 rounded-2xl text-gray-400 hover:bg-[#182533]/40 transition duration-200 cursor-pointer"
-          >
-            <span className="text-lg">🦉</span>
-            <span className="text-[9px] font-bold tracking-wide uppercase">Sanctuary</span>
-          </button>
+          {selectedItem && profile && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.98 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="rounded-2xl border border-brand-accent/20 bg-brand-accent/5 p-4 space-y-1 select-none"
+            >
+              <p className="text-[10px] font-bold text-brand-accent uppercase tracking-widest">
+                Request Preview Broadcast
+              </p>
+              <p className="text-xs font-semibold text-white/90 italic leading-relaxed">
+                &quot;A student residing in {profile.hall} needs a {selectedItem.toLowerCase()} inside campus grounds.&quot;
+              </p>
+            </motion.div>
+          )}
 
-          <button
-            onClick={() => router.push("/profile")}
-            className="flex flex-col items-center gap-0.5 py-1.5 rounded-2xl text-gray-400 hover:bg-[#182533]/40 transition duration-200 cursor-pointer"
-          >
-            <span className="text-lg">👤</span>
-            <span className="text-[9px] font-bold tracking-wide uppercase">Profile</span>
-          </button>
+          <div className="flex gap-3 pt-2">
+            <PremiumButton
+              onClick={() => {
+                setShowCreateModal(false);
+                setSelectedItem("");
+              }}
+              variant="secondary"
+              className="flex-1"
+              disabled={submitting}
+            >
+              Cancel
+            </PremiumButton>
+
+            <PremiumButton
+              onClick={handleCreateRequest}
+              disabled={submitting || !selectedItem}
+              variant="primary"
+              className="flex-1 font-bold"
+            >
+              {submitting ? "Broadcasting..." : "Publish Broadcast"}
+            </PremiumButton>
+          </div>
         </div>
-      </nav>
+      </PremiumDialog>
 
-      {/* Modal to Create New Help Request */}
-      <AnimatePresence>
-        {showCreateModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
-          >
-            <motion.div
-              initial={{ scale: 0.95, y: 15 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.95, y: 15 }}
-              className="w-full max-w-md overflow-hidden rounded-3xl border border-[#22303D] bg-[#17212B] p-6 shadow-2xl space-y-6"
+      {/* Premium Report User dialog */}
+      <PremiumDialog
+        isOpen={showReportModal}
+        onClose={() => {
+          setShowReportModal(false);
+          setReportTargetId("");
+          setReportTargetName("");
+          setReportRequestId("");
+        }}
+        title="Report Student"
+        description={`Submit a secure moderation audit on student @${reportTargetName} regarding spam, harassment, or suspicious activities.`}
+      >
+        <div className="space-y-4">
+          <PremiumSelect
+            label="Reason for Audit"
+            value={reportReason}
+            onChange={setReportReason}
+            options={REPORT_REASONS}
+            placeholder="Choose a violation category..."
+          />
+
+          <div className="space-y-1.5 flex flex-col">
+            <label className="text-[10px] font-bold text-brand-text-secondary uppercase tracking-widest ml-1 select-none font-sans">
+              Provide Context & Audit details
+            </label>
+            <textarea
+              value={reportDetails}
+              onChange={(e) => setReportDetails(e.target.value)}
+              placeholder="Provide chat contexts, malicious helper actions, or general details regarding the incident..."
+              rows={4}
+              className="w-full rounded-2xl border border-white/5 bg-[#111111] px-4 py-3 text-white outline-none focus:border-red-400 text-sm resize-none"
+            />
+          </div>
+
+          <div className="flex gap-3 pt-2">
+            <PremiumButton
+              onClick={() => {
+                setShowReportModal(false);
+                setReportTargetId("");
+                setReportTargetName("");
+                setReportRequestId("");
+              }}
+              variant="secondary"
+              className="flex-1"
+              disabled={submittingReport}
             >
-              <div>
-                <h3 className="text-2xl font-black text-[#2AABEE] tracking-tight">Create Help Request</h3>
-                <p className="text-xs text-gray-400 mt-1">
-                  Anonymous hall-based request visible only to same-hall students.
-                </p>
-              </div>
+              Cancel
+            </PremiumButton>
 
-              <div className="space-y-4">
-                <div className="rounded-2xl bg-[#0F1A24] p-4 border border-[#22303D]/80">
-                  <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-1">
-                    Request Action
-                  </label>
-                  <span className="text-base font-extrabold text-white">I Need</span>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block ml-1">
-                    Select Needed Item
-                  </label>
-                  <select
-                    value={selectedItem}
-                    onChange={(e) => setSelectedItem(e.target.value)}
-                    className="w-full rounded-2xl border border-[#22303D] bg-[#0F1A24] px-4 py-3 text-white focus:border-[#2AABEE] outline-none transition"
-                  >
-                    <option value="">-- Choose item --</option>
-                    {PREDEFINED_ITEMS.map((item) => (
-                      <option key={item} value={item}>
-                        {item}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {selectedItem && profile && (
-                  <div className="rounded-2xl border border-[#2AABEE]/20 bg-[#2AABEE]/5 p-4 space-y-1">
-                    <p className="text-[10px] font-bold text-[#2AABEE] uppercase tracking-wider">
-                      Request Preview
-                    </p>
-                    <p className="text-sm font-semibold text-white italic">
-                      &quot;Someone from {profile.hall} needs a {selectedItem.toLowerCase()}.&quot;
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              <div className="flex gap-3">
-                <button
-                  onClick={() => {
-                    setShowCreateModal(false);
-                    setSelectedItem("");
-                  }}
-                  className="flex-1 rounded-2xl bg-[#0F1A24] border border-[#22303D] py-3 text-sm font-bold text-gray-300 transition hover:bg-[#182533] cursor-pointer"
-                >
-                  Cancel
-                </button>
-
-                <button
-                  onClick={handleCreateRequest}
-                  disabled={submitting}
-                  className="flex-1 rounded-2xl bg-[#2AABEE] py-3 text-sm font-black text-white hover:opacity-90 transition disabled:opacity-50 cursor-pointer shadow-lg shadow-[#2AABEE]/20"
-                >
-                  {submitting ? "Publishing..." : "Publish Request"}
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Modal to Report a User */}
-      <AnimatePresence>
-        {showReportModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
-          >
-            <motion.div
-              initial={{ scale: 0.95, y: 15 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.95, y: 15 }}
-              className="w-full max-w-md overflow-hidden rounded-3xl border border-[#22303D] bg-[#17212B] p-6 shadow-2xl space-y-6"
+            <PremiumButton
+              onClick={handleSubmitReport}
+              disabled={submittingReport || !reportReason}
+              variant="danger"
+              className="flex-1"
             >
-              <div>
-                <h3 className="text-2xl font-black text-red-400 tracking-tight">Report User</h3>
-                <p className="text-xs text-gray-400 mt-1">
-                  Report student @<span className="text-white font-bold">{reportTargetName}</span> to Daffgle admin for investigation.
-                </p>
-              </div>
-
-              <div className="space-y-4">
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block ml-1">
-                    Select Report Reason
-                  </label>
-                  <select
-                    value={reportReason}
-                    onChange={(e) => setReportReason(e.target.value)}
-                    className="w-full rounded-2xl border border-[#22303D] bg-[#0F1A24] px-4 py-3 text-white focus:border-red-400 outline-none transition"
-                  >
-                    <option value="">-- Choose reason --</option>
-                    {REPORT_REASONS.map((reason) => (
-                      <option key={reason} value={reason}>
-                        {reason}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block ml-1">
-                    Provide Audit Details
-                  </label>
-                  <textarea
-                    value={reportDetails}
-                    onChange={(e) => setReportDetails(e.target.value)}
-                    placeholder="Enter context, chat comments, or details..."
-                    rows={4}
-                    className="w-full rounded-2xl border border-[#22303D] bg-[#0F1A24] px-4 py-3 text-white outline-none focus:border-red-400 text-sm resize-none"
-                  />
-                </div>
-              </div>
-
-              <div className="flex gap-3">
-                <button
-                  onClick={() => {
-                    setShowReportModal(false);
-                    setReportTargetId("");
-                    setReportTargetName("");
-                    setReportRequestId("");
-                  }}
-                  className="flex-1 rounded-2xl bg-[#0F1A24] border border-[#22303D] py-3 text-sm font-bold text-gray-300 transition hover:bg-[#182533] cursor-pointer"
-                >
-                  Cancel
-                </button>
-
-                <button
-                  onClick={handleSubmitReport}
-                  disabled={submittingReport}
-                  className="flex-1 rounded-2xl bg-red-650 py-3 text-sm font-black text-white hover:opacity-90 transition disabled:opacity-50 cursor-pointer shadow-lg shadow-red-600/20"
-                >
-                  {submittingReport ? "Submitting..." : "Submit Report"}
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+              {submittingReport ? "Submitting..." : "Submit Report"}
+            </PremiumButton>
+          </div>
+        </div>
+      </PremiumDialog>
     </main>
   );
 }

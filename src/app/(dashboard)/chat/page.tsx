@@ -2,9 +2,17 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/lib/supabase/client";
 import { isEmailAllowed } from "@/lib/validations/auth";
+import { 
+  PremiumInput, 
+  FloatingBottomNav, 
+  EmptyState, 
+  Skeleton, 
+  premiumSpring 
+} from "@/components/ui/PremiumUI";
+import { Search, MessageSquare, Flame, Sparkles } from "lucide-react";
 
 type Conversation = {
   id: string;
@@ -53,7 +61,6 @@ export default function ChatPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [currentUserId, setCurrentUserId] = useState("");
-
   const [conversations, setConversations] = useState<Conversation[]>([]);
 
   const filteredConversations = useMemo(() => {
@@ -68,6 +75,10 @@ export default function ChatPage() {
       );
     });
   }, [search, conversations]);
+
+  const totalUnreadCount = useMemo(() => {
+    return conversations.reduce((acc, cur) => acc + cur.unread_count, 0);
+  }, [conversations]);
 
   const loadChats = useCallback(async () => {
     const {
@@ -194,7 +205,6 @@ export default function ChatPage() {
   }, [router]);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadChats();
   }, [loadChats]);
 
@@ -222,23 +232,32 @@ export default function ChatPage() {
     };
   }, [currentUserId, loadChats]);
 
+  // Floating Bottom Navigation Data
+  const bottomNavItems = [
+    { label: "Home", icon: "🏠", onClick: () => router.push("/"), isActive: false },
+    { label: "Help Hub", icon: "🤝", onClick: () => router.push("/dashboard"), isActive: false },
+    { label: "Chats", icon: "💬", onClick: () => router.push("/chat"), isActive: true, badge: totalUnreadCount },
+    { label: "Sanctuary", icon: "🦉", onClick: () => router.push("/night-owl"), isActive: false },
+    { label: "Profile", icon: "👤", onClick: () => router.push("/profile"), isActive: false },
+  ];
+
   if (loading) {
     return (
-      <main className="min-h-screen bg-[#0E1621] text-white">
-        <div className="mx-auto w-full max-w-2xl px-5 py-5 space-y-6">
+      <main className="min-h-screen bg-[#111111] text-[#rgba(255,255,255,0.92)] px-4 pt-safe">
+        <div className="mx-auto w-full max-w-2xl px-2 py-6 space-y-6">
           <div className="flex items-center justify-between">
             <div className="space-y-2">
-              <div className="h-8 w-24 rounded-full bg-[#2AABEE]/20 animate-pulse" />
-              <div className="h-4 w-44 rounded-full bg-[#2AABEE]/10 animate-pulse" />
+              <Skeleton className="h-8 w-28 rounded-xl" />
+              <Skeleton className="h-4 w-44 rounded-lg" />
             </div>
           </div>
-          <div className="space-y-4 pt-4">
+          <div className="space-y-4 pt-6">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="flex items-center gap-4 rounded-3xl bg-[#17212B] p-4 border border-[#22303D]/10 animate-pulse">
-                <div className="h-14 w-14 shrink-0 rounded-2xl bg-[#2B5278]/25" />
+              <div key={i} className="flex items-center gap-4 rounded-3xl bg-[#1E1E1E] p-4 border border-white/5 animate-pulse">
+                <Skeleton className="h-14 w-14 rounded-2xl shrink-0" variant="avatar" />
                 <div className="min-w-0 flex-1 space-y-2">
-                  <div className="h-4 w-28 rounded bg-[#2AABEE]/20" />
-                  <div className="h-3 w-[85%] rounded bg-gray-500/10" />
+                  <Skeleton className="h-4 w-32 rounded-md" />
+                  <Skeleton className="h-3 w-[75%] rounded-md" />
                 </div>
               </div>
             ))}
@@ -249,167 +268,140 @@ export default function ChatPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#0E1621] text-white pb-32">
-      <div className="mx-auto w-full max-w-2xl">
-        <header className="sticky top-0 z-50 border-b border-[#22303D] bg-[#17212B]/95 backdrop-blur">
-          <div className="px-5 py-5">
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-3xl font-black text-[#2AABEE]">
-                  My Chats
-                </h1>
+    <main className="min-h-screen bg-[#111111] text-brand-text-primary pb-32 pt-safe">
+      <div className="mx-auto w-full max-w-2xl px-4 md:px-6">
+        
+        {/* Cinematic Background Glows */}
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-lg h-44 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#C9D7F2]/5 via-transparent to-transparent pointer-events-none" />
 
-                <p className="mt-1 text-sm text-gray-400">
-                  Your anonymous conversations
-                </p>
-              </div>
-
-              <button
-                onClick={() => router.push("/dashboard")}
-                className="rounded-2xl bg-[#2B5278] px-4 py-2.5 text-sm font-bold transition hover:opacity-90 cursor-pointer"
-              >
-                Help Hub
-              </button>
+        {/* Elegant Minimal Header */}
+        <header className="sticky top-0 z-20 bg-[#111111]/90 backdrop-blur-md pt-6 pb-4 border-b border-white/5">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-black tracking-tight text-white/95">
+                My Chats
+              </h1>
+              <p className="mt-1 text-xs text-brand-text-secondary select-none">
+                Your encrypted anonymous conversations
+              </p>
             </div>
 
-            <div className="mt-5">
-              <input
-                type="text"
-                placeholder="Search chats..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-full rounded-2xl border border-[#22303D] bg-[#0F1A24] px-5 py-4 text-sm outline-none placeholder:text-gray-500 focus:border-[#2AABEE]"
-              />
-            </div>
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => router.push("/dashboard")}
+              className="rounded-2xl bg-brand-surface border border-white/5 px-4 py-2.5 text-xs font-bold text-[#C9D7F2] transition hover:bg-[#232323] cursor-pointer shadow-sm flex items-center gap-1.5"
+            >
+              <span>←</span> Help Hub
+            </motion.button>
+          </div>
+
+          {/* Search bar */}
+          <div className="mt-5">
+            <PremiumInput
+              placeholder="Search conversations..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              leftIcon={<Search className="h-4 w-4 opacity-50" />}
+              className="py-3 px-5 rounded-2xl placeholder:text-white/20 focus:border-brand-accent/25"
+            />
           </div>
         </header>
 
-        <section className="px-3 pt-3">
-          {filteredConversations.length === 0 ? (
-            <div className="mt-24 text-center px-4">
-              <div className="mx-auto mb-5 flex h-24 w-24 items-center justify-center rounded-4xl bg-[#17212B] text-5xl">
-                💬
-              </div>
-
-              <h2 className="text-2xl font-black">No conversations yet</h2>
-
-              <p className="mt-3 text-sm text-gray-400">
-                Start helping others or create a request in the Help Hub to open secure private chats.
-              </p>
-
-              <button
-                onClick={() => router.push("/dashboard")}
-                className="mt-6 rounded-2xl bg-[#2AABEE] px-6 py-3.5 text-sm font-black cursor-pointer shadow-lg shadow-[#2AABEE]/20"
+        {/* Chats feed list */}
+        <section className="mt-5">
+          <AnimatePresence mode="popLayout">
+            {filteredConversations.length === 0 ? (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.96 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.96 }}
+                className="mt-12"
               >
-                Open Help Hub
-              </button>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {filteredConversations.map((chat, index) => (
-                <motion.button
-                  key={chat.id}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.01 }}
-                  onClick={() => router.push(`/chat/${chat.id}`)}
-                  className="w-full rounded-3xl border border-transparent bg-[#17212B] p-4 text-left transition hover:border-[#2AABEE]/40 hover:bg-[#1C2B3A] cursor-pointer block"
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[#2B5278] text-lg font-black">
-                      {chat.anonymous_username.charAt(0).toUpperCase()}
+                <EmptyState
+                  icon="💬"
+                  title="No conversations yet"
+                  description="Offer assistance to other students or create a help request in the hub to initiate secure private chat sessions."
+                  actionLabel="Explore Help Hub"
+                  onActionClick={() => router.push("/dashboard")}
+                />
+              </motion.div>
+            ) : (
+              <motion.div 
+                className="space-y-3"
+                layout
+              >
+                {filteredConversations.map((chat, index) => (
+                  <motion.button
+                    key={chat.id}
+                    layoutId={`chat-${chat.id}`}
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ ...premiumSpring, delay: index * 0.01 }}
+                    onClick={() => router.push(`/chat/${chat.id}`)}
+                    className="w-full rounded-[24px] border border-white/5 bg-brand-surface p-4 text-left transition duration-200 hover:border-brand-accent/20 hover:bg-brand-elevated/55 cursor-pointer block group shadow-md"
+                  >
+                    <div className="flex items-center gap-4">
+                      {/* Avatar with dynamic online indicator */}
+                      <div className="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-brand-elevated border border-white/5 text-lg font-black text-[#C9D7F2]/90 shadow-inner select-none transition group-hover:scale-105">
+                        {chat.anonymous_username.charAt(0).toUpperCase()}
 
-                      {isUserActuallyOnline(chat.is_online, chat.last_seen) && (
-                        <span className="absolute -right-0.5 -top-0.5 h-4 w-4 rounded-full border-2 border-[#17212B] bg-green-400" />
-                      )}
-                    </div>
-
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="truncate text-base font-black">
-                            {chat.anonymous_username}
-                          </p>
-
-                          <p className="mt-0.5 truncate text-xs text-gray-500">
-                            {chat.department}
-                          </p>
-                        </div>
-
-                        <div className="flex flex-col items-end gap-2 shrink-0">
-                          <span className="text-[11px] text-gray-500">
-                            {formatTime(chat.last_message_time)}
-                          </span>
-
-                          {chat.unread_count > 0 && (
-                            <span className="flex min-h-6 min-w-6 items-center justify-center rounded-full bg-[#2AABEE] px-2 text-[11px] font-black text-white">
-                              {chat.unread_count}
-                            </span>
-                          )}
-                        </div>
+                        {isUserActuallyOnline(chat.is_online, chat.last_seen) && (
+                          <span className="absolute -right-0.5 -top-0.5 flex h-4.5 w-4.5 items-center justify-center rounded-full border-2 border-brand-surface bg-green-500 shadow-sm animate-pulse-glow" />
+                        )}
                       </div>
 
-                      <p
-                        className={`mt-2 line-clamp-1 text-sm ${
-                          chat.unread_count > 0
-                            ? "font-bold text-white"
-                            : "text-gray-400"
-                        }`}
-                      >
-                        {chat.last_message}
-                      </p>
+                      {/* Content block */}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="truncate text-[15px] font-bold text-white/95 group-hover:text-brand-accent transition duration-150">
+                              {chat.anonymous_username}
+                            </p>
+
+                            <p className="mt-0.5 truncate text-[11px] font-medium tracking-wide text-brand-text-secondary select-none">
+                              {chat.department}
+                            </p>
+                          </div>
+
+                          <div className="flex flex-col items-end gap-2 shrink-0">
+                            <span className="text-[10px] font-semibold text-brand-text-secondary">
+                              {formatTime(chat.last_message_time)}
+                            </span>
+
+                            {chat.unread_count > 0 && (
+                              <motion.span 
+                                initial={{ scale: 0.8 }}
+                                animate={{ scale: 1 }}
+                                className="flex h-5.5 min-w-5.5 items-center justify-center rounded-full bg-brand-accent px-2 text-[10px] font-black text-brand-primary shadow-lg shadow-brand-accent/20"
+                              >
+                                {chat.unread_count}
+                              </motion.span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Snippet message with bold weight for unread */}
+                        <p
+                          className={`mt-2.5 line-clamp-1 text-sm ${
+                            chat.unread_count > 0
+                              ? "font-semibold text-white"
+                              : "text-brand-text-secondary/80"
+                          }`}
+                        >
+                          {chat.last_message}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                </motion.button>
-              ))}
-            </div>
-          )}
+                  </motion.button>
+                ))}
+              </motion.div>
+            )}
+          </AnimatePresence>
         </section>
 
-        {/* Floating Mobile Bottom Navigation Bar (4 tabs) */}
-        <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-[#22303D] bg-[#17212B]/95 px-2 py-3 backdrop-blur md:hidden pb-safe">
-          <div className="mx-auto grid grid-cols-5 gap-1 max-w-md">
-            <button
-              onClick={() => router.push("/")}
-              className="flex flex-col items-center gap-0.5 py-1.5 rounded-2xl text-gray-400 hover:bg-[#182533]/40 transition duration-200 cursor-pointer"
-            >
-              <span className="text-lg">🏠</span>
-              <span className="text-[9px] font-bold tracking-wide uppercase">Home</span>
-            </button>
-
-            <button
-              onClick={() => router.push("/dashboard")}
-              className="flex flex-col items-center gap-0.5 py-1.5 rounded-2xl text-gray-400 hover:bg-[#182533]/40 transition duration-200 cursor-pointer"
-            >
-              <span className="text-lg">🤝</span>
-              <span className="text-[9px] font-bold tracking-wide uppercase">Help Hub</span>
-            </button>
-
-            <button
-              onClick={() => router.push("/chat")}
-              className="flex flex-col items-center gap-0.5 py-1.5 rounded-2xl bg-[#2B5278]/20 text-[#2AABEE] transition duration-200 cursor-pointer"
-            >
-              <span className="text-lg">💬</span>
-              <span className="text-[9px] font-black tracking-wide uppercase">Chats</span>
-            </button>
-
-            <button
-              onClick={() => router.push("/night-owl")}
-              className="flex flex-col items-center gap-0.5 py-1.5 rounded-2xl text-gray-400 hover:bg-[#182533]/40 transition duration-200 cursor-pointer"
-            >
-              <span className="text-lg">🦉</span>
-              <span className="text-[9px] font-bold tracking-wide uppercase">Sanctuary</span>
-            </button>
-
-            <button
-              onClick={() => router.push("/profile")}
-              className="flex flex-col items-center gap-0.5 py-1.5 rounded-2xl text-gray-400 hover:bg-[#182533]/40 transition duration-200 cursor-pointer"
-            >
-              <span className="text-lg">👤</span>
-              <span className="text-[9px] font-bold tracking-wide uppercase">Profile</span>
-            </button>
-          </div>
-        </nav>
+        {/* Floating Mobile Bottom Tab Nav */}
+        <FloatingBottomNav items={bottomNavItems} />
       </div>
     </main>
   );

@@ -17,6 +17,10 @@ type UserRow = {
   is_banned: boolean;
   is_muted: boolean;
   real_email?: string | null;
+  realEmail?: string | null;
+  email?: string | null;
+  auth_email?: string | null;
+  user_email?: string | null;
   last_seen: string;
   last_login_at?: string | null;
   created_at: string;
@@ -175,6 +179,10 @@ export default function AdminPage() {
           is_banned: Boolean(profile.is_banned),
           is_muted: Boolean(profile.is_muted),
           real_email: realEmail,
+          realEmail: realEmail,
+          email: realEmail,
+          auth_email: realEmail,
+          user_email: realEmail,
           last_seen: String(profile.last_seen || ""),
           last_login_at: profile.last_login_at ? String(profile.last_login_at) : null,
           created_at: String(profile.created_at || ""),
@@ -594,7 +602,12 @@ export default function AdminPage() {
                       </div>
 
                       <div className="grid gap-x-6 gap-y-1 sm:grid-cols-2 text-xs text-gray-400">
-                        <p>Real Email: <span className="text-white font-medium">{user.real_email || "Not stored"}</span></p>
+                        <p>
+                          Real Email: <span className="text-white font-medium">{user.real_email || user.email || user.realEmail || user.auth_email || user.user_email || "Not stored"}</span>
+                          <span className="text-[10px] text-gray-500 ml-2 select-all">
+                            (Debug: {user.real_email || user.email || "No resolved email found"})
+                          </span>
+                        </p>
                         <p>Dept/Gender: <span className="text-white font-medium">{user.department} • {user.gender}</span></p>
                         <p>Hall: <span className="text-white font-medium">{user.hall || "Not set"}</span></p>
                         <p>Edits count: <span className="text-white font-medium">{user.profile_edit_count} used</span></p>

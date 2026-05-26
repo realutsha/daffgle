@@ -80,14 +80,18 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // Fetch database profiles to count matches
+    // Fetch database profiles to count matches and inspect columns
     let profilesCount = 0;
     let matchedIds: string[] = [];
+    let firstProfileKeys: string[] = [];
     try {
-      const { data: profiles } = await adminClient.from("profiles").select("id");
+      const { data: profiles } = await adminClient.from("profiles").select("*");
       if (profiles) {
         profilesCount = profiles.length;
         matchedIds = profiles.map(p => p.id);
+        if (profiles.length > 0) {
+          firstProfileKeys = Object.keys(profiles[0]);
+        }
       }
     } catch (profileErr) {
       console.error("[Admin Users API Debug] Failed to query profiles count:", profileErr);
@@ -103,8 +107,18 @@ export async function GET(req: NextRequest) {
 
     // Temporary console logs for diagnostic tracing
     console.log("[Admin Users API Debug] Fetched auth users count:", users?.length || 0);
+    if (users) {
+      users.forEach(u => {
+        console.log(`[Admin Users API Debug] Auth User: ID=${u.id}, Email=${u.email}`);
+      });
+    }
     console.log("[Admin Users API Debug] Matched profile IDs in DB:", matchedIds);
-    console.log("[Admin Users API Debug] Returned emails lookup map:", emailMap);
+    console.log("[Admin Users API Debug] Profiles table columns:", firstProfileKeys);
+    
+    // Print the resolved map
+    for (const [pId, email] of Object.entries(emailMap)) {
+      console.log(`[Admin Users API Debug] Resolved Email Match: Profile ID=${pId} -> Real Email=${email}`);
+    }
 
     return NextResponse.json({
       success: true,

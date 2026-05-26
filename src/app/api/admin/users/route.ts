@@ -103,47 +103,37 @@ export async function GET(req: NextRequest) {
     }
 
     const authMap = new Map(
-      users.map((user) => [user.id, user.email])
+      users.map((user) => [
+        String(user.id).trim().toLowerCase(),
+        user.email,
+      ])
     );
 
-    // 1. Add:
-    console.log("AUTH USERS:", users);
-
-    // 2. Add:
-    console.log("PROFILE IDS:", dbProfiles.map(p => p.id));
-
-    // 3. Add:
-    console.log("AUTH MAP:", Array.from(authMap.entries()));
-
-    // 4. Add:
-    console.log(
-      "MATCH TEST:",
-      dbProfiles.map(profile => ({
-        profileId: profile.id,
-        matchedEmail: authMap.get(profile.id),
-      }))
-    );
-
-    const emailMap: Record<string, string> = {};
+    const emailMap: Record<string, string | null> = {};
 
     for (const profile of dbProfiles) {
-      // Use exact Map.get lookup as requested, with case-insensitive fallback for maximum safety
-      const matchedEmail = authMap.get(profile.id) ?? 
-                           authMap.get(String(profile.id).toLowerCase()) ?? 
-                           authMap.get(String(profile.id).toUpperCase()) ?? 
-                           "Not stored";
+      const normalizedProfileId = String(profile.id).trim().toLowerCase();
+      const matchedEmail = authMap.get(normalizedProfileId) ?? null;
+
+      console.log("PROFILE ID:", normalizedProfileId);
+      console.log("MATCHED EMAIL:", authMap.get(normalizedProfileId));
 
       if (profile.id) {
         emailMap[profile.id] = matchedEmail;
-        emailMap[String(profile.id).toLowerCase()] = matchedEmail;
+        emailMap[normalizedProfileId] = matchedEmail;
       }
     }
 
     // 5. Return raw debug data temporarily:
     return NextResponse.json({
-      profiles: dbProfiles,
+      profiles: dbProfiles.map(p => ({
+        ...p,
+        real_email: authMap.get(String(p.id).trim().toLowerCase()) ?? null
+      })),
       authUsers: users,
-      authMap: Array.from(authMap.entries())
+      authMap: Array.from(authMap.entries()),
+      emails: emailMap,
+      success: true
     });
   } catch (err: unknown) {
     const errorMsg = err instanceof Error ? err.message : "Internal Server Error";

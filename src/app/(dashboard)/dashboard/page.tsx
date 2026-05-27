@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { supabase } from "@/lib/supabase/client";
 import { setUserOnline, setUserOffline } from "@/lib/presence";
 import { setupPushNotifications } from "@/lib/notifications";
@@ -20,7 +20,9 @@ import {
   EmptyState, 
   premiumSpring 
 } from "@/components/ui/PremiumUI";
-import { Search, Plus, Sparkles, MessageSquare, AlertTriangle, ShieldCheck, Flame, RefreshCw } from "lucide-react";
+import { Search, Plus, Sparkles, MessageSquare, AlertTriangle, ShieldCheck, Flame, RefreshCw, ChevronDown } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { helpRequestCategories } from "@/constants/helpRequestItems";
 
 type Profile = {
   id: string;
@@ -67,16 +69,7 @@ type HelpRequest = {
   };
 };
 
-const PREDEFINED_ITEMS = [
-  { value: "Calculator", label: "Calculator" },
-  { value: "Charger", label: "Charger" },
-  { value: "Pen", label: "Pen" },
-  { value: "Notebook", label: "Notebook" },
-  { value: "Water Bottle", label: "Water Bottle" },
-  { value: "Umbrella", label: "Umbrella" },
-  { value: "Power Bank", label: "Power Bank" },
-  { value: "Extension Cable", label: "Extension Cable" }
-];
+// Predefined items removed in favor of 500 categorized items in src/constants/helpRequestItems.ts
 
 const REPORT_REASONS = [
   { value: "Fake helper", label: "Fake helper" },
@@ -123,6 +116,73 @@ export default function HelpHubDashboardPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedItem, setSelectedItem] = useState("");
   const [submitting, setSubmitting] = useState(false);
+
+  // Searchable item picker states
+  const [inputValue, setInputValue] = useState("");
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
+  const [isItemDropdownOpen, setIsItemDropdownOpen] = useState(false);
+  const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
+  const itemDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Debounce search query updates (120ms delay)
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearchQuery(inputValue);
+    }, 120);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [inputValue]);
+
+  // Close searchable dropdown on outside click
+  useEffect(() => {
+    function handleOutsideClick(event: MouseEvent) {
+      if (itemDropdownRef.current && !itemDropdownRef.current.contains(event.target as Node)) {
+        setIsItemDropdownOpen(false);
+        setInputValue("");
+        setDebouncedSearchQuery("");
+        setExpandedCategory(null);
+      }
+    }
+    if (isItemDropdownOpen) {
+      document.addEventListener("mousedown", handleOutsideClick);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideClick);
+    };
+  }, [isItemDropdownOpen]);
+
+  // Filtered categories and items based on search query (optimized, limited to first 50 matches total)
+  const filteredSearchItems = useMemo(() => {
+    if (!debouncedSearchQuery.trim()) return null;
+    const query = debouncedSearchQuery.toLowerCase();
+    
+    const matched: { category: string; items: string[] }[] = [];
+    let totalCount = 0;
+    
+    for (const cat of helpRequestCategories) {
+      if (totalCount >= 50) break;
+      
+      const matchedItems = [];
+      for (const item of cat.items) {
+        if (item.toLowerCase().includes(query)) {
+          matchedItems.push(item);
+          totalCount++;
+          if (totalCount >= 50) break;
+        }
+      }
+      
+      if (matchedItems.length > 0) {
+        matched.push({
+          category: cat.category,
+          items: matchedItems,
+        });
+      }
+    }
+    
+    return matched;
+  }, [debouncedSearchQuery]);
 
   // Background Chats Unread Counter
   const [unreadChatsCount, setUnreadChatsCount] = useState(0);
@@ -471,6 +531,10 @@ export default function HelpHubDashboardPage() {
       toast.success("Help request broadcasted to your hall!");
       setShowCreateModal(false);
       setSelectedItem("");
+      setInputValue("");
+      setDebouncedSearchQuery("");
+      setExpandedCategory(null);
+      setIsItemDropdownOpen(false);
 
       // Immediately refetch: Available Help, My Requests after successful insert
       const { data: myReqData } = await supabase
@@ -1159,6 +1223,10 @@ export default function HelpHubDashboardPage() {
         onClose={() => {
           setShowCreateModal(false);
           setSelectedItem("");
+          setInputValue("");
+          setDebouncedSearchQuery("");
+          setExpandedCategory(null);
+          setIsItemDropdownOpen(false);
         }}
         title="Broadcast Help Request"
         description={`File an anonymous, location-bounded help request visible exclusively to verified students inside ${profile?.hall}.`}
@@ -1173,13 +1241,179 @@ export default function HelpHubDashboardPage() {
             </span>
           </div>
 
-          <PremiumSelect
-            label="Select Needed Item"
-            value={selectedItem}
-            onChange={setSelectedItem}
-            options={PREDEFINED_ITEMS}
-            placeholder="Select a campus item..."
-          />
+          <div className="space-y-1.5 flex flex-col relative" ref={itemDropdownRef}>
+            <label className="text-[10px] font-bold text-brand-text-secondary uppercase tracking-widest ml-1 select-none">
+              Select Needed Item
+            </label>
+            
+            <button
+              type="button"
+              onClick={() => setIsItemDropdownOpen(!isItemDropdownOpen)}
+              className={cn(
+                "flex w-full items-center justify-between rounded-2xl border bg-brand-secondary px-4 py-3.5 text-sm text-brand-text-primary outline-none transition duration-200 select-none cursor-pointer",
+                "border-brand-border focus:border-brand-accent/35",
+                isItemDropdownOpen && "border-brand-accent/40 ring-1 ring-brand-accent/15"
+              )}
+            >
+              <span className={cn(!selectedItem && "text-brand-text-secondary/40")}>
+                {selectedItem ? selectedItem : "Select a campus item..."}
+              </span>
+              <ChevronDown className={cn("h-4 w-4 text-brand-text-secondary transition duration-200", isItemDropdownOpen && "rotate-180")} />
+            </button>
+
+            <AnimatePresence>
+              {isItemDropdownOpen && (
+                <motion.div
+                  initial={{ opacity: 0, y: 8, scale: 0.98 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 8, scale: 0.98 }}
+                  transition={{ duration: 0.15, ease: "easeOut" }}
+                  className="absolute left-0 right-0 z-50 mt-16 max-h-[380px] flex flex-col overflow-hidden rounded-2xl border border-brand-border bg-brand-elevated/95 p-3 shadow-2xl backdrop-blur-md"
+                >
+                  {/* Search Input inside Dropdown */}
+                  <div className="relative flex items-center mb-2 shrink-0">
+                    <Search className="absolute left-3.5 h-3.5 w-3.5 text-brand-text-secondary pointer-events-none" />
+                    <input
+                      type="text"
+                      value={inputValue}
+                      onChange={(e) => setInputValue(e.target.value)}
+                      placeholder="Search 500+ campus items..."
+                      className="w-full rounded-xl border border-brand-border bg-brand-secondary pl-9 pr-8 py-2.5 text-xs text-brand-text-primary outline-none transition duration-200 focus:border-brand-accent/30 focus:ring-1 focus:ring-brand-accent/10 placeholder:text-brand-text-secondary/40 text-white"
+                      autoFocus
+                    />
+                    {inputValue && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setInputValue("");
+                          setDebouncedSearchQuery("");
+                        }}
+                        className="absolute right-2.5 p-1 rounded-full text-brand-text-secondary hover:text-white transition cursor-pointer"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Dropdown Items List Area */}
+                  <div className="flex-1 overflow-y-auto space-y-2 pr-1 no-scrollbar text-xs">
+                    {inputValue ? (
+                      /* Global Search Mode */
+                      filteredSearchItems && filteredSearchItems.length > 0 ? (
+                        filteredSearchItems.map((catGroup) => (
+                          <div key={catGroup.category} className="space-y-1">
+                            <div className="px-2 py-1 text-[9px] font-bold text-brand-accent uppercase tracking-wider bg-brand-surface/40 rounded-lg select-none">
+                              {catGroup.category}
+                            </div>
+                            <div className="grid grid-cols-1 gap-0.5 pl-1">
+                              {catGroup.items.map((item) => {
+                                const isSelected = item === selectedItem;
+                                return (
+                                  <button
+                                    key={item}
+                                    type="button"
+                                    onClick={() => {
+                                      setSelectedItem(item);
+                                      setIsItemDropdownOpen(false);
+                                      setInputValue("");
+                                      setDebouncedSearchQuery("");
+                                      setExpandedCategory(null);
+                                    }}
+                                    className={cn(
+                                      "flex w-full items-center rounded-lg px-3 py-2 text-left transition duration-150 select-none cursor-pointer",
+                                      isSelected
+                                        ? "bg-brand-accent text-brand-primary font-bold"
+                                        : "text-brand-text-secondary hover:bg-brand-surface/70 hover:text-brand-text-primary"
+                                    )}
+                                  >
+                                    {item}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="px-4 py-6 text-center text-xs text-brand-text-secondary italic">
+                          🔍 No items match &quot;{inputValue}&quot;
+                        </div>
+                      )
+                    ) : (
+                      /* Category / Browse Mode */
+                      expandedCategory === null ? (
+                        /* Root Categories List */
+                        <div className="space-y-1">
+                          <div className="px-2 py-1 text-[9px] font-bold text-brand-text-secondary uppercase tracking-widest select-none">
+                            Browse by Category
+                          </div>
+                          {helpRequestCategories.map((cat) => (
+                            <button
+                              key={cat.category}
+                              type="button"
+                              onClick={() => setExpandedCategory(cat.category)}
+                              className="flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left text-brand-text-secondary hover:bg-brand-surface/70 hover:text-brand-text-primary transition duration-150 select-none cursor-pointer"
+                            >
+                              <span className="font-semibold text-white/90">{cat.category}</span>
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[10px] bg-brand-secondary/80 border border-white/5 text-brand-text-secondary px-2.5 py-0.5 rounded-full">
+                                  {cat.items.length} items
+                                </span>
+                                <ChevronDown className="-rotate-90 h-3.5 w-3.5 opacity-60" />
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      ) : (
+                        /* Category Items List */
+                        <div className="space-y-1">
+                          <button
+                            type="button"
+                            onClick={() => setExpandedCategory(null)}
+                            className="flex w-full items-center gap-1.5 rounded-lg px-2.5 py-2 text-left font-bold text-brand-accent hover:bg-brand-surface/50 transition duration-150 cursor-pointer mb-1 select-none"
+                          >
+                            ← Back to Categories
+                          </button>
+                          
+                          <div className="px-2.5 py-1 text-[9px] font-black text-brand-text-secondary uppercase tracking-widest bg-brand-surface/20 rounded-lg select-none mb-1">
+                            {expandedCategory}
+                          </div>
+                          
+                          <div className="grid grid-cols-1 gap-0.5 max-h-[220px] overflow-y-auto pr-0.5">
+                            {helpRequestCategories
+                              .find((c) => c.category === expandedCategory)
+                              ?.items.map((item) => {
+                                const isSelected = item === selectedItem;
+                                return (
+                                  <button
+                                    key={item}
+                                    type="button"
+                                    onClick={() => {
+                                      setSelectedItem(item);
+                                      setIsItemDropdownOpen(false);
+                                      setInputValue("");
+                                      setDebouncedSearchQuery("");
+                                      setExpandedCategory(null);
+                                    }}
+                                    className={cn(
+                                      "flex w-full items-center rounded-lg px-3 py-2 text-left transition duration-150 select-none cursor-pointer",
+                                      isSelected
+                                        ? "bg-brand-accent text-brand-primary font-bold"
+                                        : "text-brand-text-secondary hover:bg-brand-surface/70 hover:text-brand-text-primary"
+                                    )}
+                                  >
+                                    {item}
+                                  </button>
+                                );
+                              })}
+                          </div>
+                        </div>
+                      )
+                    )}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
 
           {selectedItem && profile && (
             <motion.div
@@ -1201,6 +1435,10 @@ export default function HelpHubDashboardPage() {
               onClick={() => {
                 setShowCreateModal(false);
                 setSelectedItem("");
+                setInputValue("");
+                setDebouncedSearchQuery("");
+                setExpandedCategory(null);
+                setIsItemDropdownOpen(false);
               }}
               variant="secondary"
               className="flex-1"

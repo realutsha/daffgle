@@ -24,6 +24,7 @@ type Profile = {
 export default function HomePage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
+  const [isGlowing, setIsGlowing] = useState(false);
  
   useEffect(() => {
     const initHome = async () => {
@@ -118,9 +119,32 @@ export default function HomePage() {
           {/* Rotating and Pulsing Gemini gradient border light behind */}
           <div className="absolute -inset-[1.5px] rounded-2xl bg-gradient-to-r from-[#8AB4F8] via-[#80F3B4] to-[#C9D7F2] opacity-35 blur-[3px] group-hover:opacity-75 group-hover:blur-[6px] transition duration-500 group-hover:duration-200 animate-pulse" />
           
+          {/* Emerald Green Neon Aura Backdrop */}
+          <div
+            className={`absolute -inset-[1px] rounded-[15px] bg-gradient-to-r from-[#22c55e] to-[#4ade80] blur-[3px] transition-all pointer-events-none duration-700 ease-out z-0 ${
+              isGlowing 
+                ? "opacity-80 blur-[8px] scale-[1.01] duration-75 ease-in" 
+                : "opacity-0 group-hover:opacity-20 group-hover:blur-[4px]"
+            }`}
+          />
+          {/* Liquid Glass border glow */}
+          <div
+            className={`absolute inset-0 rounded-[15px] border border-transparent transition-all pointer-events-none duration-700 z-0 ${
+              isGlowing 
+                ? "border-[#22c55e]/80 duration-75" 
+                : "group-hover:border-[#22c55e]/40"
+            }`}
+          />
+          
           {/* Liquid Glass Translucent button surface */}
           <button
-            onClick={() => router.push("/dashboard")}
+            onClick={() => {
+              setIsGlowing(true);
+              setTimeout(() => {
+                setIsGlowing(false);
+                router.push("/dashboard");
+              }, 220); // Delay slightly for high-end click feel
+            }}
             className="relative px-9 py-4.5 rounded-[15px] font-black text-xs uppercase tracking-[0.2em] text-[#C9D7F2] bg-[#0B0E14]/90 hover:bg-[#0B0E14]/75 border border-[#8AB4F8]/10 backdrop-blur-2xl transition duration-300 group-hover:text-white group-hover:border-[#8AB4F8]/30 hover:scale-[1.015] active:scale-[0.985] cursor-pointer shadow-[0_0_30px_rgba(138,180,248,0.05)] flex items-center justify-center gap-2.5 mx-auto"
           >
             <span>Enter Daffgle</span>

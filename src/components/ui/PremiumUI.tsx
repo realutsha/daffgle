@@ -67,6 +67,7 @@ interface PremiumButtonProps {
   onClick?: (event: React.MouseEvent<HTMLButtonElement>) => void;
   disabled?: boolean;
   type?: "button" | "submit" | "reset";
+  withNeonGlow?: boolean;
 }
 
 export function PremiumButton({
@@ -76,8 +77,22 @@ export function PremiumButton({
   className,
   disabled,
   onClick,
-  type = "button"
+  type = "button",
+  withNeonGlow = false
 }: PremiumButtonProps) {
+  const [isGlowing, setIsGlowing] = useState(false);
+
+  const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+    if (disabled || isLoading) return;
+    if (withNeonGlow) {
+      setIsGlowing(true);
+      setTimeout(() => {
+        setIsGlowing(false);
+      }, 750);
+    }
+    if (onClick) onClick(e);
+  };
+
   return (
     <motion.button
       type={type}
@@ -85,9 +100,9 @@ export function PremiumButton({
       whileTap={!disabled && !isLoading ? { scale: 0.975 } : undefined}
       transition={premiumSpring}
       disabled={disabled || isLoading}
-      onClick={onClick}
+      onClick={handleClick}
       className={cn(
-        "relative flex items-center justify-center gap-2 rounded-2xl px-5 py-3.5 text-sm font-semibold tracking-wide transition duration-200 select-none cursor-pointer focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed",
+        "relative flex items-center justify-center gap-2 rounded-2xl px-5 py-3.5 text-sm font-semibold tracking-wide transition duration-200 select-none cursor-pointer focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed group",
         
         // Variant: Primary (Elegant accent outline/glow)
         variant === "primary" && "bg-brand-accent text-brand-primary shadow-lg shadow-brand-accent/15 hover:bg-brand-accent/95",
@@ -107,14 +122,37 @@ export function PremiumButton({
         className
       )}
     >
-      {isLoading ? (
+      {withNeonGlow && (
         <>
-          <Loader2 className="h-4 w-4 animate-spin text-current" />
-          <span className="opacity-80">Syncing...</span>
+          {/* Emerald Green Neon Aura Backdrop */}
+          <div
+            className={cn(
+              "absolute -inset-[1px] rounded-2xl bg-gradient-to-r from-[#22c55e] to-[#4ade80] opacity-0 blur-[3px] transition-all pointer-events-none duration-700 ease-out z-0",
+              !disabled && !isLoading && "group-hover:opacity-20 group-hover:blur-[4px]",
+              isGlowing && "opacity-80 blur-[8px] scale-[1.01] duration-75 ease-in",
+            )}
+          />
+          {/* Liquid Glass border glow */}
+          <div
+            className={cn(
+              "absolute inset-0 rounded-2xl border border-transparent transition-all pointer-events-none duration-700 z-0",
+              !disabled && !isLoading && "group-hover:border-[#22c55e]/40",
+              isGlowing && "border-[#22c55e]/80 duration-75",
+            )}
+          />
         </>
-      ) : (
-        children
       )}
+
+      <span className="relative z-10 flex items-center justify-center gap-2">
+        {isLoading ? (
+          <>
+            <Loader2 className="h-4 w-4 animate-spin text-current" />
+            <span className="opacity-80">Syncing...</span>
+          </>
+        ) : (
+          children
+        )}
+      </span>
     </motion.button>
   );
 }

@@ -607,6 +607,7 @@ export default function PrivateChatPage() {
             disabled={!canSend}
             variant="primary"
             className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl p-0 hover:scale-105"
+            withNeonGlow
           >
             <Send className="h-4 w-4 text-brand-primary" />
           </PremiumButton>
@@ -669,6 +670,7 @@ export default function PrivateChatPage() {
               disabled={submittingReport || !reportReason}
               variant="danger"
               className="flex-1"
+              withNeonGlow
             >
               {submittingReport ? "Auditing..." : "File Report"}
             </PremiumButton>

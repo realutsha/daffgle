@@ -857,6 +857,7 @@ export default function HelpHubDashboardPage() {
                           onClick={() => handleHelpNow(req)}
                           variant="primary"
                           className="flex-1 py-1.5 px-3 rounded-xl text-[10px] font-bold"
+                          withNeonGlow
                         >
                           Help Now
                         </PremiumButton>
@@ -928,6 +929,7 @@ export default function HelpHubDashboardPage() {
               onClick={() => setShowCreateModal(true)}
               variant="accent"
               className="py-3 px-4 text-xs font-bold rounded-2xl self-start sm:self-auto shadow-md"
+              withNeonGlow
             >
               <Plus className="h-3.5 w-3.5 mr-1" />
               Create Help Request
@@ -1002,6 +1004,7 @@ export default function HelpHubDashboardPage() {
                               onClick={() => handleHelpNow(req)}
                               variant="primary"
                               className="flex-1 py-2.5 px-4 rounded-xl text-xs font-bold"
+                              withNeonGlow
                             >
                               Help Now
                             </PremiumButton>
@@ -1452,6 +1455,7 @@ export default function HelpHubDashboardPage() {
               disabled={submitting || !selectedItem}
               variant="primary"
               className="flex-1 font-bold"
+              withNeonGlow
             >
               {submitting ? "Broadcasting..." : "Publish Broadcast"}
             </PremiumButton>
@@ -1513,6 +1517,7 @@ export default function HelpHubDashboardPage() {
               disabled={submittingReport || !reportReason}
               variant="danger"
               className="flex-1"
+              withNeonGlow
             >
               {submittingReport ? "Submitting..." : "Submit Report"}
             </PremiumButton>

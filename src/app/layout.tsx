@@ -11,13 +11,20 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: "Daffgle",
-  description:
-    "Anonymous realtime chat platform for DIU students",
+  description: "Anonymous realtime student communication platform for DIU students",
   manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Daffgle",
+  },
+  icons: {
+    apple: "/apple-touch-icon.png",
+  },
 };
 
 export const viewport = {
-  themeColor: "#111111",
+  themeColor: "#0E1621",
 };
 
 export default function RootLayout({

@@ -46,10 +46,14 @@ if (!admin.apps.length) {
 }
 
 // 2. Initialize Supabase Admin Client using service role key to securely bypass RLS and resolve tokens
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://bqxtknjkibjlxwnsaxcl.supabase.co";
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
+if (!supabaseUrl || !supabaseServiceKey) {
+  console.error("[FCM Server Error] Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY in server configuration.");
+}
+
+const supabaseAdmin = createClient(supabaseUrl || "", supabaseServiceKey || "", {
   auth: {
     persistSession: false,
     autoRefreshToken: false,
@@ -58,7 +62,14 @@ const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
 
 export async function POST(request: Request) {
   try {
-    const anonAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
+    const anonAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    
+    if (!supabaseUrl || !anonAnonKey) {
+      return NextResponse.json(
+        { success: false, error: "Server Configuration Error: Required Supabase variables are missing on the server." },
+        { status: 500 }
+      );
+    }
     
     // 1. Session Token Verification (Authorization Header OR Cookies)
     const token = request.headers.get("authorization")?.replace("Bearer ", "");

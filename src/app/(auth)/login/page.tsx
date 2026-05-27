@@ -91,9 +91,14 @@ function LoginContent() {
         
         {/* Branding vector logo */}
         <div className="space-y-4">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-brand-accent/5 border border-brand-accent/15 relative">
-            <span className="text-3xl select-none">🕊️</span>
-            <span className="absolute -right-1 -bottom-1 flex h-6 w-6 items-center justify-center rounded-full bg-brand-accent text-[9px] font-black text-brand-primary shadow-md">
+          <div className="relative mx-auto flex h-24 w-24 items-center justify-center rounded-[28px] border border-white/10 bg-white/[0.04] shadow-2xl">
+            <img
+              src="/logo.png"
+              alt="Daffgle Logo"
+              className="h-16 w-16 object-contain"
+            />
+
+            <span className="absolute -right-2 -bottom-2 flex h-10 w-10 items-center justify-center rounded-full bg-[#d9e6ff] text-xs font-black text-black shadow-lg">
               DIU
             </span>
           </div>

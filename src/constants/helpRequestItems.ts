@@ -12,11 +12,11 @@ export const helpRequestCategories = [
   {
     category: "Electronics & Cables",
     items: [
-      "USB cable", "HDMI cable", "Phone charger", "Laptop charger", "Earphones", "Headphones", "Power bank", "Extension cord", "Multi-plug", "OTG adapter",
-      "Ethernet cable", "VGA cable", "Aux cable", "LAN adapter", "SD card", "MicroSD card", "Flash drive", "Mouse", "Keyboard", "Laptop stand",
-      "Mouse pad", "Phone stand", "Laptop sleeve", "Ring light", "USB hub", "Ethernet switch", "Bluetooth receiver", "Webcam", "Card reader", "Screen guard",
-      "DisplayPort cable", "Type-C hub", "Wireless charger", "Cooling pad", "Desk lamp", "Earbuds", "Speaker", "Batteries (AA)", "Batteries (AAA)", "Charging brick",
-      "Audio splitter", "Mini projector", "Router", "Wifi dongle", "Stylus", "Smart plug", "Cable organizer", "Hard drive case", "External HDD", "Microphone"
+      "USB cable", "HDMI cable", "Phone charger", "Laptop charger", "Earphones", "Headphones", "Power bank", "Extension cord", "Multi-plug", "OTG Connector",
+      "Ethernet cable", "VGA cable", "Aux cable", "LAN adapter", "SD card", "MicroSD card", "Pendrive", "Mouse", "Keyboard", "Laptop stand",
+      "Mouse pad", "Phone stand", "Laptop sleeve", "Ring light", "USB hub", "Ethernet switch", "Bluetooth receiver", "Webcam", "USB Card Reader", "Screen guard",
+      "DisplayPort cable", "USB-C to USB-C Cable", "Wireless charger", "Cooling pad", "Desk lamp", "Earbuds", "Speaker", "Batteries (AA)", "Batteries (AAA)", "Charging brick",
+      "USB-C Charger", "USB Fan", "USB LED Light", "USB Extension Cable", "Stylus", "Smart plug", "Cable organizer", "Multi-port Charger", "External HDD", "Microphone"
     ]
   },
   {

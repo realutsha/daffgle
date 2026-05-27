@@ -156,17 +156,66 @@ export default function HelpHubDashboardPage() {
   // Filtered categories and items based on search query (optimized, limited to first 50 matches total)
   const filteredSearchItems = useMemo(() => {
     if (!debouncedSearchQuery.trim()) return null;
-    const query = debouncedSearchQuery.toLowerCase();
+    const query = debouncedSearchQuery.toLowerCase().trim();
     
     const matched: { category: string; items: string[] }[] = [];
     let totalCount = 0;
+    
+    // Helper to determine if item matches query (supporting smart synonyms requested by user)
+    const matchesItem = (itemName: string, q: string): boolean => {
+      const nameLower = itemName.toLowerCase();
+      
+      // Default standard contains matching
+      if (nameLower.includes(q)) return true;
+      
+      // Smart matching for "usb" related queries
+      if (q === "usb" || ("usb".startsWith(q) && q.length >= 2)) {
+        const usbRelated = [
+          "pendrive",
+          "card reader",
+          "otg connector",
+          "sd card",
+          "microsd card",
+          "flash drive",
+          "mouse",
+          "keyboard"
+        ];
+        if (usbRelated.some((term) => nameLower.includes(term))) return true;
+      }
+      
+      // Smart matching for "charger" related queries
+      if (q === "charger" || ("charger".startsWith(q) && q.length >= 3)) {
+        const chargerRelated = [
+          "charging",
+          "power bank",
+          "adapter",
+          "plug",
+          "brick"
+        ];
+        if (chargerRelated.some((term) => nameLower.includes(term))) return true;
+      }
+      
+      // Smart matching for "cable" related queries
+      if (q === "cable" || ("cable".startsWith(q) && q.length >= 3)) {
+        const cableRelated = [
+          "cord",
+          "wire",
+          "lead",
+          "multi-plug",
+          "extension"
+        ];
+        if (cableRelated.some((term) => nameLower.includes(term))) return true;
+      }
+      
+      return false;
+    };
     
     for (const cat of helpRequestCategories) {
       if (totalCount >= 50) break;
       
       const matchedItems = [];
       for (const item of cat.items) {
-        if (item.toLowerCase().includes(query)) {
+        if (matchesItem(item, query)) {
           matchedItems.push(item);
           totalCount++;
           if (totalCount >= 50) break;
@@ -183,6 +232,12 @@ export default function HelpHubDashboardPage() {
     
     return matched;
   }, [debouncedSearchQuery]);
+
+  // Total search matches count helper
+  const totalMatchesCount = useMemo(() => {
+    if (!filteredSearchItems) return 0;
+    return filteredSearchItems.reduce((acc, cat) => acc + cat.items.length, 0);
+  }, [filteredSearchItems]);
 
   // Background Chats Unread Counter
   const [unreadChatsCount, setUnreadChatsCount] = useState(0);
@@ -1249,39 +1304,34 @@ export default function HelpHubDashboardPage() {
               Select Needed Item
             </label>
             
-            <button
-              type="button"
-              onClick={() => setIsItemDropdownOpen(!isItemDropdownOpen)}
-              className={cn(
-                "flex w-full items-center justify-between rounded-2xl border bg-brand-secondary px-4 py-3.5 text-sm text-brand-text-primary outline-none transition duration-200 select-none cursor-pointer",
-                "border-brand-border focus:border-brand-accent/35",
-                isItemDropdownOpen && "border-brand-accent/40 ring-1 ring-brand-accent/15"
-              )}
-            >
-              <span className={cn(!selectedItem && "text-brand-text-secondary/40")}>
-                {selectedItem ? selectedItem : "Select a campus item..."}
-              </span>
-              <ChevronDown className={cn("h-4 w-4 text-brand-text-secondary transition duration-200", isItemDropdownOpen && "rotate-180")} />
-            </button>
-
-            <AnimatePresence>
-              {isItemDropdownOpen && (
-                <motion.div
-                  initial={{ opacity: 0, y: 8, scale: 0.98 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: 8, scale: 0.98 }}
-                  transition={{ duration: 0.15, ease: "easeOut" }}
-                  className="absolute left-0 right-0 z-50 mt-16 max-h-[380px] flex flex-col overflow-hidden rounded-2xl border border-brand-border bg-brand-elevated/95 p-3 shadow-2xl backdrop-blur-md"
-                >
-                  {/* Search Input inside Dropdown */}
-                  <div className="relative flex items-center mb-2 shrink-0">
-                    <Search className="absolute left-3.5 h-3.5 w-3.5 text-brand-text-secondary pointer-events-none" />
+            {!isItemDropdownOpen ? (
+              /* Closed State: Sleek Select Button */
+              <button
+                type="button"
+                onClick={() => setIsItemDropdownOpen(true)}
+                className={cn(
+                  "flex w-full items-center justify-between rounded-2xl border bg-brand-secondary px-4 py-3.5 text-sm text-brand-text-primary outline-none transition duration-200 select-none cursor-pointer",
+                  "border-brand-border hover:border-brand-accent/30",
+                  selectedItem && "border-brand-accent/30 text-white font-bold"
+                )}
+              >
+                <span>{selectedItem ? selectedItem : "Select a campus item..."}</span>
+                <ChevronDown className="h-4 w-4 text-brand-text-secondary transition duration-200" />
+              </button>
+            ) : (
+              /* Opened State: Inline Interactive Search Picker */
+              <div className="rounded-2xl border border-brand-border bg-[#1A1A1A] p-3.5 space-y-3 flex flex-col shadow-inner backdrop-blur-md">
+                
+                {/* Search Header Row */}
+                <div className="flex items-center gap-2">
+                  <div className="relative flex-1 flex items-center">
+                    <Search className="absolute left-3.5 h-4 w-4 text-brand-text-secondary pointer-events-none" />
                     <input
                       type="text"
                       value={inputValue}
                       onChange={(e) => setInputValue(e.target.value)}
                       placeholder="Search 500+ campus items..."
-                      className="w-full rounded-xl border border-brand-border bg-brand-secondary pl-9 pr-8 py-2.5 text-xs text-brand-text-primary outline-none transition duration-200 focus:border-brand-accent/30 focus:ring-1 focus:ring-brand-accent/10 placeholder:text-brand-text-secondary/40 text-white"
+                      className="w-full rounded-xl border border-brand-border bg-brand-secondary pl-10 pr-8 py-2.5 text-sm text-white outline-none transition duration-150 focus:border-brand-accent/35 placeholder:text-brand-text-secondary/40"
                       autoFocus
                     />
                     {inputValue && (
@@ -1291,131 +1341,152 @@ export default function HelpHubDashboardPage() {
                           setInputValue("");
                           setDebouncedSearchQuery("");
                         }}
-                        className="absolute right-2.5 p-1 rounded-full text-brand-text-secondary hover:text-white transition cursor-pointer"
+                        className="absolute right-3 p-1 rounded-full text-brand-text-secondary hover:text-white transition cursor-pointer"
                       >
                         ✕
                       </button>
                     )}
                   </div>
 
-                  {/* Dropdown Items List Area */}
-                  <div className="flex-1 overflow-y-auto space-y-2 pr-1 no-scrollbar text-xs">
-                    {inputValue ? (
-                      /* Global Search Mode */
-                      filteredSearchItems && filteredSearchItems.length > 0 ? (
-                        filteredSearchItems.map((catGroup) => (
-                          <div key={catGroup.category} className="space-y-1">
-                            <div className="px-2 py-1 text-[9px] font-bold text-brand-accent uppercase tracking-wider bg-brand-surface/40 rounded-lg select-none">
-                              {catGroup.category}
-                            </div>
-                            <div className="grid grid-cols-1 gap-0.5 pl-1">
-                              {catGroup.items.map((item) => {
-                                const isSelected = item === selectedItem;
-                                return (
-                                  <button
-                                    key={item}
-                                    type="button"
-                                    onClick={() => {
-                                      setSelectedItem(item);
-                                      setIsItemDropdownOpen(false);
-                                      setInputValue("");
-                                      setDebouncedSearchQuery("");
-                                      setExpandedCategory(null);
-                                    }}
-                                    className={cn(
-                                      "flex w-full items-center rounded-lg px-3 py-2 text-left transition duration-150 select-none cursor-pointer",
-                                      isSelected
-                                        ? "bg-brand-accent text-brand-primary font-bold"
-                                        : "text-brand-text-secondary hover:bg-brand-surface/70 hover:text-brand-text-primary"
-                                    )}
-                                  >
-                                    {item}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        ))
-                      ) : (
-                        <div className="px-4 py-6 text-center text-xs text-brand-text-secondary italic">
-                          🔍 No items match &quot;{inputValue}&quot;
-                        </div>
-                      )
-                    ) : (
-                      /* Category / Browse Mode */
-                      expandedCategory === null ? (
-                        /* Root Categories List */
-                        <div className="space-y-1">
-                          <div className="px-2 py-1 text-[9px] font-bold text-brand-text-secondary uppercase tracking-widest select-none">
-                            Browse by Category
-                          </div>
-                          {helpRequestCategories.map((cat) => (
-                            <button
-                              key={cat.category}
-                              type="button"
-                              onClick={() => setExpandedCategory(cat.category)}
-                              className="flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left text-brand-text-secondary hover:bg-brand-surface/70 hover:text-brand-text-primary transition duration-150 select-none cursor-pointer"
-                            >
-                              <span className="font-semibold text-white/90">{cat.category}</span>
-                              <div className="flex items-center gap-1.5">
-                                <span className="text-[10px] bg-brand-secondary/80 border border-white/5 text-brand-text-secondary px-2.5 py-0.5 rounded-full">
-                                  {cat.items.length} items
-                                </span>
-                                <ChevronDown className="-rotate-90 h-3.5 w-3.5 opacity-60" />
-                              </div>
-                            </button>
-                          ))}
-                        </div>
-                      ) : (
-                        /* Category Items List */
-                        <div className="space-y-1">
-                          <button
-                            type="button"
-                            onClick={() => setExpandedCategory(null)}
-                            className="flex w-full items-center gap-1.5 rounded-lg px-2.5 py-2 text-left font-bold text-brand-accent hover:bg-brand-surface/50 transition duration-150 cursor-pointer mb-1 select-none"
-                          >
-                            ← Back to Categories
-                          </button>
-                          
-                          <div className="px-2.5 py-1 text-[9px] font-black text-brand-text-secondary uppercase tracking-widest bg-brand-surface/20 rounded-lg select-none mb-1">
-                            {expandedCategory}
-                          </div>
-                          
-                          <div className="grid grid-cols-1 gap-0.5 max-h-[220px] overflow-y-auto pr-0.5">
-                            {helpRequestCategories
-                              .find((c) => c.category === expandedCategory)
-                              ?.items.map((item) => {
-                                const isSelected = item === selectedItem;
-                                return (
-                                  <button
-                                    key={item}
-                                    type="button"
-                                    onClick={() => {
-                                      setSelectedItem(item);
-                                      setIsItemDropdownOpen(false);
-                                      setInputValue("");
-                                      setDebouncedSearchQuery("");
-                                      setExpandedCategory(null);
-                                    }}
-                                    className={cn(
-                                      "flex w-full items-center rounded-lg px-3 py-2 text-left transition duration-150 select-none cursor-pointer",
-                                      isSelected
-                                        ? "bg-brand-accent text-brand-primary font-bold"
-                                        : "text-brand-text-secondary hover:bg-brand-surface/70 hover:text-brand-text-primary"
-                                    )}
-                                  >
-                                    {item}
-                                  </button>
-                                );
-                              })}
-                          </div>
-                        </div>
-                      )
-                    )}
+                  {/* Close / Go Back Button */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsItemDropdownOpen(false);
+                      setInputValue("");
+                      setDebouncedSearchQuery("");
+                      setExpandedCategory(null);
+                    }}
+                    className="h-10 px-3 rounded-xl bg-brand-secondary border border-brand-border hover:border-brand-accent/25 hover:text-white text-xs font-bold text-brand-text-secondary transition cursor-pointer"
+                  >
+                    Back
+                  </button>
+                </div>
+
+                {/* Match Count Indicator */}
+                {inputValue && (
+                  <div className="px-1 text-[10px] font-bold text-brand-accent uppercase tracking-wider select-none">
+                    {totalMatchesCount} {totalMatchesCount === 1 ? "item" : "items"} found
                   </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
+                )}
+
+                {/* Scrollable list content */}
+                <div className="overflow-y-auto max-h-[60vh] md:max-h-[420px] space-y-2.5 pr-1 no-scrollbar text-xs">
+                  {inputValue ? (
+                    /* Global Search Mode */
+                    filteredSearchItems && filteredSearchItems.length > 0 ? (
+                      filteredSearchItems.map((catGroup) => (
+                        <div key={catGroup.category} className="space-y-1">
+                          <div className="px-2 py-1 text-[9px] font-bold text-brand-text-secondary uppercase tracking-widest bg-brand-surface/40 rounded-lg select-none">
+                            {catGroup.category}
+                          </div>
+                          <div className="grid grid-cols-1 gap-0.5 pl-0.5">
+                            {catGroup.items.map((item) => {
+                              const isSelected = item === selectedItem;
+                              return (
+                                <button
+                                  key={item}
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedItem(item);
+                                    setIsItemDropdownOpen(false);
+                                    setInputValue("");
+                                    setDebouncedSearchQuery("");
+                                    setExpandedCategory(null);
+                                  }}
+                                  className={cn(
+                                    "flex w-full items-center rounded-xl px-3.5 py-2.5 text-left text-sm transition duration-150 select-none cursor-pointer",
+                                    isSelected
+                                      ? "bg-brand-accent text-brand-primary font-black shadow-sm"
+                                      : "text-brand-text-secondary hover:bg-brand-surface/85 hover:text-white"
+                                  )}
+                                >
+                                  {item}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="px-4 py-8 text-center text-xs text-brand-text-secondary italic">
+                        🔍 No items found for &quot;{inputValue}&quot;
+                      </div>
+                    )
+                  ) : (
+                    /* Category Browse Mode */
+                    expandedCategory === null ? (
+                      /* Root Categories */
+                      <div className="space-y-1">
+                        <div className="px-2 py-1 text-[9px] font-bold text-brand-text-secondary uppercase tracking-widest select-none">
+                          Browse by Category
+                        </div>
+                        {helpRequestCategories.map((cat) => (
+                          <button
+                            key={cat.category}
+                            type="button"
+                            onClick={() => setExpandedCategory(cat.category)}
+                            className="flex w-full items-center justify-between rounded-xl px-3.5 py-3 text-left text-sm text-brand-text-secondary hover:bg-brand-surface/85 hover:text-white transition duration-150 select-none cursor-pointer"
+                          >
+                            <span className="font-bold text-white/95">{cat.category}</span>
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[10px] bg-brand-secondary/80 border border-white/5 text-brand-text-secondary px-2.5 py-0.5 rounded-full font-bold">
+                                {cat.items.length} items
+                              </span>
+                              <ChevronDown className="-rotate-90 h-3.5 w-3.5 opacity-60" />
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      /* Category items list */
+                      <div className="space-y-1">
+                        <button
+                          type="button"
+                          onClick={() => setExpandedCategory(null)}
+                          className="flex w-full items-center gap-1.5 rounded-lg px-2 py-2 text-left font-bold text-brand-accent hover:bg-brand-surface/50 transition duration-150 cursor-pointer mb-1 select-none text-xs"
+                        >
+                          ← Back to Categories
+                        </button>
+                        
+                        <div className="px-2.5 py-1.5 text-[9px] font-black text-brand-text-secondary uppercase tracking-widest bg-brand-surface/20 rounded-lg select-none mb-1">
+                          {expandedCategory}
+                        </div>
+                        
+                        <div className="grid grid-cols-1 gap-0.5 pr-0.5">
+                          {helpRequestCategories
+                            .find((c) => c.category === expandedCategory)
+                            ?.items.map((item) => {
+                              const isSelected = item === selectedItem;
+                              return (
+                                <button
+                                  key={item}
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedItem(item);
+                                    setIsItemDropdownOpen(false);
+                                    setInputValue("");
+                                    setDebouncedSearchQuery("");
+                                    setExpandedCategory(null);
+                                  }}
+                                  className={cn(
+                                    "flex w-full items-center rounded-xl px-3.5 py-2.5 text-left text-sm transition duration-150 select-none cursor-pointer",
+                                    isSelected
+                                      ? "bg-brand-accent text-brand-primary font-black shadow-sm"
+                                      : "text-brand-text-secondary hover:bg-brand-surface/85 hover:text-white"
+                                  )}
+                                >
+                                  {item}
+                                </button>
+                              );
+                            })}
+                        </div>
+                      </div>
+                    )
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
           {selectedItem && profile && (

@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { isEmailAllowed } from "@/lib/validations/auth";
 import { toast } from "sonner";
 import { fetchProfileSafely, isProfileComplete, setCachedProfile } from "@/utils/profile";
+import { useAppSettings } from "@/components/providers/AppSettingsProvider";
 import { 
   PremiumInput, 
   PremiumSelect, 
@@ -47,6 +48,7 @@ const FEMALE_HALLS = [
 
 export default function SetupPage() {
   const router = useRouter();
+  const { featureToggles } = useAppSettings();
 
   const [userId, setUserId] = useState("");
   const [anonymousUsername, setAnonymousUsername] = useState("");
@@ -264,8 +266,15 @@ export default function SetupPage() {
 
             {/* Primary Action Setup Button */}
             <PremiumButton
-              onClick={handleSetup}
+              onClick={() => {
+                if (!featureToggles.registrations) {
+                  toast.error("Registrations are temporarily restricted by Admin.");
+                  return;
+                }
+                handleSetup();
+              }}
               isLoading={saving}
+              disabled={!featureToggles.registrations}
               variant="primary"
               className="w-full font-bold py-3.5 mt-2 shadow-lg"
             >

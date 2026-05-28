@@ -18,6 +18,7 @@ import {
   Skeleton, 
   premiumSpring 
 } from "@/components/ui/PremiumUI";
+import { useAppSettings } from "@/components/providers/AppSettingsProvider";
 import { ArrowLeft, User, ShieldAlert, Award, Star, Compass, Trash2, Shield, Info, LogOut } from "lucide-react";
 
 type Profile = {
@@ -63,6 +64,7 @@ const FEMALE_HALLS = [
 
 export default function ProfilePage() {
   const router = useRouter();
+  const { featureToggles } = useAppSettings();
 
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState("");
@@ -537,7 +539,14 @@ export default function ProfilePage() {
                 </div>
 
                 <PremiumButton
-                  onClick={() => setIsEditing(true)}
+                  onClick={() => {
+                    if (!featureToggles.profile_editing) {
+                      toast.error("Profile parameter updates are temporarily restricted by Admin.");
+                      return;
+                    }
+                    setIsEditing(true);
+                  }}
+                  disabled={!featureToggles.profile_editing}
                   variant="accent"
                   className="w-full font-bold shadow-md"
                 >

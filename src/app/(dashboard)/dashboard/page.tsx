@@ -23,6 +23,7 @@ import {
 import { Search, Plus, Sparkles, MessageSquare, AlertTriangle, ShieldCheck, Flame, RefreshCw, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { helpRequestCategories } from "@/constants/helpRequestItems";
+import { useAppSettings } from "@/components/providers/AppSettingsProvider";
 
 type Profile = {
   id: string;
@@ -106,6 +107,7 @@ function isUserActuallyOnline(isOnline: boolean | undefined, lastSeen: string | 
 
 export default function HelpHubDashboardPage() {
   const router = useRouter();
+  const { featureToggles } = useAppSettings();
 
   const [currentUserId, setCurrentUserId] = useState("");
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -373,21 +375,23 @@ export default function HelpHubDashboardPage() {
     // 1. Fetch available requests and sort by requester(karma) DESC, then created_at DESC
     const { data: availData, error: availError } = await supabase
       .from("help_requests")
-      .select("*, requester:profiles!requester_id(anonymous_username, department, gender, karma, warning_badge, is_online, last_seen)")
+      .select("*, requester:profiles!requester_id(anonymous_username, department, gender, karma, warning_badge, is_online, last_seen, is_shadow_banned)")
       .eq("status", "open")
       .eq("hall", profileData.hall)
       .neq("requester_id", myId);
 
     console.log("[Help Hub Fetch Debug - Available Help]: count =", availData?.length, "error =", availError);
 
-    const sortedAvail = (availData || []).sort((a, b) => {
-      const karmaA = a.requester?.karma ?? 0;
-      const karmaB = b.requester?.karma ?? 0;
-      if (karmaB !== karmaA) {
-        return karmaB - karmaA; // Higher karma first
-      }
-      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime(); // Newest first
-    });
+    const sortedAvail = (availData || [])
+      .filter((req: any) => !req.requester?.is_shadow_banned)
+      .sort((a, b) => {
+        const karmaA = a.requester?.karma ?? 0;
+        const karmaB = b.requester?.karma ?? 0;
+        if (karmaB !== karmaA) {
+          return karmaB - karmaA; // Higher karma first
+        }
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime(); // Newest first
+      });
 
     setAvailableRequests(sortedAvail);
 
@@ -981,7 +985,14 @@ export default function HelpHubDashboardPage() {
             </div>
 
             <PremiumButton
-              onClick={() => setShowCreateModal(true)}
+              onClick={() => {
+                if (!featureToggles.help_hub) {
+                  toast.error("Help Hub broadcasting is temporarily disabled by Admin.");
+                  return;
+                }
+                setShowCreateModal(true);
+              }}
+              disabled={!featureToggles.help_hub}
               variant="accent"
               className="py-3 px-4 text-xs font-bold rounded-2xl self-start sm:self-auto shadow-md"
               withNeonGlow

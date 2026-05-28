@@ -12,6 +12,7 @@ import {
   Skeleton, 
   premiumSpring 
 } from "@/components/ui/PremiumUI";
+import { useAppSettings } from "@/components/providers/AppSettingsProvider";
 import { Search, MessageSquare, Flame, Sparkles } from "lucide-react";
 
 type Conversation = {
@@ -57,6 +58,7 @@ function isUserActuallyOnline(isOnline: boolean | undefined, lastSeen: string | 
 
 export default function ChatPage() {
   const router = useRouter();
+  const { featureToggles } = useAppSettings();
 
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -311,7 +313,20 @@ export default function ChatPage() {
         {/* Chats feed list */}
         <section className="mt-5">
           <AnimatePresence mode="popLayout">
-            {filteredConversations.length === 0 ? (
+            {!featureToggles.chats ? (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.96 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.96 }}
+                className="mt-12"
+              >
+                <EmptyState
+                  icon="🔒"
+                  title="Subsystem Restricted"
+                  description="The secure private chat network is temporarily paused by administrators. Active chats remain fully encrypted and safe."
+                />
+              </motion.div>
+            ) : filteredConversations.length === 0 ? (
               <motion.div
                 initial={{ opacity: 0, scale: 0.96 }}
                 animate={{ opacity: 1, scale: 1 }}

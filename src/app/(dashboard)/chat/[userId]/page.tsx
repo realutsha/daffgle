@@ -15,6 +15,7 @@ import {
   Skeleton, 
   premiumSpring 
 } from "@/components/ui/PremiumUI";
+import { useAppSettings } from "@/components/providers/AppSettingsProvider";
 import { ArrowLeft, Flag, Check, CheckCheck, Loader2, Send, Trash2 } from "lucide-react";
 
 type Profile = {
@@ -24,6 +25,7 @@ type Profile = {
   warning_badge?: string | null;
   is_online?: boolean;
   last_seen?: string;
+  is_shadow_banned?: boolean;
 };
 
 type Message = {
@@ -62,6 +64,7 @@ function isUserActuallyOnline(isOnline: boolean | undefined, lastSeen: string | 
 
 export default function PrivateChatPage() {
   const router = useRouter();
+  const { featureToggles } = useAppSettings();
   const params = useParams();
   const conversationId = params.userId as string;
 
@@ -84,6 +87,11 @@ export default function PrivateChatPage() {
   const [submittingReport, setSubmittingReport] = useState(false);
 
   const canSend = useMemo(() => text.trim().length > 0 && !sending, [text, sending]);
+ 
+  const visibleMessages = useMemo(() => {
+    if (!otherUser?.is_shadow_banned) return messages;
+    return messages.filter(m => m.sender_id !== otherUser.id);
+  }, [messages, otherUser]);
 
   const scrollToBottom = useCallback(() => {
     setTimeout(() => {
@@ -113,7 +121,7 @@ export default function PrivateChatPage() {
 
     const { data: activeRequest } = await supabase
       .from("help_requests")
-      .select("*, requester:profiles!requester_id(id, anonymous_username, department, is_online, last_seen, warning_badge), helper:profiles!helper_id(id, anonymous_username, department, is_online, last_seen, warning_badge)")
+      .select("*, requester:profiles!requester_id(id, anonymous_username, department, is_online, last_seen, warning_badge, is_shadow_banned), helper:profiles!helper_id(id, anonymous_username, department, is_online, last_seen, warning_badge, is_shadow_banned)")
       .eq("conversation_id", conversationId)
       .maybeSingle();
 
@@ -124,7 +132,7 @@ export default function PrivateChatPage() {
       // Fallback: Check active night_sessions instead!
       const { data: nightSession } = await supabase
         .from("night_sessions")
-        .select("*, requester:profiles!requester_id(id, anonymous_username, department, is_online, last_seen, warning_badge), accepter:profiles!accepter_id(id, anonymous_username, department, is_online, last_seen, warning_badge)")
+        .select("*, requester:profiles!requester_id(id, anonymous_username, department, is_online, last_seen, warning_badge, is_shadow_banned), accepter:profiles!accepter_id(id, anonymous_username, department, is_online, last_seen, warning_badge, is_shadow_banned)")
         .eq("conversation_id", conversationId)
         .maybeSingle();
 
@@ -139,7 +147,8 @@ export default function PrivateChatPage() {
             department: "Night Owl Mode",
             warning_badge: participantProfile.warning_badge,
             is_online: participantProfile.is_online,
-            last_seen: participantProfile.last_seen
+            last_seen: participantProfile.last_seen,
+            is_shadow_banned: participantProfile.is_shadow_banned
           };
         }
       }
@@ -507,13 +516,13 @@ export default function PrivateChatPage() {
           </div>
 
           <AnimatePresence>
-            {messages.length === 0 ? (
+            {visibleMessages.length === 0 ? (
               <motion.div
                 initial={{ opacity: 0, scale: 0.96 }}
                 animate={{ opacity: 1, scale: 1 }}
                 className="mt-20 text-center space-y-4"
               >
-                <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-3xl bg-brand-surface border border-brand-border text-4xl shadow-inner select-none">
+                <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-3xl bg-brand-surface border border-brand-border text-3xl shadow-inner select-none">
                   🕊️
                 </div>
                 <h2 className="text-lg font-bold text-white">Start the conversation</h2>
@@ -523,7 +532,7 @@ export default function PrivateChatPage() {
               </motion.div>
             ) : (
               <div className="space-y-4">
-                {messages.map((message, index) => {
+                {visibleMessages.map((message, index) => {
                   const isMine = message.sender_id === currentUserId;
 
                   return (
@@ -608,20 +617,21 @@ export default function PrivateChatPage() {
           <textarea
             value={text}
             onChange={(e) => setText(e.target.value)}
+            disabled={!featureToggles.chats}
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
                 sendMessage();
               }
             }}
-            placeholder="Write an encrypted message..."
+            placeholder={featureToggles.chats ? "Write an encrypted message..." : "Private messaging is temporarily disabled by Admin."}
             rows={1}
-            className="max-h-32 min-h-12 flex-1 resize-none rounded-2xl border border-brand-border bg-brand-primary px-4 py-3 text-sm text-white outline-none placeholder:text-white/20 focus:border-brand-accent/25 transition duration-150 leading-relaxed"
+            className="max-h-32 min-h-12 flex-1 resize-none rounded-2xl border border-brand-border bg-brand-primary px-4 py-3 text-sm text-white outline-none placeholder:text-white/20 focus:border-brand-accent/25 transition duration-150 leading-relaxed disabled:opacity-40 disabled:cursor-not-allowed"
           />
-
+ 
           <PremiumButton
             onClick={sendMessage}
-            disabled={!canSend}
+            disabled={!canSend || !featureToggles.chats}
             variant="primary"
             className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl p-0 hover:scale-105"
             withNeonGlow

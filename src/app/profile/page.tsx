@@ -328,9 +328,9 @@ export default function ProfilePage() {
 
   if (loading) {
     return (
-      <main className="flex h-screen items-center justify-center bg-[#111111] text-white px-4">
+      <main className="flex h-screen items-center justify-center bg-brand-primary text-white px-4">
         <div className="flex flex-col items-center gap-4 animate-pulse select-none">
-          <div className="h-10 w-10 animate-spin rounded-full border-4 border-white/5 border-t-brand-accent" />
+          <div className="h-10 w-10 animate-spin rounded-full border-4 border-brand-border border-t-brand-accent" />
           <p className="text-sm text-brand-text-secondary font-medium">Loading Profile...</p>
         </div>
       </main>
@@ -338,7 +338,7 @@ export default function ProfilePage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#111111] text-brand-text-primary pb-32 pt-safe">
+    <main className="min-h-screen bg-brand-primary text-brand-text-primary pb-32 pt-safe">
       <div className="mx-auto w-full max-w-2xl px-4 pt-8">
         
         {/* Header */}
@@ -356,7 +356,7 @@ export default function ProfilePage() {
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             onClick={() => router.push("/dashboard")}
-            className="rounded-2xl bg-brand-surface border border-white/5 px-4 py-2.5 text-xs font-bold text-[#C9D7F2] transition hover:bg-[#232323] cursor-pointer shadow-sm flex items-center gap-1.5"
+            className="rounded-2xl bg-brand-surface border border-brand-border px-4 py-2.5 text-xs font-bold text-brand-accent transition hover:bg-brand-elevated cursor-pointer shadow-sm flex items-center gap-1.5"
           >
             <ArrowLeft className="h-3.5 w-3.5" />
             Help Hub
@@ -370,11 +370,11 @@ export default function ProfilePage() {
           transition={premiumSpring}
           className="space-y-6"
         >
-          <PremiumCard className="p-6 border-white/5 bg-brand-surface shadow-xl space-y-6">
+          <PremiumCard className="p-6 border-brand-border bg-brand-surface shadow-xl space-y-6">
             
             {/* Top Identity details */}
-            <div className="flex items-center gap-4 border-b border-white/5 pb-6">
-              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-brand-elevated border border-white/5 text-2xl font-black text-[#C9D7F2] relative select-none">
+            <div className="flex items-center gap-4 border-b border-brand-border pb-6">
+              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-brand-elevated border border-brand-border text-2xl font-black text-brand-accent relative select-none">
                 {profile?.anonymous_username?.charAt(0).toUpperCase() || "D"}
                 {profile?.warning_badge && (
                   <span className="absolute -top-1 -right-1 flex h-4.5 w-4.5 items-center justify-center rounded-full bg-red-500 text-[10px] font-black text-white animate-pulse">
@@ -394,25 +394,25 @@ export default function ProfilePage() {
                   )}
                 </div>
                 <p className="text-xs text-brand-text-secondary mt-0.5">
-                  Verified student with <span className="text-[#C9D7F2] font-black">{profile?.karma} Karma point rating</span>
+                  Verified student with <span className="text-brand-accent font-black">{profile?.karma} Karma point rating</span>
                 </p>
               </div>
             </div>
 
             {/* Editing Limit Warning Box */}
             {!isEditing && (
-              <div className="rounded-2xl bg-brand-secondary p-4 border border-white/5 select-none space-y-2.5 shadow-inner">
+              <div className="rounded-2xl bg-brand-secondary p-4 border border-brand-border select-none space-y-2.5 shadow-inner">
                 <p className="text-xs text-brand-text-secondary leading-normal flex items-start gap-2">
                   <Info className="h-4 w-4 text-brand-accent shrink-0 mt-0.5" />
                   <span>
-                    <span className="text-white font-semibold">Identity limits:</span> You can edit profile parameters freely 2 times. Starting from the 3rd edit, a strict <span className="text-[#C9D7F2] font-black">30-day cooldown lock</span> applies.
+                    <span className="text-white font-semibold">Identity limits:</span> You can edit profile parameters freely 2 times. Starting from the 3rd edit, a strict <span className="text-brand-accent font-black">30-day cooldown lock</span> applies.
                   </span>
                 </p>
-                <div className="flex items-center justify-between border-t border-white/5 pt-2.5">
+                <div className="flex items-center justify-between border-t border-brand-border pt-2.5">
                   <span className="text-[9px] font-bold uppercase text-brand-text-secondary tracking-widest">
                     Total Edits count
                   </span>
-                  <span className="rounded-full bg-brand-elevated px-2.5 py-0.5 text-[10px] font-black text-brand-accent border border-white/5">
+                  <span className="rounded-full bg-brand-elevated px-2.5 py-0.5 text-[10px] font-black text-brand-accent border border-brand-border">
                     {profile?.profile_edit_count} used
                   </span>
                 </div>
@@ -498,7 +498,7 @@ export default function ProfilePage() {
               /* Read Only Grid */
               <div className="space-y-6">
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="rounded-2xl border border-white/5 bg-brand-secondary p-4 shadow-inner">
+                  <div className="rounded-2xl border border-brand-border bg-brand-secondary p-4 shadow-inner">
                     <span className="text-[9px] font-bold text-brand-text-secondary uppercase tracking-widest block mb-1">
                       DEPARTMENT
                     </span>
@@ -507,7 +507,7 @@ export default function ProfilePage() {
                     </span>
                   </div>
 
-                  <div className="rounded-2xl border border-white/5 bg-brand-secondary p-4 shadow-inner">
+                  <div className="rounded-2xl border border-brand-border bg-brand-secondary p-4 shadow-inner">
                     <span className="text-[9px] font-bold text-brand-text-secondary uppercase tracking-widest block mb-1">
                       GENDER
                     </span>
@@ -516,7 +516,7 @@ export default function ProfilePage() {
                     </span>
                   </div>
 
-                  <div className="rounded-2xl border border-white/5 bg-brand-secondary p-4 shadow-inner">
+                  <div className="rounded-2xl border border-brand-border bg-brand-secondary p-4 shadow-inner">
                     <span className="text-[9px] font-bold text-brand-text-secondary uppercase tracking-widest block mb-1">
                       CAMPUS HALL
                     </span>
@@ -525,7 +525,7 @@ export default function ProfilePage() {
                     </span>
                   </div>
 
-                  <div className="rounded-2xl border border-white/5 bg-brand-secondary p-4 shadow-inner">
+                  <div className="rounded-2xl border border-brand-border bg-brand-secondary p-4 shadow-inner">
                     <span className="text-[9px] font-bold text-brand-text-secondary uppercase tracking-widest block mb-1">
                       TRUST REPUTATION
                     </span>
@@ -547,7 +547,7 @@ export default function ProfilePage() {
             )}
 
             {/* Privacy Shield Info panel */}
-            <div className="rounded-2xl border border-white/5 bg-brand-secondary p-5 select-none space-y-1.5 shadow-inner">
+            <div className="rounded-2xl border border-brand-border bg-brand-secondary p-5 select-none space-y-1.5 shadow-inner">
               <h3 className="text-xs font-bold text-white flex items-center gap-1.5">
                 <Shield className="h-4 w-4 text-brand-accent" />
                 🔒 Privacy Shield active
@@ -575,7 +575,7 @@ export default function ProfilePage() {
             </div>
 
             {/* Logout actions */}
-            <div className="border-t border-white/5 pt-5">
+            <div className="border-t border-brand-border pt-5">
               <PremiumButton
                 onClick={handleLogout}
                 variant="secondary"

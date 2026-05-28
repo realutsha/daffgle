@@ -24,7 +24,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport = {
-  themeColor: "#0E1621",
+  themeColor: "#050805",
 };
 
 export default function RootLayout({
@@ -37,7 +37,7 @@ export default function RootLayout({
       lang="en"
       className={`${inter.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col bg-[#111111] text-white/92 font-sans selection:bg-[#C9D7F2]/20 selection:text-[#C9D7F2]">
+      <body className="min-h-full flex flex-col bg-brand-primary text-brand-text-primary font-sans selection:bg-brand-accent/20 selection:text-brand-accent">
         {children}
         <PWAInstall />
         <Toaster position="top-center" theme="dark" richColors closeButton />

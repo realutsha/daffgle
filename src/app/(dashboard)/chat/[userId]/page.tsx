@@ -401,8 +401,8 @@ export default function PrivateChatPage() {
 
   if (loading) {
     return (
-      <main className="flex h-dvh flex-col overflow-hidden bg-[#111111] text-white">
-        <header className="z-30 border-b border-white/5 bg-[#1A1A1A]/95 px-4 py-3.5 backdrop-blur-md">
+      <main className="flex h-dvh flex-col overflow-hidden bg-brand-primary text-white">
+        <header className="z-30 border-b border-brand-border bg-brand-secondary/95 px-4 py-3.5 backdrop-blur-md">
           <div className="mx-auto flex max-w-4xl items-center gap-3">
             <Skeleton className="h-10 w-10 rounded-xl" />
             <Skeleton className="h-12 w-12 rounded-2xl shrink-0" variant="avatar" />
@@ -413,7 +413,7 @@ export default function PrivateChatPage() {
           </div>
         </header>
 
-        <section className="flex-1 overflow-y-auto bg-[#111111] px-4 py-6 space-y-6">
+        <section className="flex-1 overflow-y-auto bg-brand-primary px-4 py-6 space-y-6">
           <div className="mx-auto max-w-4xl space-y-4">
             <div className="flex justify-start">
               <Skeleton className="h-12 w-[60%] rounded-2xl rounded-bl-md" />
@@ -430,10 +430,10 @@ export default function PrivateChatPage() {
   const isOnline = isUserActuallyOnline(otherUser?.is_online, otherUser?.last_seen);
 
   return (
-    <main className="flex h-dvh flex-col overflow-hidden bg-[#111111] text-brand-text-primary">
+    <main className="flex h-dvh flex-col overflow-hidden bg-brand-primary text-brand-text-primary">
       
       {/* Dynamic Header */}
-      <header className="z-30 border-b border-white/5 bg-[#1A1A1A]/90 backdrop-blur-md px-4 py-3.5 pt-safe">
+      <header className="z-30 border-b border-brand-border bg-brand-secondary/90 backdrop-blur-md px-4 py-3.5 pt-safe">
         <div className="mx-auto flex max-w-4xl items-center gap-3">
           
           {/* Back Action */}
@@ -441,13 +441,13 @@ export default function PrivateChatPage() {
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={() => router.push("/chat")}
-            className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-elevated/40 border border-white/5 text-lg font-bold text-white transition hover:bg-brand-elevated cursor-pointer"
+            className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-elevated/40 border border-brand-border text-lg font-bold text-white transition hover:bg-brand-elevated cursor-pointer"
           >
             <ArrowLeft className="h-4 w-4 text-white/80" />
           </motion.button>
 
           {/* User Details */}
-          <div className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-brand-elevated border border-white/5 text-[15px] font-black text-[#C9D7F2] shadow-inner select-none">
+          <div className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-brand-elevated border border-brand-border text-[15px] font-black text-brand-accent shadow-inner select-none">
             {otherUser?.anonymous_username?.charAt(0).toUpperCase() || "U"}
             {isOnline && (
               <span className="absolute -right-0.5 -top-0.5 h-4 w-4 rounded-full border-2 border-brand-secondary bg-green-500 shadow-sm animate-pulse-glow" />
@@ -488,7 +488,7 @@ export default function PrivateChatPage() {
 
             <button
               onClick={() => router.push("/dashboard")}
-              className="rounded-xl bg-brand-elevated border border-white/5 px-4 py-2 text-[11px] font-bold transition hover:bg-brand-surface cursor-pointer hidden sm:block"
+              className="rounded-xl bg-brand-elevated border border-brand-border px-4 py-2 text-[11px] font-bold transition hover:bg-brand-surface cursor-pointer hidden sm:block"
             >
               Help Hub
             </button>
@@ -497,11 +497,11 @@ export default function PrivateChatPage() {
       </header>
 
       {/* Messages Scroll Grid */}
-      <section className="flex-1 overflow-y-auto bg-[#111111] px-4 py-6">
+      <section className="flex-1 overflow-y-auto bg-brand-primary px-4 py-6">
         <div className="mx-auto max-w-4xl">
           
           <div className="mb-6 flex justify-center">
-            <div className="rounded-2xl border border-white/5 bg-brand-surface/65 px-4 py-2 text-center text-[10px] font-bold text-brand-text-secondary select-none tracking-wide max-w-sm uppercase">
+            <div className="rounded-2xl border border-brand-border bg-brand-surface/65 px-4 py-2 text-center text-[10px] font-bold text-brand-text-secondary select-none tracking-wide max-w-sm uppercase">
               🔒 Encrypted • auto-purged after 7 days
             </div>
           </div>
@@ -513,7 +513,7 @@ export default function PrivateChatPage() {
                 animate={{ opacity: 1, scale: 1 }}
                 className="mt-20 text-center space-y-4"
               >
-                <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-3xl bg-brand-surface border border-white/5 text-4xl shadow-inner select-none">
+                <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-3xl bg-brand-surface border border-brand-border text-4xl shadow-inner select-none">
                   🕊️
                 </div>
                 <h2 className="text-lg font-bold text-white">Start the conversation</h2>
@@ -538,8 +538,8 @@ export default function PrivateChatPage() {
                         onDoubleClick={() => isMine && deleteMessage(message.id)}
                         className={`max-w-[82%] sm:max-w-[65%] px-4 py-3 shadow-lg transition duration-200 select-none group relative ${
                           isMine
-                            ? "bg-brand-accent text-brand-primary rounded-[20px] rounded-br-[4px]"
-                            : "bg-brand-surface border border-white/5 text-brand-text-primary rounded-[20px] rounded-bl-[4px]"
+                            ? "bg-brand-accent text-black font-semibold rounded-[20px] rounded-br-[4px] shadow-[0_0_15px_rgba(124,255,107,0.2)]"
+                            : "bg-brand-surface border border-brand-border text-brand-text-primary rounded-[20px] rounded-bl-[4px]"
                         }`}
                       >
                         <p className="whitespace-pre-wrap break-words text-[14px] leading-relaxed">
@@ -558,7 +558,7 @@ export default function PrivateChatPage() {
                               {message.status === "sending" ? (
                                 <Loader2 className="h-2.5 w-2.5 animate-spin opacity-80" />
                               ) : message.seen ? (
-                                <CheckCheck className="h-3 w-3 text-green-700 font-extrabold" />
+                                <CheckCheck className="h-3 w-3 text-brand-accent font-black drop-shadow-[0_0_5px_#7CFF6B]" />
                               ) : (
                                 <Check className="h-3 w-3 text-brand-primary/50" />
                               )}
@@ -580,12 +580,29 @@ export default function PrivateChatPage() {
             )}
           </AnimatePresence>
 
+          <AnimatePresence>
+            {sending && (
+              <motion.div
+                initial={{ opacity: 0, y: 5 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                className="flex justify-start mb-2 animate-pulse"
+              >
+                <div className="flex items-center gap-1.5 px-4.5 py-3 bg-brand-surface border border-brand-border rounded-[20px] rounded-bl-[4px] shadow-[0_0_15px_rgba(124,255,107,0.08)]">
+                  <div className="typing-dot" />
+                  <div className="typing-dot" />
+                  <div className="typing-dot" />
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
           <div ref={bottomRef} />
         </div>
       </section>
 
       {/* Modern Static Bottom Input Area */}
-      <footer className="border-t border-white/5 bg-[#1A1A1A]/95 px-4 py-3.5 backdrop-blur-md pb-safe">
+      <footer className="border-t border-brand-border bg-brand-secondary/95 px-4 py-3.5 backdrop-blur-md pb-safe">
         <div className="mx-auto flex max-w-4xl items-end gap-3">
           
           <textarea
@@ -599,7 +616,7 @@ export default function PrivateChatPage() {
             }}
             placeholder="Write an encrypted message..."
             rows={1}
-            className="max-h-32 min-h-12 flex-1 resize-none rounded-2xl border border-white/5 bg-[#111111] px-4 py-3 text-sm text-white outline-none placeholder:text-white/20 focus:border-brand-accent/25 transition duration-150 leading-relaxed"
+            className="max-h-32 min-h-12 flex-1 resize-none rounded-2xl border border-brand-border bg-brand-primary px-4 py-3 text-sm text-white outline-none placeholder:text-white/20 focus:border-brand-accent/25 transition duration-150 leading-relaxed"
           />
 
           <PremiumButton
@@ -647,7 +664,7 @@ export default function PrivateChatPage() {
               onChange={(e) => setReportDetails(e.target.value)}
               placeholder="Provide context logs, screenshot links, or details regarding harassment..."
               rows={4}
-              className="w-full rounded-2xl border border-white/5 bg-[#111111] px-4 py-3 text-white outline-none focus:border-red-400 text-sm resize-none"
+              className="w-full rounded-2xl border border-brand-border bg-brand-primary px-4 py-3 text-white outline-none focus:border-red-400 text-sm resize-none"
             />
           </div>
 

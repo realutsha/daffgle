@@ -750,7 +750,7 @@ export default function HelpHubDashboardPage() {
 
   if (loading) {
     return (
-      <main className="flex h-dvh items-center justify-center bg-[#111111] text-white px-5 pt-safe">
+      <main className="flex h-dvh items-center justify-center bg-brand-primary text-white px-5 pt-safe">
         <div className="mx-auto w-full max-w-3xl space-y-4">
           <Skeleton className="h-32 rounded-3xl w-full" variant="card" />
           <p className="text-center text-sm text-brand-text-secondary font-medium animate-pulse">
@@ -762,13 +762,13 @@ export default function HelpHubDashboardPage() {
   }
 
   return (
-    <main className="flex h-dvh overflow-hidden bg-[#111111] text-brand-text-primary pt-safe">
+    <main className="flex h-dvh overflow-hidden bg-brand-primary text-brand-text-primary pt-safe">
       
       {/* Desktop Left Sidebar Panel */}
-      <aside className="hidden w-full flex-col bg-[#1A1A1A] md:flex md:w-96 md:border-r md:border-white/5 relative">
-        <div className="absolute top-0 left-0 right-0 h-32 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#C9D7F2]/5 via-transparent to-transparent pointer-events-none" />
+      <aside className="hidden w-full flex-col bg-brand-secondary md:flex md:w-96 md:border-r md:border-brand-border relative">
+        <div className="absolute top-0 left-0 right-0 h-32 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-brand-accent/8 via-transparent to-transparent pointer-events-none" />
 
-        <header className="sticky top-0 z-30 border-b border-white/5 bg-[#1A1A1A]/95 px-6 py-5 backdrop-blur-md">
+        <header className="sticky top-0 z-30 border-b border-brand-border bg-brand-secondary/95 px-6 py-5 backdrop-blur-md">
           <div className="flex flex-col gap-4">
             <div className="flex items-center justify-between">
               <div>
@@ -792,9 +792,9 @@ export default function HelpHubDashboardPage() {
 
             {/* Profile Brief */}
             {profile && (
-              <div className="rounded-[20px] border border-white/5 bg-brand-surface p-4 shadow-lg shadow-black/10 select-none">
+              <div className="rounded-[20px] border border-brand-border bg-brand-surface p-4 shadow-lg shadow-black/10 select-none">
                 <div className="flex items-center gap-3">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-elevated border border-white/5 text-lg font-black text-[#C9D7F2] relative">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-elevated border border-brand-border text-lg font-black text-brand-accent relative">
                     {profile.anonymous_username.charAt(0).toUpperCase()}
                     {profile.warning_badge && (
                       <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-black text-white animate-pulse">
@@ -815,7 +815,7 @@ export default function HelpHubDashboardPage() {
                       )}
                     </div>
                     <p className="truncate text-xs text-brand-text-secondary">
-                      {profile.department} • {profile.hall} • <span className="text-[#C9D7F2] font-black">{profile.karma} Karma</span>
+                      {profile.department} • {profile.hall} • <span className="text-brand-accent font-black">{profile.karma} Karma</span>
                     </p>
                   </div>
 
@@ -864,7 +864,7 @@ export default function HelpHubDashboardPage() {
               </p>
             </div>
 
-            <span className="rounded-full bg-[#111111] px-2.5 py-0.5 text-[10px] font-black text-brand-accent border border-white/5 shadow-inner">
+            <span className="rounded-full bg-brand-primary px-2.5 py-0.5 text-[10px] font-black text-brand-accent border border-brand-border shadow-inner">
               {availableRequests.length} active
             </span>
           </div>
@@ -875,10 +875,10 @@ export default function HelpHubDashboardPage() {
                 <PremiumCard
                   key={req.id}
                   hoverable
-                  className="p-4 space-y-3 border-white/5 bg-brand-surface shadow-md"
+                  className="p-4 space-y-3 border-brand-border bg-brand-surface shadow-md"
                 >
                   <div className="flex items-start gap-3">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-elevated border border-white/5 text-lg font-black text-white relative">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-elevated border border-brand-border text-lg font-black text-white relative">
                       📦
                       {req.requester?.warning_badge && (
                         <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-black text-white animate-pulse">
@@ -904,7 +904,7 @@ export default function HelpHubDashboardPage() {
                       </h3>
 
                       <p className="mt-0.5 text-[10px] font-medium text-brand-text-secondary select-none">
-                        Karma rating: <span className="text-[#C9D7F2] font-black">{req.requester?.karma ?? 0}</span>
+                        Karma rating: <span className="text-brand-accent font-black">{req.requester?.karma ?? 0}</span>
                       </p>
 
                       <div className="mt-3.5 flex gap-2">
@@ -943,15 +943,15 @@ export default function HelpHubDashboardPage() {
       </aside>
 
       {/* Main Right panel containing Feeds & Tabs */}
-      <section className="flex flex-1 flex-col bg-[#111111] overflow-x-hidden w-full pb-safe">
-        <div className="absolute top-0 left-0 right-0 h-44 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#C9D7F2]/5 via-transparent to-transparent pointer-events-none" />
+      <section className="flex flex-1 flex-col bg-brand-primary overflow-x-hidden w-full pb-safe">
+        <div className="absolute top-0 left-0 right-0 h-44 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-brand-accent/8 via-transparent to-transparent pointer-events-none" />
 
         {/* Dynamic header navbar tabs */}
-        <header className="sticky top-0 z-30 border-b border-white/5 bg-[#111111]/90 backdrop-blur-md px-4 md:px-8 py-5">
+        <header className="sticky top-0 z-30 border-b border-brand-border bg-brand-primary/90 backdrop-blur-md px-4 md:px-8 py-5">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             
             {/* Filter pills */}
-            <div className="flex gap-1.5 overflow-x-auto no-scrollbar scroll-smooth p-1 bg-brand-surface rounded-2xl border border-white/5 max-w-fit shadow-inner">
+            <div className="flex gap-1.5 overflow-x-auto no-scrollbar scroll-smooth p-1 bg-brand-surface rounded-2xl border border-brand-border max-w-fit shadow-inner">
               <button
                 onClick={() => setActiveTab("available")}
                 className={`rounded-xl px-4 py-2 text-xs font-bold transition cursor-pointer select-none ${
@@ -1020,11 +1020,11 @@ export default function HelpHubDashboardPage() {
                       availableRequests.map((req) => (
                         <PremiumCard
                           key={req.id}
-                          className="flex flex-col justify-between p-6 border-white/5 bg-brand-surface shadow-xl"
+                          className="flex flex-col justify-between p-6 border-brand-border bg-brand-surface shadow-xl"
                         >
                           <div className="space-y-4">
                             <div className="flex items-center justify-between select-none">
-                              <span className="rounded-full bg-[#111111] border border-white/5 px-2.5 py-0.5 text-[9px] font-black text-brand-accent tracking-widest uppercase">
+                              <span className="rounded-full bg-brand-primary border border-brand-border px-2.5 py-0.5 text-[9px] font-black text-brand-accent tracking-widest uppercase">
                                 I Need help
                               </span>
                               <span className="text-[10px] font-medium text-brand-text-secondary">{formatTimeAgo(req.created_at)}</span>
@@ -1110,16 +1110,16 @@ export default function HelpHubDashboardPage() {
                       myRequests.map((req) => (
                         <PremiumCard
                           key={req.id}
-                          className="p-6 border-white/5 bg-brand-surface shadow-lg flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
+                          className="p-6 border-brand-border bg-brand-surface shadow-lg flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
                         >
                           <div className="space-y-1.5">
                             <div className="flex flex-wrap items-center gap-2">
                               <h3 className="text-lg font-bold text-white">{req.title}</h3>
                               <span className={`rounded-full px-2.5 py-0.5 text-[8px] font-black uppercase tracking-wider select-none ${
                                 req.status === "open" ? "bg-green-500/10 text-green-400 border border-green-500/15" :
-                                req.status === "accepted" ? "bg-brand-accent/10 text-brand-accent border border-brand-accent/15 animate-pulse" :
+                                req.status === "accepted" ? "bg-brand-accent/15 text-brand-accent border border-brand-accent/15 animate-pulse" :
                                 req.status === "solved" ? "bg-amber-500/10 text-amber-400 border border-amber-500/15" :
-                                "bg-gray-500/10 text-gray-400 border border-white/5"
+                                "bg-gray-500/10 text-gray-400 border border-brand-border"
                               }`}>
                                 {req.status}
                               </span>
@@ -1172,7 +1172,7 @@ export default function HelpHubDashboardPage() {
                             )}
                             
                             {(req.status === "solved" || req.status === "cancelled") && (
-                              <span className="text-[11px] text-brand-text-secondary italic font-semibold px-3 py-1.5 bg-[#111111] rounded-xl border border-white/5 select-none uppercase tracking-widest shadow-inner">
+                              <span className="text-[11px] text-brand-text-secondary italic font-semibold px-3 py-1.5 bg-brand-primary rounded-xl border border-brand-border select-none uppercase tracking-widest shadow-inner">
                                 Archived
                               </span>
                             )}
@@ -1213,7 +1213,7 @@ export default function HelpHubDashboardPage() {
                       myHelpins.map((req) => (
                         <PremiumCard
                           key={req.id}
-                          className="p-6 border-white/5 bg-brand-surface shadow-lg flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
+                          className="p-6 border-brand-border bg-brand-surface shadow-lg flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
                         >
                           <div className="space-y-1.5">
                             <h3 className="text-lg font-bold text-white">{req.title}</h3>
@@ -1250,7 +1250,7 @@ export default function HelpHubDashboardPage() {
                             )}
                             
                             {req.status === "cancelled" && (
-                              <span className="text-[10px] text-brand-text-secondary italic px-3 py-1.5 bg-[#111111] rounded-xl border border-white/5 select-none uppercase tracking-wider">
+                              <span className="text-[10px] text-brand-text-secondary italic px-3 py-1.5 bg-brand-primary rounded-xl border border-brand-border select-none uppercase tracking-wider">
                                 Cancelled by requester
                               </span>
                             )}
@@ -1290,7 +1290,7 @@ export default function HelpHubDashboardPage() {
         description={`File an anonymous, location-bounded help request visible exclusively to verified students inside ${profile?.hall}.`}
       >
         <div className="space-y-4">
-          <div className="rounded-2xl bg-brand-surface p-4 border border-white/5 select-none">
+          <div className="rounded-2xl bg-brand-surface p-4 border border-brand-border select-none">
             <span className="text-[10px] font-bold text-brand-text-secondary uppercase tracking-widest block mb-1">
               Required Request Action
             </span>
@@ -1320,7 +1320,7 @@ export default function HelpHubDashboardPage() {
               </button>
             ) : (
               /* Opened State: Inline Interactive Search Picker */
-              <div className="rounded-2xl border border-brand-border bg-[#1A1A1A] p-3.5 space-y-3 flex flex-col shadow-inner backdrop-blur-md">
+              <div className="rounded-2xl border border-brand-border bg-brand-secondary p-3.5 space-y-3 flex flex-col shadow-inner backdrop-blur-md">
                 
                 {/* Search Header Row */}
                 <div className="flex items-center gap-2">
@@ -1430,7 +1430,7 @@ export default function HelpHubDashboardPage() {
                           >
                             <span className="font-bold text-white/95">{cat.category}</span>
                             <div className="flex items-center gap-1.5">
-                              <span className="text-[10px] bg-brand-secondary/80 border border-white/5 text-brand-text-secondary px-2.5 py-0.5 rounded-full font-bold">
+                              <span className="text-[10px] bg-brand-secondary/80 border border-brand-border text-brand-text-secondary px-2.5 py-0.5 rounded-full font-bold">
                                 {cat.items.length} items
                               </span>
                               <ChevronDown className="-rotate-90 h-3.5 w-3.5 opacity-60" />
@@ -1493,7 +1493,7 @@ export default function HelpHubDashboardPage() {
             <motion.div
               initial={{ opacity: 0, scale: 0.98 }}
               animate={{ opacity: 1, scale: 1 }}
-              className="rounded-2xl border border-brand-accent/20 bg-brand-accent/5 p-4 space-y-1 select-none"
+              className="rounded-2xl border border-brand-border bg-brand-accent/5 p-4 space-y-1 select-none"
             >
               <p className="text-[10px] font-bold text-brand-accent uppercase tracking-widest">
                 Request Preview Broadcast
@@ -1564,7 +1564,7 @@ export default function HelpHubDashboardPage() {
               onChange={(e) => setReportDetails(e.target.value)}
               placeholder="Provide chat contexts, malicious helper actions, or general details regarding the incident..."
               rows={4}
-              className="w-full rounded-2xl border border-white/5 bg-[#111111] px-4 py-3 text-white outline-none focus:border-red-400 text-sm resize-none"
+              className="w-full rounded-2xl border border-brand-border bg-brand-primary px-4 py-3 text-white outline-none focus:border-red-400 text-sm resize-none"
             />
           </div>
 

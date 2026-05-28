@@ -1,25 +1,43 @@
 @import "tailwindcss";
 
 :root {
-  --background: #111111;
-  --foreground: rgba(255, 255, 255, 0.92);
+  --background: #050805;
+  --foreground: #FFFFFF;
+  
+  --brand-primary: #050805;
+  --brand-secondary: #0B120B;
+  --brand-surface: #101910;
+  --brand-elevated: #162416;
+  --brand-accent: #7CFF6B;
+  --brand-accent-secondary: #39FF88;
+  --brand-accent-lime: #C7FF6B;
+  --brand-danger: #FF4D4D;
+  
+  --brand-text-primary: #FFFFFF;
+  --brand-text-secondary: #A5B3A5;
+  --brand-border: rgba(124, 255, 107, 0.15);
+  
+  --font-sans: "Inter", system-ui, -apple-system, sans-serif;
 }
 
 @theme {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   
-  --color-brand-primary: #111111;
-  --color-brand-secondary: #1A1A1A;
-  --color-brand-surface: #1E1E1E;
-  --color-brand-elevated: #232323;
-  --color-brand-accent: #C9D7F2;
+  --color-brand-primary: var(--brand-primary);
+  --color-brand-secondary: var(--brand-secondary);
+  --color-brand-surface: var(--brand-surface);
+  --color-brand-elevated: var(--brand-elevated);
+  --color-brand-accent: var(--brand-accent);
+  --color-brand-accent-secondary: var(--brand-accent-secondary);
+  --color-brand-accent-lime: var(--brand-accent-lime);
+  --color-brand-danger: var(--brand-danger);
   
-  --color-brand-text-primary: rgba(255, 255, 255, 0.92);
-  --color-brand-text-secondary: rgba(255, 255, 255, 0.55);
-  --color-brand-border: rgba(255, 255, 255, 0.06);
+  --color-brand-text-primary: var(--brand-text-primary);
+  --color-brand-text-secondary: var(--brand-text-secondary);
+  --color-brand-border: var(--brand-border);
 
-  --font-sans: "Inter", system-ui, -apple-system, sans-serif;
+  --font-sans: var(--font-sans);
 }
 
 body {
@@ -27,6 +45,64 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans);
   overflow-x: hidden;
+  position: relative;
+}
+
+/* Futuristic Scanline Effect */
+.cyber-scanline {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    rgba(124, 255, 107, 0) 99%, 
+    rgba(124, 255, 107, 0.015) 100%
+  );
+  background-size: 100% 4px;
+  z-index: 99;
+  pointer-events: none;
+}
+
+/* Starry Sky / Cyber Dots Grid Overlay */
+.cyber-grid {
+  position: absolute;
+  inset: 0;
+  background-image: 
+    linear-gradient(rgba(124, 255, 107, 0.01) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(124, 255, 107, 0.01) 1px, transparent 1px);
+  background-size: 30px 30px;
+  mask-image: radial-gradient(ellipse at center, black 40%, transparent 90%);
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.85;
+}
+
+/* Ambient Breathing Glow Orb */
+.ambient-orb {
+  position: absolute;
+  width: 600px;
+  height: 600px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(124, 255, 107, 0.06) 0%, rgba(57, 255, 136, 0.01) 60%, transparent 100%);
+  filter: blur(80px);
+  pointer-events: none;
+  z-index: 0;
+  animation: breathingGlow 12s infinite ease-in-out;
+}
+
+/* Glassmorphism Premium Layer */
+.cyber-glass {
+  background: rgba(16, 25, 16, 0.65);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--brand-border);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
+}
+
+.cyber-glass-hover:hover {
+  border-color: rgba(124, 255, 107, 0.35);
+  box-shadow: 0 0 25px rgba(124, 255, 107, 0.15), 0 8px 32px 0 rgba(0, 0, 0, 0.6);
 }
 
 /* Premium utility styles */
@@ -49,19 +125,30 @@ body {
 /* Glowing/Pulsing Micro-animations */
 @keyframes pulseGlow {
   0%, 100% {
-    opacity: 0.4;
+    opacity: 0.5;
     transform: scale(1);
-    box-shadow: 0 0 10px rgba(201, 215, 242, 0.1);
+    box-shadow: 0 0 10px rgba(124, 255, 107, 0.15);
   }
   50% {
-    opacity: 0.95;
-    transform: scale(1.05);
-    box-shadow: 0 0 20px rgba(201, 215, 242, 0.3);
+    opacity: 1;
+    transform: scale(1.06);
+    box-shadow: 0 0 25px rgba(124, 255, 107, 0.45);
   }
 }
 
 .animate-pulse-glow {
-  animation: pulseGlow 3s infinite ease-in-out;
+  animation: pulseGlow 2.5s infinite ease-in-out;
+}
+
+@keyframes breathingGlow {
+  0%, 100% {
+    opacity: 0.7;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.1);
+  }
 }
 
 @keyframes starTwinkle {
@@ -70,12 +157,66 @@ body {
     transform: scale(0.85);
   }
   50% {
-    opacity: 0.85;
-    transform: scale(1.15);
+    opacity: 0.95;
+    transform: scale(1.2);
+    text-shadow: 0 0 8px rgba(124, 255, 107, 0.6);
   }
 }
 
 .animate-star-twinkle {
-  animation: starTwinkle 4s infinite ease-in-out;
+  animation: starTwinkle 3.5s infinite ease-in-out;
 }
 
+/* Button diagonal moving shimmer gradient */
+@keyframes shimmerMove {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.shimmer-green {
+  background: linear-gradient(
+    90deg,
+    rgba(124, 255, 107, 0) 0%,
+    rgba(124, 255, 107, 0.12) 40%,
+    rgba(57, 255, 136, 0.22) 50%,
+    rgba(124, 255, 107, 0.12) 60%,
+    rgba(124, 255, 107, 0) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmerMove 6s infinite linear;
+}
+
+/* Three glowing typing indicators */
+@keyframes typingPulse {
+  0%, 100% {
+    opacity: 0.35;
+    transform: scale(0.85);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.2);
+    background-color: var(--brand-accent);
+    box-shadow: 0 0 8px var(--brand-accent);
+  }
+}
+
+.typing-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: var(--brand-text-secondary);
+}
+
+.typing-dot:nth-child(1) {
+  animation: typingPulse 1.2s infinite ease-in-out 0s;
+}
+.typing-dot:nth-child(2) {
+  animation: typingPulse 1.2s infinite ease-in-out 0.2s;
+}
+.typing-dot:nth-child(3) {
+  animation: typingPulse 1.2s infinite ease-in-out 0.4s;
+}

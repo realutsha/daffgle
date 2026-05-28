@@ -10,17 +10,6 @@ import { toast } from "sonner";
 import { fetchProfileSafely, isProfileComplete } from "@/utils/profile";
 import { premiumSpring } from "@/components/ui/PremiumUI";
  
-type Profile = {
-  id: string;
-  anonymous_username: string;
-  department: string;
-  gender: string;
-  hall?: string;
-  karma: number;
-  notification_enabled: boolean;
-  warning_badge?: string | null;
-};
- 
 export default function HomePage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
@@ -63,24 +52,27 @@ export default function HomePage() {
  
   if (loading) {
     return (
-      <main className="flex h-screen items-center justify-center bg-[#0B0E14] text-white px-4">
-        <div className="flex flex-col items-center gap-4 animate-pulse select-none">
+      <main className="flex h-screen items-center justify-center bg-brand-primary text-white px-4 relative">
+        <div className="cyber-scanline" />
+        <div className="cyber-grid" />
+        <div className="flex flex-col items-center gap-4 animate-pulse select-none z-10">
           <div className="h-10 w-10 animate-spin rounded-full border-4 border-white/5 border-t-brand-accent" />
-          <p className="text-sm text-brand-text-secondary font-medium">Entering Daffgle...</p>
+          <p className="text-xs uppercase tracking-widest text-brand-text-secondary font-black">Entering Daffgle Secure Space...</p>
         </div>
       </main>
     );
   }
  
   return (
-    <main className="flex flex-col items-center justify-center min-h-dvh bg-[#0B0E14] text-white px-6 relative overflow-hidden select-none">
+    <main className="flex flex-col items-center justify-center min-h-dvh bg-brand-primary text-white px-6 relative overflow-hidden select-none">
       
-      {/* Futuristic Gemini ambient background glow */}
-      <div className="absolute top-[35%] left-[50%] -translate-x-[50%] -translate-y-[50%] w-[380px] md:w-[600px] h-[380px] md:h-[600px] bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-blue-500/10 via-[#80F3B4]/5 to-transparent blur-[80px] pointer-events-none" />
-      <div className="absolute top-[45%] left-[50%] -translate-x-[50%] -translate-y-[50%] w-[300px] md:w-[500px] h-[300px] md:h-[500px] bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-brand-accent/5 via-[#80F3B4]/3 to-transparent blur-[60px] pointer-events-none" />
+      {/* Scanline and Grid layers */}
+      <div className="cyber-scanline" />
+      <div className="cyber-grid" />
  
-      {/* Floating high-tech lines */}
-      <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.003)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.003)_1px,transparent_1px)] bg-[size:40px_40px] [mask-image:radial-gradient(ellipse_at_center,black_40%,transparent_90%)] pointer-events-none opacity-50" />
+      {/* Futuristic ambient background green glows */}
+      <div className="absolute top-[35%] left-[50%] -translate-x-[50%] -translate-y-[50%] w-[380px] md:w-[600px] h-[380px] md:h-[600px] bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-brand-accent/8 via-brand-accent-secondary/3 to-transparent blur-[90px] pointer-events-none" />
+      <div className="absolute top-[45%] left-[50%] -translate-x-[50%] -translate-y-[50%] w-[300px] md:w-[500px] h-[300px] md:h-[500px] bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-brand-accent-lime/6 via-brand-accent/2 to-transparent blur-[70px] pointer-events-none" />
  
       {/* Centered Futuristic Landing UI */}
       <motion.div
@@ -94,18 +86,18 @@ export default function HomePage() {
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2, duration: 0.6 }}
-          className="mx-auto inline-flex items-center gap-1.5 rounded-full border border-white/5 bg-white/[0.02] px-4 py-1.5 text-[9px] font-black uppercase tracking-[0.2em] text-[#C9D7F2] shadow-[0_0_15px_rgba(255,255,255,0.02)] backdrop-blur-md"
+          className="mx-auto inline-flex items-center gap-1.5 rounded-full border border-brand-accent/25 bg-brand-surface/40 px-4.5 py-1.5 text-[9px] font-black uppercase tracking-[0.22em] text-brand-accent shadow-[0_0_15px_rgba(124,255,107,0.1)] backdrop-blur-md"
         >
           <span>🛡️ DIU SECURE NETWORK</span>
         </motion.div>
  
         {/* Futuristic App Title */}
-        <div className="space-y-3">
-          <h1 className="text-5xl md:text-7xl font-black tracking-tighter bg-clip-text text-transparent bg-gradient-to-b from-white via-[#F5F8FC] to-[#8AB4F8]/80 drop-shadow-[0_0_40px_rgba(255,255,255,0.05)]">
+        <div className="space-y-4">
+          <h1 className="text-6xl md:text-8xl font-black tracking-tighter bg-clip-text text-transparent bg-gradient-to-b from-white via-white/80 to-brand-accent/80 drop-shadow-[0_0_55px_rgba(124,255,107,0.22)]">
             Daffgle
           </h1>
           
-          <p className="text-[10px] md:text-xs font-bold text-brand-text-secondary/70 uppercase tracking-[0.3em]">
+          <p className="text-[10px] md:text-xs font-black text-brand-text-secondary/70 uppercase tracking-[0.35em]">
             Anonymous • Realtime • Helpdesk
           </p>
         </div>
@@ -113,15 +105,15 @@ export default function HomePage() {
         {/* Center spacing */}
         <div className="h-6" />
  
-        {/* Enter Daffgle Main CTA Button with Gemini Fluid Gradient Light and Liquid Glass Surface */}
+        {/* Enter Daffgle Main CTA Button with cyber glow specs */}
         <div className="relative group inline-block">
           
-          {/* Rotating and Pulsing Gemini gradient border light behind */}
-          <div className="absolute -inset-[1.5px] rounded-2xl bg-gradient-to-r from-[#8AB4F8] via-[#80F3B4] to-[#C9D7F2] opacity-35 blur-[3px] group-hover:opacity-75 group-hover:blur-[6px] transition duration-500 group-hover:duration-200 animate-pulse" />
+          {/* Rotating and Pulsing gradient border light behind */}
+          <div className="absolute -inset-[1.5px] rounded-2xl bg-gradient-to-r from-brand-accent via-brand-accent-secondary to-brand-accent-lime opacity-35 blur-[4px] group-hover:opacity-75 group-hover:blur-[7px] transition duration-500 group-hover:duration-200 animate-pulse" />
           
           {/* Emerald Green Neon Aura Backdrop */}
           <div
-            className={`absolute -inset-[1px] rounded-[15px] bg-gradient-to-r from-[#22c55e] to-[#4ade80] blur-[3px] transition-all pointer-events-none duration-700 ease-out z-0 ${
+            className={`absolute -inset-[1px] rounded-[15px] bg-gradient-to-r from-brand-accent to-brand-accent-secondary blur-[3px] transition-all pointer-events-none duration-700 ease-out z-0 ${
               isGlowing 
                 ? "opacity-80 blur-[8px] scale-[1.01] duration-75 ease-in" 
                 : "opacity-0 group-hover:opacity-20 group-hover:blur-[4px]"
@@ -131,8 +123,8 @@ export default function HomePage() {
           <div
             className={`absolute inset-0 rounded-[15px] border border-transparent transition-all pointer-events-none duration-700 z-0 ${
               isGlowing 
-                ? "border-[#22c55e]/80 duration-75" 
-                : "group-hover:border-[#22c55e]/40"
+                ? "border-brand-accent/80 duration-75" 
+                : "group-hover:border-brand-accent/40"
             }`}
           />
           
@@ -145,13 +137,13 @@ export default function HomePage() {
                 router.push("/dashboard");
               }, 220); // Delay slightly for high-end click feel
             }}
-            className="relative px-9 py-4.5 rounded-[15px] font-black text-xs uppercase tracking-[0.2em] text-[#C9D7F2] bg-[#0B0E14]/90 hover:bg-[#0B0E14]/75 border border-[#8AB4F8]/10 backdrop-blur-2xl transition duration-300 group-hover:text-white group-hover:border-[#8AB4F8]/30 hover:scale-[1.015] active:scale-[0.985] cursor-pointer shadow-[0_0_30px_rgba(138,180,248,0.05)] flex items-center justify-center gap-2.5 mx-auto"
+            className="relative px-9 py-4.5 rounded-[15px] font-black text-xs uppercase tracking-[0.2em] text-brand-accent bg-[#0B120B]/90 hover:bg-[#0B120B]/75 border border-brand-accent/25 backdrop-blur-2xl transition duration-300 group-hover:text-white group-hover:border-brand-accent/50 hover:scale-[1.015] active:scale-[0.985] cursor-pointer shadow-[0_0_30px_rgba(124,255,107,0.1)] flex items-center justify-center gap-2.5 mx-auto"
           >
             <span>Enter Daffgle</span>
             <motion.span
               animate={{ x: [0, 4, 0] }}
               transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
-              className="text-base text-[#80F3B4]"
+              className="text-base text-brand-accent-secondary"
             >
               →
             </motion.span>

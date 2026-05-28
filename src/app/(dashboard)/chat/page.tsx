@@ -243,7 +243,7 @@ export default function ChatPage() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-[#111111] text-[#rgba(255,255,255,0.92)] px-4 pt-safe">
+      <main className="min-h-screen bg-brand-primary text-[#rgba(255,255,255,0.92)] px-4 pt-safe">
         <div className="mx-auto w-full max-w-2xl px-2 py-6 space-y-6">
           <div className="flex items-center justify-between">
             <div className="space-y-2">
@@ -253,7 +253,7 @@ export default function ChatPage() {
           </div>
           <div className="space-y-4 pt-6">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="flex items-center gap-4 rounded-3xl bg-[#1E1E1E] p-4 border border-white/5 animate-pulse">
+              <div key={i} className="flex items-center gap-4 rounded-3xl bg-brand-surface p-4 border border-brand-border animate-pulse">
                 <Skeleton className="h-14 w-14 rounded-2xl shrink-0" variant="avatar" />
                 <div className="min-w-0 flex-1 space-y-2">
                   <Skeleton className="h-4 w-32 rounded-md" />
@@ -268,14 +268,14 @@ export default function ChatPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#111111] text-brand-text-primary pb-32 pt-safe">
+    <main className="min-h-screen bg-brand-primary text-brand-text-primary pb-32 pt-safe">
       <div className="mx-auto w-full max-w-2xl px-4 md:px-6">
         
         {/* Cinematic Background Glows */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-lg h-44 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#C9D7F2]/5 via-transparent to-transparent pointer-events-none" />
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-lg h-44 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-brand-accent/8 via-transparent to-transparent pointer-events-none" />
 
         {/* Elegant Minimal Header */}
-        <header className="sticky top-0 z-20 bg-[#111111]/90 backdrop-blur-md pt-6 pb-4 border-b border-white/5">
+        <header className="sticky top-0 z-20 bg-brand-primary/90 backdrop-blur-md pt-6 pb-4 border-b border-brand-border">
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-black tracking-tight text-white/95">
@@ -290,7 +290,7 @@ export default function ChatPage() {
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               onClick={() => router.push("/dashboard")}
-              className="rounded-2xl bg-brand-surface border border-white/5 px-4 py-2.5 text-xs font-bold text-[#C9D7F2] transition hover:bg-[#232323] cursor-pointer shadow-sm flex items-center gap-1.5"
+              className="rounded-2xl bg-brand-surface border border-brand-border px-4 py-2.5 text-xs font-bold text-brand-accent transition hover:bg-brand-elevated cursor-pointer shadow-sm flex items-center gap-1.5"
             >
               <span>←</span> Help Hub
             </motion.button>
@@ -339,11 +339,11 @@ export default function ChatPage() {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ ...premiumSpring, delay: index * 0.01 }}
                     onClick={() => router.push(`/chat/${chat.id}`)}
-                    className="w-full rounded-[24px] border border-white/5 bg-brand-surface p-4 text-left transition duration-200 hover:border-brand-accent/20 hover:bg-brand-elevated/55 cursor-pointer block group shadow-md"
+                    className="w-full rounded-[24px] border border-brand-border bg-brand-surface p-4 text-left transition duration-200 hover:border-brand-border hover:bg-brand-elevated/55 cursor-pointer block group shadow-md"
                   >
                     <div className="flex items-center gap-4">
                       {/* Avatar with dynamic online indicator */}
-                      <div className="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-brand-elevated border border-white/5 text-lg font-black text-[#C9D7F2]/90 shadow-inner select-none transition group-hover:scale-105">
+                      <div className="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-brand-elevated border border-brand-border text-lg font-black text-brand-accent/90 shadow-inner select-none transition group-hover:scale-105">
                         {chat.anonymous_username.charAt(0).toUpperCase()}
 
                         {isUserActuallyOnline(chat.is_online, chat.last_seen) && (

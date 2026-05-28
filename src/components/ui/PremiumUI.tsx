@@ -1,19 +1,18 @@
 "use client";
-
+ 
 import React, { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronDown, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-// Spring Physics Preset
+ 
+// Spring Physics Preset for High-End Transitions
 export const premiumSpring = {
   type: "spring" as const,
-  stiffness: 380,
-  damping: 30,
-  mass: 0.8
+  stiffness: 400,
+  damping: 28,
+  mass: 0.75
 };
-
-
+ 
 /* ==========================================
    1. PREMIUM CARD (rounded-3xl / 24px)
    ========================================== */
@@ -25,7 +24,7 @@ interface PremiumCardProps {
   activeBorder?: boolean;
   style?: React.CSSProperties;
 }
-
+ 
 export function PremiumCard({
   children,
   className,
@@ -35,27 +34,29 @@ export function PremiumCard({
   style
 }: PremiumCardProps) {
   const isClickable = !!onClick;
-
+ 
   return (
     <motion.div
-      whileHover={hoverable && isClickable ? { y: -3, scale: 1.008 } : undefined}
-      whileTap={isClickable ? { scale: 0.985 } : undefined}
+      whileHover={hoverable && isClickable ? { y: -4, scale: 1.012 } : hoverable ? { y: -2 } : undefined}
+      whileTap={isClickable ? { scale: 0.98 } : undefined}
       transition={premiumSpring}
       onClick={onClick}
       style={style}
       className={cn(
-        "rounded-3xl border p-5 shadow-xl transition-colors duration-200",
-        "bg-brand-surface border-brand-border/80 text-brand-text-primary",
-        activeBorder && "border-brand-accent/30 shadow-[0_0_15px_rgba(201,215,242,0.08)]",
-        isClickable && "cursor-pointer hover:bg-brand-elevated/70",
+        "rounded-[28px] border p-6 transition-all duration-300",
+        "bg-brand-surface/75 border-brand-border text-brand-text-primary backdrop-blur-md shadow-2xl relative overflow-hidden",
+        activeBorder && "border-brand-accent/40 shadow-[0_0_20px_rgba(124,255,107,0.12)]",
+        isClickable && "cursor-pointer hover:bg-brand-surface/90 hover:border-brand-accent/30",
         className
       )}
     >
-      {children}
+      {/* Soft internal gloss overlay */}
+      <div className="absolute inset-0 bg-gradient-to-tr from-white/[0.005] via-transparent to-white/[0.015] pointer-events-none" />
+      <div className="relative z-10">{children}</div>
     </motion.div>
   );
 }
-
+ 
 /* ==========================================
    2. PREMIUM BUTTON (rounded-2xl / 18px)
    ========================================== */
@@ -69,7 +70,7 @@ interface PremiumButtonProps {
   type?: "button" | "submit" | "reset";
   withNeonGlow?: boolean;
 }
-
+ 
 export function PremiumButton({
   children,
   variant = "primary",
@@ -81,73 +82,72 @@ export function PremiumButton({
   withNeonGlow = false
 }: PremiumButtonProps) {
   const [isGlowing, setIsGlowing] = useState(false);
-
+ 
   const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
     if (disabled || isLoading) return;
-    if (withNeonGlow) {
-      setIsGlowing(true);
-      setTimeout(() => {
-        setIsGlowing(false);
-      }, 750);
-    }
+    setIsGlowing(true);
+    setTimeout(() => {
+      setIsGlowing(false);
+    }, 600);
     if (onClick) onClick(e);
   };
-
+ 
   return (
     <motion.button
       type={type}
-      whileHover={!disabled && !isLoading ? { scale: 1.015, y: -0.5 } : undefined}
-      whileTap={!disabled && !isLoading ? { scale: 0.975 } : undefined}
+      whileHover={!disabled && !isLoading ? { scale: 1.02, y: -0.75 } : undefined}
+      whileTap={!disabled && !isLoading ? { scale: 0.97 } : undefined}
       transition={premiumSpring}
       disabled={disabled || isLoading}
       onClick={handleClick}
       className={cn(
-        "relative flex items-center justify-center gap-2 rounded-2xl px-5 py-3.5 text-sm font-semibold tracking-wide transition duration-200 select-none cursor-pointer focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed group",
+        "relative flex items-center justify-center gap-2 rounded-2xl px-6 py-4 text-xs font-black uppercase tracking-[0.18em] transition-all duration-300 select-none cursor-pointer focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed group border",
         
-        // Variant: Primary (Elegant accent outline/glow)
-        variant === "primary" && "bg-brand-accent text-brand-primary shadow-lg shadow-brand-accent/15 hover:bg-brand-accent/95",
+        // Variant: Primary (Futuristic cyber emerald glow CTA)
+        variant === "primary" && "bg-[#0B120B]/90 border-brand-accent/40 text-brand-accent shadow-[0_0_20px_rgba(124,255,107,0.12)] hover:border-brand-accent hover:text-white hover:shadow-[0_0_35px_rgba(124,255,107,0.35)]",
         
-        // Variant: Secondary (Sophisticated surface border)
-        variant === "secondary" && "bg-brand-elevated/40 border border-brand-border hover:bg-brand-elevated/80 text-brand-text-primary",
+        // Variant: Secondary (High-transparency clean glass)
+        variant === "secondary" && "bg-brand-secondary/40 border-brand-border hover:bg-brand-secondary/85 hover:border-brand-accent/30 text-brand-text-secondary hover:text-white",
         
-        // Variant: Danger (Subtle high-end crimson)
-        variant === "danger" && "bg-red-500/10 border border-red-500/20 hover:bg-red-500/20 text-red-400",
+        // Variant: Danger (Crimson laser high-tech glow)
+        variant === "danger" && "bg-[#FF4D4D]/10 border-[#FF4D4D]/35 hover:bg-[#FF4D4D]/25 hover:border-[#FF4D4D] text-[#FF4D4D] shadow-[0_0_15px_rgba(255,77,77,0.12)] hover:shadow-[0_0_28px_rgba(255,77,77,0.35)]",
         
-        // Variant: Ghost (Low profile inline highlight)
-        variant === "ghost" && "bg-transparent text-brand-text-secondary hover:text-brand-text-primary hover:bg-brand-surface/40",
+        // Variant: Ghost (Low profile glow-in indicators)
+        variant === "ghost" && "bg-transparent border-transparent text-brand-text-secondary hover:text-brand-accent",
         
-        // Variant: Accent (Glow border with dark backdrop)
-        variant === "accent" && "bg-brand-surface border border-brand-accent/20 hover:border-brand-accent/50 text-[#C9D7F2] shadow-inner",
+        // Variant: Accent (Accent Lime dynamic glow board)
+        variant === "accent" && "bg-[#101910]/75 border-brand-accent-lime/30 text-[#C7FF6B] shadow-[0_0_12px_rgba(199,255,107,0.08)] hover:border-brand-accent-lime hover:text-white hover:shadow-[0_0_25px_rgba(199,255,107,0.25)]",
         
         className
       )}
     >
-      {withNeonGlow && (
-        <>
-          {/* Emerald Green Neon Aura Backdrop */}
-          <div
-            className={cn(
-              "absolute -inset-[1px] rounded-2xl bg-gradient-to-r from-[#22c55e] to-[#4ade80] opacity-0 blur-[3px] transition-all pointer-events-none duration-700 ease-out z-0",
-              !disabled && !isLoading && "group-hover:opacity-20 group-hover:blur-[4px]",
-              isGlowing && "opacity-80 blur-[8px] scale-[1.01] duration-75 ease-in",
-            )}
-          />
-          {/* Liquid Glass border glow */}
-          <div
-            className={cn(
-              "absolute inset-0 rounded-2xl border border-transparent transition-all pointer-events-none duration-700 z-0",
-              !disabled && !isLoading && "group-hover:border-[#22c55e]/40",
-              isGlowing && "border-[#22c55e]/80 duration-75",
-            )}
-          />
-        </>
+      {/* Animated diagonal moving green energy shimmer */}
+      {!disabled && !isLoading && (
+        <div className="absolute inset-0 rounded-2xl shimmer-green opacity-0 group-hover:opacity-100 transition-opacity duration-500 z-0 pointer-events-none" />
       )}
-
+ 
+      {/* Emerald Green Neon Aura Backdrop */}
+      <div
+        className={cn(
+          "absolute -inset-[1.5px] rounded-2xl bg-gradient-to-r from-brand-accent to-brand-accent-secondary opacity-0 blur-[4px] transition-all pointer-events-none duration-500 ease-out z-0",
+          !disabled && !isLoading && "group-hover:opacity-15 group-hover:blur-[6px]",
+          isGlowing && "opacity-85 blur-[10px] scale-[1.02] duration-75 ease-in",
+        )}
+      />
+      {/* Liquid Glass border glow */}
+      <div
+        className={cn(
+          "absolute inset-0 rounded-2xl border border-transparent transition-all pointer-events-none duration-500 z-0",
+          !disabled && !isLoading && "group-hover:border-brand-accent/50",
+          isGlowing && "border-brand-accent/90 duration-75",
+        )}
+      />
+ 
       <span className="relative z-10 flex items-center justify-center gap-2">
         {isLoading ? (
           <>
             <Loader2 className="h-4 w-4 animate-spin text-current" />
-            <span className="opacity-80">Syncing...</span>
+            <span className="opacity-80">Connecting...</span>
           </>
         ) : (
           children
@@ -156,8 +156,7 @@ export function PremiumButton({
     </motion.button>
   );
 }
-
-
+ 
 /* ==========================================
    3. PREMIUM INPUT (rounded-2xl / 16px)
    ========================================== */
@@ -168,19 +167,19 @@ interface PremiumInputProps extends React.InputHTMLAttributes<HTMLInputElement> 
   rightIcon?: React.ReactNode;
   containerClassName?: string;
 }
-
+ 
 export const PremiumInput = React.forwardRef<HTMLInputElement, PremiumInputProps>(
   ({ label, error, leftIcon, rightIcon, className, containerClassName, type = "text", ...props }, ref) => {
     return (
-      <div className={cn("space-y-1.5 flex flex-col", containerClassName)}>
+      <div className={cn("space-y-2 flex flex-col w-full", containerClassName)}>
         {label && (
-          <label className="text-[10px] font-bold text-brand-text-secondary uppercase tracking-widest ml-1 select-none">
+          <label className="text-[10px] font-bold text-brand-text-secondary uppercase tracking-[0.25em] ml-1 select-none">
             {label}
           </label>
         )}
-        <div className="relative flex items-center">
+        <div className="relative flex items-center w-full">
           {leftIcon && (
-            <div className="absolute left-4 text-brand-text-secondary pointer-events-none flex items-center justify-center">
+            <div className="absolute left-4 text-brand-text-secondary/60 pointer-events-none flex items-center justify-center transition-colors duration-200">
               {leftIcon}
             </div>
           )}
@@ -188,23 +187,23 @@ export const PremiumInput = React.forwardRef<HTMLInputElement, PremiumInputProps
             ref={ref}
             type={type}
             className={cn(
-              "w-full rounded-2xl border bg-brand-secondary px-4 py-3.5 text-sm text-brand-text-primary outline-none transition duration-200 placeholder:text-brand-text-secondary/40",
-              "border-brand-border focus:border-brand-accent/35 focus:ring-1 focus:ring-brand-accent/15",
-              leftIcon && "pl-11",
-              rightIcon && "pr-11",
-              error && "border-red-500/40 focus:border-red-500/60 focus:ring-red-500/10",
+              "w-full rounded-2xl border bg-brand-secondary/60 px-4 py-4 text-sm text-brand-text-primary outline-none transition duration-300 placeholder:text-brand-text-secondary/30 font-semibold tracking-wide",
+              "border-brand-border focus:border-brand-accent/60 focus:bg-brand-secondary/90 focus:shadow-[0_0_15px_rgba(124,255,107,0.12)]",
+              leftIcon && "pl-12",
+              rightIcon && "pr-12",
+              error && "border-brand-danger/55 focus:border-brand-danger/80 focus:shadow-[0_0_12px_rgba(255,77,77,0.15)]",
               className
             )}
             {...props}
           />
           {rightIcon && (
-            <div className="absolute right-4 text-brand-text-secondary flex items-center justify-center">
+            <div className="absolute right-4 text-brand-text-secondary/60 flex items-center justify-center transition-colors duration-200">
               {rightIcon}
             </div>
           )}
         </div>
         {error && (
-          <p className="text-xs text-red-400 font-medium ml-1.5 animate-shake">
+          <p className="text-xs text-brand-danger font-black uppercase tracking-wider ml-1.5 animate-pulse">
             ⚠️ {error}
           </p>
         )}
@@ -213,7 +212,7 @@ export const PremiumInput = React.forwardRef<HTMLInputElement, PremiumInputProps
   }
 );
 PremiumInput.displayName = "PremiumInput";
-
+ 
 /* ==========================================
    4. PREMIUM SELECT dropdown
    ========================================== */
@@ -227,7 +226,7 @@ interface PremiumSelectProps {
   error?: string;
   containerClassName?: string;
 }
-
+ 
 export function PremiumSelect({
   label,
   value,
@@ -240,9 +239,9 @@ export function PremiumSelect({
 }: PremiumSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
-
+ 
   const selectedOption = options.find((o) => o.value === value);
-
+ 
   // Close dropdown on outside click
   useEffect(() => {
     function handleOutsideClick(event: MouseEvent) {
@@ -253,11 +252,11 @@ export function PremiumSelect({
     document.addEventListener("mousedown", handleOutsideClick);
     return () => document.removeEventListener("mousedown", handleOutsideClick);
   }, []);
-
+ 
   return (
-    <div className={cn("space-y-1.5 flex flex-col relative", containerClassName)} ref={dropdownRef}>
+    <div className={cn("space-y-2 flex flex-col relative w-full", containerClassName)} ref={dropdownRef}>
       {label && (
-        <label className="text-[10px] font-bold text-brand-text-secondary uppercase tracking-widest ml-1 select-none">
+        <label className="text-[10px] font-bold text-brand-text-secondary uppercase tracking-[0.25em] ml-1 select-none">
           {label}
         </label>
       )}
@@ -267,26 +266,26 @@ export function PremiumSelect({
         disabled={disabled}
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
-          "flex w-full items-center justify-between rounded-2xl border bg-brand-secondary px-4 py-3.5 text-sm text-brand-text-primary outline-none transition duration-200 select-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed",
-          "border-brand-border focus:border-brand-accent/35",
-          isOpen && "border-brand-accent/40 ring-1 ring-brand-accent/15",
-          error && "border-red-500/40 focus:border-red-500/60"
+          "flex w-full items-center justify-between rounded-2xl border bg-brand-secondary/60 px-4 py-4 text-sm text-brand-text-primary outline-none transition duration-300 select-none cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed font-semibold tracking-wide",
+          "border-brand-border focus:border-brand-accent/50 focus:shadow-[0_0_15px_rgba(124,255,107,0.1)]",
+          isOpen && "border-brand-accent/60 bg-brand-secondary/90 shadow-[0_0_15px_rgba(124,255,107,0.12)]",
+          error && "border-brand-danger/40 focus:border-brand-danger/60"
         )}
       >
-        <span className={cn(!selectedOption && "text-brand-text-secondary/40")}>
+        <span className={cn(!selectedOption && "text-brand-text-secondary/30")}>
           {selectedOption ? selectedOption.label : placeholder}
         </span>
-        <ChevronDown className={cn("h-4 w-4 text-brand-text-secondary transition duration-200", isOpen && "rotate-180")} />
+        <ChevronDown className={cn("h-4 w-4 text-brand-text-secondary transition duration-300", isOpen && "rotate-180")} />
       </button>
-
+ 
       <AnimatePresence>
         {isOpen && (
           <motion.div
             initial={{ opacity: 0, y: 8, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 8, scale: 0.98 }}
-            transition={{ duration: 0.15, ease: "easeOut" }}
-            className="absolute left-0 right-0 z-50 mt-16 max-h-60 overflow-y-auto rounded-2xl border border-brand-border bg-brand-elevated/95 p-1.5 shadow-2xl backdrop-blur-md no-scrollbar"
+            transition={{ duration: 0.2, ease: "easeOut" }}
+            className="absolute left-0 right-0 z-50 mt-20 max-h-60 overflow-y-auto rounded-2xl border border-brand-accent/25 bg-brand-surface/95 p-1.5 shadow-[0_12px_30px_rgba(0,0,0,0.8)] backdrop-blur-md no-scrollbar"
           >
             {options.length === 0 ? (
               <div className="px-4 py-3 text-xs text-brand-text-secondary italic">No options available</div>
@@ -302,10 +301,10 @@ export function PremiumSelect({
                       setIsOpen(false);
                     }}
                     className={cn(
-                      "flex w-full items-center rounded-xl px-3.5 py-2.5 text-left text-xs font-medium transition cursor-pointer select-none",
+                      "flex w-full items-center rounded-xl px-4 py-3 text-left text-xs font-extrabold uppercase tracking-wider transition cursor-pointer select-none",
                       isSelected
-                        ? "bg-brand-accent text-brand-primary"
-                        : "text-brand-text-secondary hover:bg-brand-surface/70 hover:text-brand-text-primary"
+                        ? "bg-brand-accent text-brand-primary font-black shadow-[0_0_12px_rgba(124,255,107,0.25)]"
+                        : "text-brand-text-secondary hover:bg-brand-secondary hover:text-white"
                     )}
                   >
                     {opt.label}
@@ -316,16 +315,16 @@ export function PremiumSelect({
           </motion.div>
         )}
       </AnimatePresence>
-
+ 
       {error && (
-        <p className="text-xs text-red-400 font-medium ml-1.5 animate-shake">
+        <p className="text-xs text-brand-danger font-black uppercase tracking-wider ml-1.5 animate-pulse">
           ⚠️ {error}
         </p>
       )}
     </div>
   );
 }
-
+ 
 /* ==========================================
    5. PREMIUM DIALOG / MODAL (rounded-[28px])
    ========================================== */
@@ -336,7 +335,7 @@ interface PremiumDialogProps {
   description?: string;
   children: React.ReactNode;
 }
-
+ 
 export function PremiumDialog({
   isOpen,
   onClose,
@@ -355,38 +354,44 @@ export function PremiumDialog({
       document.body.style.overflow = "unset";
     };
   }, [isOpen]);
-
+ 
   return (
     <AnimatePresence>
       {isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pt-safe pb-safe">
-          {/* Backdrop Blur */}
+          {/* Backdrop Blur with high opacity dark-green depth */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="absolute inset-0 bg-black/65 backdrop-blur-sm cursor-pointer"
+            className="absolute inset-0 bg-[#050805]/85 backdrop-blur-md cursor-pointer"
           />
-
-          {/* Dialog Container */}
+ 
+          {/* Dialog Container styled with cyber forest tech */}
           <motion.div
-            initial={{ scale: 0.94, opacity: 0, y: 10 }}
+            initial={{ scale: 0.93, opacity: 0, y: 15 }}
             animate={{ scale: 1, opacity: 1, y: 0 }}
-            exit={{ scale: 0.94, opacity: 0, y: 10 }}
+            exit={{ scale: 0.93, opacity: 0, y: 15 }}
             transition={premiumSpring}
-            className="w-full max-w-md overflow-hidden rounded-[28px] border border-brand-border bg-brand-secondary p-6 shadow-2xl z-10 space-y-5"
+            className="w-full max-w-md overflow-hidden rounded-[28px] border border-brand-accent/25 bg-brand-secondary p-6 shadow-[0_20px_50px_rgba(0,0,0,0.9),_0_0_30px_rgba(124,255,107,0.15)] z-10 space-y-6 relative"
           >
-            <div>
-              <h3 className="text-xl font-bold tracking-tight text-white">{title}</h3>
+            {/* Ambient subtle green header glow */}
+            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-40 h-10 bg-brand-accent/5 blur-md pointer-events-none rounded-full" />
+            
+            <div className="relative">
+              <h3 className="text-xl font-black uppercase tracking-wider text-white border-b border-brand-border pb-3 flex items-center gap-2">
+                <span className="h-2 w-2 rounded-full bg-brand-accent animate-ping" />
+                {title}
+              </h3>
               {description && (
-                <p className="text-xs text-brand-text-secondary mt-1 leading-normal">
+                <p className="text-xs text-brand-text-secondary mt-3 leading-relaxed">
                   {description}
                 </p>
               )}
             </div>
-
-            <div className="space-y-4">
+ 
+            <div className="space-y-4 relative z-10">
               {children}
             </div>
           </motion.div>
@@ -395,7 +400,7 @@ export function PremiumDialog({
     </AnimatePresence>
   );
 }
-
+ 
 /* ==========================================
    6. FLOATING BOTTOM NAVIGATION (fully rounded)
    ========================================== */
@@ -406,42 +411,45 @@ interface FloatingNavItem {
   isActive: boolean;
   badge?: number;
 }
-
+ 
 interface FloatingBottomNavProps {
   items: FloatingNavItem[];
 }
-
+ 
 export function FloatingBottomNav({ items }: FloatingBottomNavProps) {
   return (
-    <nav className="fixed bottom-4 left-4 right-4 z-40 flex justify-center pb-safe md:hidden pointer-events-none">
-      <div className="mx-auto flex w-full max-w-md items-center justify-around rounded-full border border-brand-border bg-brand-surface/85 px-2.5 py-2 shadow-2xl backdrop-blur-lg pointer-events-auto">
+    <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex justify-center pb-safe w-[92%] max-w-md pointer-events-none">
+      <div className="flex w-full items-center justify-around rounded-[24px] border border-brand-accent/25 bg-[#0B120B]/85 px-3 py-2 shadow-[0_12px_45px_rgba(0,0,0,0.8),_0_0_25px_rgba(124,255,107,0.12)] backdrop-blur-xl pointer-events-auto relative overflow-hidden">
+        {/* Subtle holographic grid lines indicator inside navbar */}
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(124,255,107,0.015)_1px,transparent_1px)] bg-[size:100%_4px] pointer-events-none" />
+ 
         {items.map(({ label, icon, onClick, isActive, badge }) => {
           return (
             <button
               key={label}
               onClick={onClick}
               className={cn(
-                "relative flex flex-col items-center gap-0.5 py-1.5 px-3 rounded-full text-brand-text-secondary transition duration-200 select-none cursor-pointer focus:outline-none outline-none",
-                isActive ? "text-brand-accent bg-brand-accent/10 font-bold" : "hover:bg-brand-secondary/40"
+                "relative flex flex-col items-center gap-1 py-1.5 px-3.5 rounded-2xl text-brand-text-secondary transition duration-300 select-none cursor-pointer focus:outline-none outline-none group",
+                isActive ? "text-brand-accent font-black" : "hover:text-white"
               )}
             >
-              {/* Badge indicator */}
+              {/* Badge indicator with high intensity emerald green glow */}
               {badge !== undefined && badge > 0 && (
-                <span className="absolute top-1 right-2.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[8px] font-black text-white leading-none shadow-sm animate-pulse">
+                <span className="absolute top-0.5 right-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-brand-accent-secondary px-1 text-[8px] font-black text-black leading-none shadow-[0_0_8px_rgba(57,255,136,0.8)] animate-pulse">
                   {badge}
                 </span>
               )}
-
-              <span className={cn("text-lg transition duration-200", isActive && "scale-110")}>
+ 
+              <span className={cn("text-lg transition duration-300 group-hover:scale-115 group-hover:-translate-y-0.5", isActive && "scale-120 text-brand-accent drop-shadow-[0_0_8px_rgba(124,255,107,0.6)]")}>
                 {icon}
               </span>
-              <span className="text-[8px] font-bold tracking-wide uppercase">{label}</span>
-
-              {/* Elegant Accent Dot */}
+              <span className="text-[8px] font-black tracking-widest uppercase transition duration-300 select-none">{label}</span>
+ 
+              {/* Elegant Tab Accent Dot Indicator */}
               {isActive && (
                 <motion.span
                   layoutId="activeTabIndicator"
-                  className="absolute bottom-0 h-1 w-3 rounded-full bg-brand-accent"
+                  className="absolute bottom-[-2px] h-1 w-4 rounded-full bg-brand-accent shadow-[0_0_8px_rgba(124,255,107,0.8)]"
                   transition={premiumSpring}
                 />
               )}
@@ -452,7 +460,7 @@ export function FloatingBottomNav({ items }: FloatingBottomNavProps) {
     </nav>
   );
 }
-
+ 
 /* ==========================================
    7. SKELETON LOADER (Rounded micro-containers)
    ========================================== */
@@ -460,21 +468,21 @@ interface SkeletonProps {
   className?: string;
   variant?: "text" | "avatar" | "card";
 }
-
+ 
 export function Skeleton({ className, variant = "text" }: SkeletonProps) {
   return (
     <div
       className={cn(
-        "animate-pulse bg-brand-elevated/40 border border-brand-border/40",
-        variant === "text" && "h-4 rounded-md w-full",
+        "animate-pulse bg-brand-surface border border-brand-border/60",
+        variant === "text" && "h-4 rounded-lg w-full",
         variant === "avatar" && "h-12 w-12 rounded-2xl shrink-0",
-        variant === "card" && "h-32 rounded-3xl p-5 w-full",
+        variant === "card" && "h-32 rounded-[28px] p-5 w-full",
         className
       )}
     />
   );
 }
-
+ 
 /* ==========================================
    8. POLISHED EMPTY STATE
    ========================================== */
@@ -485,7 +493,7 @@ interface EmptyStateProps {
   actionLabel?: string;
   onActionClick?: () => void;
 }
-
+ 
 export function EmptyState({
   icon,
   title,
@@ -494,24 +502,24 @@ export function EmptyState({
   onActionClick
 }: EmptyStateProps) {
   return (
-    <div className="flex flex-col items-center justify-center text-center p-8 rounded-3xl border border-dashed border-brand-border/60 bg-brand-surface/30">
+    <div className="flex flex-col items-center justify-center text-center p-8 rounded-[28px] border border-dashed border-brand-accent/20 bg-brand-surface/40 cyber-glass">
       <motion.div
         initial={{ scale: 0.9 }}
-        animate={{ scale: [0.9, 1.02, 1] }}
-        transition={{ duration: 0.6, ease: "easeOut" }}
-        className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-3xl bg-brand-elevated/55 border border-brand-border text-3xl shadow-inner select-none"
+        animate={{ scale: [0.9, 1.03, 1] }}
+        transition={{ duration: 0.7, ease: "easeOut" }}
+        className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-brand-secondary border border-brand-border text-3xl shadow-inner select-none animate-star-twinkle"
       >
         {icon}
       </motion.div>
-      <h3 className="text-base font-bold text-white/90">{title}</h3>
-      <p className="mt-1.5 text-xs text-brand-text-secondary max-w-sm mx-auto leading-relaxed">
+      <h3 className="text-base font-black text-white/90 uppercase tracking-wider">{title}</h3>
+      <p className="mt-2 text-xs text-brand-text-secondary max-w-sm mx-auto leading-relaxed font-semibold">
         {description}
       </p>
       {actionLabel && onActionClick && (
         <PremiumButton
           onClick={onActionClick}
           variant="accent"
-          className="mt-4 py-2 px-4 rounded-xl text-xs"
+          className="mt-6 py-3 px-6 rounded-xl text-[10px] font-black"
         >
           {actionLabel}
         </PremiumButton>

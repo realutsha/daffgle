@@ -59,9 +59,9 @@ export default function NightOwlPanel() {
 
   if (loading) {
     return (
-      <div className="flex h-full flex-col items-center justify-center bg-[#111111] text-brand-text-primary px-4">
+      <div className="flex h-full flex-col items-center justify-center bg-brand-primary text-brand-text-primary px-4">
         <div className="flex flex-col items-center gap-4 animate-pulse select-none">
-          <div className="h-10 w-10 animate-spin rounded-full border-4 border-white/5 border-t-brand-accent" />
+          <div className="h-10 w-10 animate-spin rounded-full border-4 border-brand-border border-t-brand-accent" />
           <p className="text-sm text-brand-text-secondary font-medium">
             Connecting to Night Owl Network...
           </p>
@@ -71,10 +71,10 @@ export default function NightOwlPanel() {
   }
 
   return (
-    <div className="relative flex h-full flex-col bg-[#111111] text-brand-text-primary overflow-hidden">
+    <div className="relative flex h-full flex-col bg-brand-primary text-brand-text-primary overflow-hidden">
       
       {/* Cinematic Starry/Cosmic Sky background overlay */}
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#C9D7F2]/5 via-transparent to-transparent pointer-events-none" />
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-brand-accent/8 via-transparent to-transparent pointer-events-none" />
       
       {/* Star twinkling animation elements */}
       <div className="absolute inset-0 opacity-10 pointer-events-none">
@@ -84,7 +84,7 @@ export default function NightOwlPanel() {
         <div className="absolute top-1/2 left-1/2 w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
       </div>
 
-      <header className="sticky top-0 z-30 border-b border-white/5 bg-[#1A1A1A]/90 backdrop-blur px-6 py-5 flex items-center justify-between select-none">
+      <header className="sticky top-0 z-30 border-b border-brand-border bg-brand-secondary/90 backdrop-blur px-6 py-5 flex items-center justify-between select-none">
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-xl md:text-2xl font-black tracking-tight text-white flex items-center gap-2">
@@ -97,7 +97,7 @@ export default function NightOwlPanel() {
                   initial={{ opacity: 0, scale: 0.8 }}
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.8 }}
-                  className="rounded-full bg-brand-accent/10 border border-brand-accent/30 px-2.5 py-0.5 text-[9px] font-black text-brand-accent uppercase tracking-wider animate-pulse flex items-center gap-1 shadow-[0_0_8px_rgba(201,215,242,0.15)]"
+                  className="rounded-full bg-brand-accent/15 border border-brand-accent/30 px-2.5 py-0.5 text-[9px] font-black text-brand-accent uppercase tracking-wider animate-pulse flex items-center gap-1 shadow-[0_0_8px_rgba(201,215,242,0.15)]"
                 >
                   <span className="h-1.5 w-1.5 rounded-full bg-brand-accent animate-ping" />
                   Live
@@ -131,8 +131,8 @@ export default function NightOwlPanel() {
               animate={{ opacity: 1, y: 0 }}
               className="mx-auto max-w-md"
             >
-              <PremiumCard className="p-8 text-center space-y-6 relative border-white/5 bg-brand-surface shadow-2xl">
-                <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-3xl bg-brand-elevated border border-white/5 text-4xl shadow-inner select-none animate-bounce">
+              <PremiumCard className="p-8 text-center space-y-6 relative border-brand-border bg-brand-surface shadow-2xl">
+                <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-3xl bg-brand-elevated border border-brand-border text-4xl shadow-inner select-none animate-bounce">
                   <Lock className="h-8 w-8 text-brand-text-secondary" />
                 </div>
 
@@ -147,7 +147,7 @@ export default function NightOwlPanel() {
                   This sanctuary is only accessible between **3:00 AM and 6:00 AM Bangladesh Time (Asia/Dhaka)**. Join us then for anonymous late-night conversations.
                 </p>
 
-                <div className="rounded-3xl bg-brand-elevated p-5 border border-white/5 space-y-2 shadow-inner">
+                <div className="rounded-3xl bg-brand-elevated p-5 border border-brand-border space-y-2 shadow-inner">
                   <p className="text-[10px] font-bold text-brand-text-secondary uppercase tracking-widest">
                     Sanctuary Unlocks In
                   </p>
@@ -172,7 +172,7 @@ export default function NightOwlPanel() {
                   boxShadow: ["0 0 10px rgba(201,215,242,0.02)", "0 0 25px rgba(201,215,242,0.08)", "0 0 10px rgba(201,215,242,0.02)"]
                 }}
                 transition={{ repeat: Infinity, duration: 4, ease: "easeInOut" }}
-                className="rounded-[28px] border border-white/5 bg-brand-surface p-6 shadow-2xl flex flex-col md:flex-row md:items-center justify-between gap-6 select-none"
+                className="rounded-[28px] border border-brand-border bg-brand-surface p-6 shadow-2xl flex flex-col md:flex-row md:items-center justify-between gap-6 select-none"
               >
                 <div className="space-y-1.5">
                   <h2 className="text-xl md:text-2xl font-black text-white flex items-center gap-2">
@@ -183,7 +183,7 @@ export default function NightOwlPanel() {
                   </p>
                 </div>
                 
-                <div className="rounded-2xl bg-brand-elevated px-5 py-3 border border-white/5 shrink-0 text-center md:text-right">
+                <div className="rounded-2xl bg-brand-elevated px-5 py-3 border border-brand-border shrink-0 text-center md:text-right">
                   <p className="text-[9px] font-bold text-brand-accent uppercase tracking-widest mb-0.5">
                     Sanctuary Closes In
                   </p>
@@ -199,9 +199,9 @@ export default function NightOwlPanel() {
                   
                   {/* CASE A: Active Ongoing Chat Session */}
                   {activeSession ? (
-                    <PremiumCard className="p-6 shadow-2xl space-y-4 border-brand-accent/20 bg-brand-surface relative overflow-hidden">
+                    <PremiumCard className="p-6 shadow-2xl space-y-4 border-brand-border bg-brand-surface relative overflow-hidden">
                       <div className="absolute top-0 right-0 h-24 w-24 bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-brand-accent/10 via-transparent to-transparent pointer-events-none" />
-                      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-accent/10 border border-brand-accent/20 text-2xl select-none">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-accent/15 border border-brand-border text-2xl select-none">
                         🤝
                       </div>
                       <div className="space-y-1">
@@ -222,9 +222,9 @@ export default function NightOwlPanel() {
                   
                   /* CASE B: User Has Active Broadcast Request */
                   myActiveRequest ? (
-                    <PremiumCard className="p-6 shadow-2xl space-y-5 border-white/5 bg-brand-surface">
+                    <PremiumCard className="p-6 shadow-2xl space-y-5 border-brand-border bg-brand-surface">
                       <div className="flex items-center justify-between">
-                        <span className="rounded-full bg-brand-accent/10 border border-brand-accent/20 px-3 py-1 text-[10px] font-black text-brand-accent uppercase tracking-wide">
+                        <span className="rounded-full bg-brand-accent/15 border border-brand-border px-3 py-1 text-[10px] font-black text-brand-accent uppercase tracking-wide">
                           Your Active Mood
                         </span>
                         <span className="text-[10px] text-brand-text-secondary">
@@ -232,7 +232,7 @@ export default function NightOwlPanel() {
                         </span>
                       </div>
                       
-                      <div className="rounded-2xl bg-brand-elevated p-4 border border-white/5 flex items-center gap-3">
+                      <div className="rounded-2xl bg-brand-elevated p-4 border border-brand-border flex items-center gap-3">
                         <span className="text-3xl select-none">
                           {MOODS.find(m => m.mood === myActiveRequest.mood)?.icon || "👻"}
                         </span>
@@ -254,7 +254,7 @@ export default function NightOwlPanel() {
                   ) : (
                     
                     /* CASE C: Eligible to Create a Request */
-                    <PremiumCard className="p-6 shadow-2xl space-y-6 border-white/5 bg-brand-surface">
+                    <PremiumCard className="p-6 shadow-2xl space-y-6 border-brand-border bg-brand-surface">
                       <div>
                         <h3 className="text-lg font-black text-white">How is your night?</h3>
                         <p className="text-xs text-brand-text-secondary mt-1">
@@ -271,8 +271,8 @@ export default function NightOwlPanel() {
                               onClick={() => setSelectedMood(mood)}
                               className={`w-full rounded-2xl border p-3 flex items-center justify-between text-left transition duration-200 cursor-pointer ${
                                 isSel
-                                  ? "border-brand-accent bg-brand-accent/10 shadow-[0_0_8px_rgba(201,215,242,0.1)] text-white"
-                                  : "border-white/5 bg-brand-elevated/40 hover:bg-brand-elevated/80 text-brand-text-primary"
+                                  ? "border-brand-accent bg-brand-accent/15 shadow-[0_0_8px_rgba(201,215,242,0.1)] text-white"
+                                  : "border-brand-border bg-brand-elevated/40 hover:bg-brand-elevated/80 text-brand-text-primary"
                               }`}
                             >
                               <div className="flex items-center gap-3">
@@ -311,7 +311,7 @@ export default function NightOwlPanel() {
                         Peer moods awaiting connections
                       </p>
                     </div>
-                    <span className="rounded-full bg-brand-surface px-3 py-1 text-xs font-bold text-brand-accent border border-white/5">
+                    <span className="rounded-full bg-brand-surface px-3 py-1 text-xs font-bold text-brand-accent border border-brand-border">
                       {requests.length} open
                     </span>
                   </div>
@@ -326,14 +326,14 @@ export default function NightOwlPanel() {
                           transition={premiumSpring}
                         >
                           <PremiumCard
-                            className="p-5 shadow-xl flex items-center justify-between gap-4 border-white/5 bg-brand-surface"
+                            className="p-5 shadow-xl flex items-center justify-between gap-4 border-brand-border bg-brand-surface"
                           >
                             <div className="flex items-center gap-3 min-w-0">
-                              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-brand-elevated border border-white/5 text-2xl select-none">
+                              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-brand-elevated border border-brand-border text-2xl select-none">
                                 {MOODS.find(m => m.mood === req.mood)?.icon || "👻"}
                               </div>
                               <div className="min-w-0">
-                                <span className="rounded-full bg-brand-accent/10 border border-brand-accent/20 px-2 py-0.2 text-[8px] font-black text-brand-accent uppercase tracking-wide">
+                                <span className="rounded-full bg-brand-accent/15 border border-brand-border px-2 py-0.2 text-[8px] font-black text-brand-accent uppercase tracking-wide">
                                   Anonymous Owl
                                 </span>
                                 <h4 className="font-extrabold text-sm text-white truncate mt-1">

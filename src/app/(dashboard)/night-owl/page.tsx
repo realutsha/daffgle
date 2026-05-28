@@ -148,9 +148,9 @@ export default function NightOwlPageRoute() {
 
   if (loading) {
     return (
-      <main className="flex h-screen items-center justify-center bg-[#111111] text-white px-4">
+      <main className="flex h-screen items-center justify-center bg-brand-primary text-white px-4">
         <div className="flex flex-col items-center gap-4 animate-pulse select-none">
-          <div className="h-10 w-10 animate-spin rounded-full border-4 border-white/5 border-t-brand-accent" />
+          <div className="h-10 w-10 animate-spin rounded-full border-4 border-brand-border border-t-brand-accent" />
           <p className="text-sm text-brand-text-secondary font-medium">Syncing Daffgle Sanctuary...</p>
         </div>
       </main>
@@ -158,13 +158,13 @@ export default function NightOwlPageRoute() {
   }
 
   return (
-    <main className="flex h-dvh overflow-hidden bg-[#111111] text-brand-text-primary pt-safe">
+    <main className="flex h-dvh overflow-hidden bg-brand-primary text-brand-text-primary pt-safe">
       
       {/* Desktop Left Sidebar Panel (Matches verified landing homepage perfectly) */}
-      <aside className="hidden w-full flex-col bg-[#1A1A1A] md:flex md:w-96 md:border-r md:border-white/5 relative shrink-0">
-        <div className="absolute top-0 left-0 right-0 h-32 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#C9D7F2]/5 via-transparent to-transparent pointer-events-none" />
+      <aside className="hidden w-full flex-col bg-brand-secondary md:flex md:w-96 md:border-r md:border-brand-border relative shrink-0">
+        <div className="absolute top-0 left-0 right-0 h-32 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-brand-accent/8 via-transparent to-transparent pointer-events-none" />
 
-        <header className="sticky top-0 z-30 border-b border-white/5 bg-[#1A1A1A]/95 px-6 py-5 backdrop-blur-md">
+        <header className="sticky top-0 z-30 border-b border-brand-border bg-brand-secondary/95 px-6 py-5 backdrop-blur-md">
           <div className="flex items-center justify-between gap-4">
             <div>
               <h1 className="text-2xl font-black tracking-tight text-white/95">
@@ -187,9 +187,9 @@ export default function NightOwlPageRoute() {
 
           {/* User Profile Card */}
           {profile && (
-            <div className="mt-5 rounded-3xl border border-white/5 bg-brand-surface p-4 shadow-xl select-none">
+            <div className="mt-5 rounded-3xl border border-brand-border bg-brand-surface p-4 shadow-xl select-none">
               <div className="flex items-center gap-3">
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-elevated border border-white/5 text-lg font-black text-[#C9D7F2]">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-elevated border border-brand-border text-lg font-black text-brand-accent">
                   {profile.anonymous_username.charAt(0).toUpperCase()}
                 </div>
 
@@ -254,7 +254,7 @@ export default function NightOwlPageRoute() {
 
         {/* Sidebar Left guides info scroll area */}
         <div className="flex-1 overflow-y-auto p-6 space-y-4 pb-24">
-          <PremiumCard className="p-5 border-white/5 bg-brand-surface shadow-md space-y-2 select-none">
+          <PremiumCard className="p-5 border-brand-border bg-brand-surface shadow-md space-y-2 select-none">
             <h3 className="font-bold text-white/95 text-xs flex items-center gap-1.5">
               <Award className="h-4 w-4 text-brand-accent" />
               Late Night Sanctuary
@@ -264,7 +264,7 @@ export default function NightOwlPageRoute() {
             </p>
           </PremiumCard>
 
-          <PremiumCard className="p-5 border-white/5 bg-brand-surface shadow-md space-y-2 select-none">
+          <PremiumCard className="p-5 border-brand-border bg-brand-surface shadow-md space-y-2 select-none">
             <h3 className="font-bold text-white/95 text-xs flex items-center gap-1.5">
               <Users className="h-4 w-4 text-brand-accent" />
               Absolute Anonymity
@@ -276,7 +276,7 @@ export default function NightOwlPageRoute() {
         </div>
 
         {/* Sidebar Desktop static Footer */}
-        <nav className="border-t border-white/5 bg-[#1A1A1A]/95 p-4 select-none">
+        <nav className="border-t border-brand-border bg-brand-secondary/95 p-4 select-none">
           <div className="grid grid-cols-3 gap-2">
             <PremiumButton
               onClick={() => router.push("/")}
@@ -306,7 +306,7 @@ export default function NightOwlPageRoute() {
       </aside>
 
       {/* Main Panel */}
-      <section className="flex flex-1 flex-col bg-[#111111] overflow-hidden w-full pb-safe">
+      <section className="flex flex-1 flex-col bg-brand-primary overflow-hidden w-full pb-safe">
         <NightOwlPanel />
       </section>
 

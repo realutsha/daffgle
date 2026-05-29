@@ -754,10 +754,10 @@ export default function HelpHubDashboardPage() {
 
   if (loading) {
     return (
-      <main className="flex h-dvh items-center justify-center bg-brand-primary text-white px-5 pt-safe">
+      <main className="flex h-dvh items-center justify-center bg-[#0E1621] text-white px-5 pt-safe select-none">
         <div className="mx-auto w-full max-w-3xl space-y-4">
-          <Skeleton className="h-32 rounded-3xl w-full" variant="card" />
-          <p className="text-center text-sm text-brand-text-secondary font-medium animate-pulse">
+          <Skeleton className="h-32 rounded-[28px] w-full" variant="card" />
+          <p className="text-center text-sm text-gray-400 font-semibold animate-pulse tracking-wide">
             Syncing Daffgle Networks...
           </p>
         </div>
@@ -766,125 +766,46 @@ export default function HelpHubDashboardPage() {
   }
 
   return (
-    <main className="flex h-dvh overflow-hidden bg-brand-primary text-brand-text-primary pt-safe">
-      
-      {/* Desktop Left Sidebar Panel */}
-      <aside className="hidden w-full flex-col bg-brand-secondary md:flex md:w-96 md:border-r md:border-brand-border relative">
-        <div className="absolute top-0 left-0 right-0 h-32 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-brand-accent/8 via-transparent to-transparent pointer-events-none" />
+    <main className="flex h-dvh overflow-hidden bg-[#0E1621] text-white pt-safe relative select-none">
+      {/* Premium Ambient Background Orb */}
+      <div className="absolute top-[-250px] left-1/2 -translate-x-1/2 w-[800px] h-[800px] rounded-full bg-[#39FF88]/4 blur-[130px] pointer-events-none" />
 
-        <header className="sticky top-0 z-30 border-b border-brand-border bg-brand-secondary/95 px-6 py-5 backdrop-blur-md">
-          <div className="flex flex-col gap-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-2xl font-black tracking-tight text-white/95">
-                  Daffgle Help Hub
-                </h1>
-                <p className="text-[10px] font-bold text-brand-text-secondary uppercase tracking-widest mt-1 select-none">
-                  Campus Assistance Feed
-                </p>
-              </div>
+      {/* Centered Dashboard content frame bounded up to 1400px on desktop screens */}
+      <div className="mx-auto w-full max-w-[1400px] flex h-full relative z-10 border-x border-white/[0.06] bg-[#17212B]/30 backdrop-blur-xl">
+        
+        {/* Desktop Left Sidebar Panel */}
+        <aside className="hidden w-full flex-col bg-[#17212B] md:flex md:w-96 md:border-r md:border-white/[0.08] relative shrink-0">
+          <div className="absolute top-0 left-0 right-0 h-32 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#39FF88]/6 via-transparent to-transparent pointer-events-none" />
 
-              <PremiumButton
-                onClick={handleRefresh}
-                disabled={refreshing}
-                variant="accent"
-                className="py-1.5 px-3 rounded-xl text-xs shrink-0"
-              >
-                <RefreshCw className={`h-3 w-3 ${refreshing ? "animate-spin" : ""}`} />
-              </PremiumButton>
-            </div>
-
-            {/* Profile Brief */}
-            {profile && (
-              <div className="rounded-[20px] border border-brand-border bg-brand-surface p-4 shadow-lg shadow-black/10 select-none">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-elevated border border-brand-border text-lg font-black text-brand-accent relative">
-                    {profile.anonymous_username.charAt(0).toUpperCase()}
-                    {profile.warning_badge && (
-                      <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-black text-white animate-pulse">
-                        ⚠️
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5">
-                      <p className="truncate font-bold text-white/90">
-                        {profile.anonymous_username}
-                      </p>
-                      {profile.warning_badge && (
-                        <span className="rounded-full bg-red-500/10 border border-red-500/20 px-2 py-0.5 text-[8px] font-bold text-red-400 uppercase tracking-wide shrink-0">
-                          ⚠️ Suspect
-                        </span>
-                      )}
-                    </div>
-                    <p className="truncate text-xs text-brand-text-secondary">
-                      {profile.department} • {profile.hall} • <span className="text-brand-accent font-black">{profile.karma} Karma</span>
-                    </p>
-                  </div>
-
-                  <div className="rounded-full bg-green-500/10 px-2.5 py-0.5 text-[9px] font-bold text-green-400 shrink-0 select-none">
-                    ● Online
-                  </div>
+          <header className="sticky top-0 z-30 border-b border-white/[0.08] bg-[#17212B]/95 px-6 py-5 backdrop-blur-md">
+            <div className="flex flex-col gap-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h1 className="text-2xl font-black tracking-tight text-white uppercase leading-none">
+                    Help Hub
+                  </h1>
+                  <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mt-1.5 select-none">
+                    Campus Assistance Feed
+                  </p>
                 </div>
-              </div>
-            )}
 
-            <div className="grid grid-cols-2 gap-2">
-              <PremiumButton
-                onClick={() => setActiveTab("available")}
-                variant={activeTab === "available" ? "primary" : "secondary"}
-                className="py-2.5 text-xs font-bold rounded-xl"
-              >
-                Help Hub
-              </PremiumButton>
-
-              <PremiumButton
-                onClick={() => router.push("/chat")}
-                variant="secondary"
-                className="py-2.5 text-xs font-bold rounded-xl"
-              >
-                My Chats
-              </PremiumButton>
-            </div>
-
-            <PremiumButton
-              onClick={() => router.push("/night-owl")}
-              variant="accent"
-              className="py-2.5 text-xs font-bold rounded-xl flex items-center justify-center gap-1.5"
-            >
-              🦉 Night Owl sanctuary
-            </PremiumButton>
-          </div>
-        </header>
-
-        {/* Sidebar Left available Requests list */}
-        <section className="flex-1 overflow-y-auto px-5 pt-4 pb-24">
-          <div className="mb-4 flex items-center justify-between select-none">
-            <div>
-              <h2 className="text-sm font-bold text-white/90">Open Requests Feed</h2>
-              <p className="text-[10px] text-brand-text-secondary font-medium mt-0.5">
-                Students needing help in {profile?.hall}
-              </p>
-            </div>
-
-            <span className="rounded-full bg-brand-primary px-2.5 py-0.5 text-[10px] font-black text-brand-accent border border-brand-border shadow-inner">
-              {availableRequests.length} active
-            </span>
-          </div>
-
-          <div className="space-y-3">
-            {availableRequests.length > 0 ? (
-              availableRequests.map((req) => (
-                <PremiumCard
-                  key={req.id}
-                  hoverable
-                  className="p-4 space-y-3 border-brand-border bg-brand-surface shadow-md"
+                <PremiumButton
+                  onClick={handleRefresh}
+                  disabled={refreshing}
+                  variant="secondary"
+                  className="py-1.5 px-3 rounded-xl text-xs shrink-0 border-white/5"
                 >
-                  <div className="flex items-start gap-3">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-elevated border border-brand-border text-lg font-black text-white relative">
-                      📦
-                      {req.requester?.warning_badge && (
+                  <RefreshCw className={`h-3 w-3 ${refreshing ? "animate-spin text-[#39FF88]" : "text-gray-400"}`} />
+                </PremiumButton>
+              </div>
+
+              {/* Profile Brief */}
+              {profile && (
+                <div className="rounded-[20px] border border-white/[0.08] bg-[#1D2733]/85 p-4 shadow-md select-none">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-[16px] bg-[#17212B] border border-white/[0.08] text-base font-black text-[#2AABEE] relative shadow-inner">
+                      {profile.anonymous_username.charAt(0).toUpperCase()}
+                      {profile.warning_badge && (
                         <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-black text-white animate-pulse">
                           ⚠️
                         </span>
@@ -892,74 +813,162 @@ export default function HelpHubDashboardPage() {
                     </div>
 
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between gap-2 select-none">
-                        <div className="flex items-center gap-1 min-w-0">
-                          <p className="text-[10px] font-bold text-brand-accent uppercase tracking-wider truncate">
-                            @{req.requester?.anonymous_username}
-                          </p>
-                        </div>
-                        <span className="text-[9px] font-medium text-brand-text-secondary shrink-0">
-                          {formatTimeAgo(req.created_at)}
-                        </span>
+                      <div className="flex items-center gap-1.5">
+                        <p className="truncate font-bold text-white/95 leading-none">
+                          {profile.anonymous_username}
+                        </p>
+                        {profile.warning_badge && (
+                          <span className="rounded-full bg-red-500/10 border border-red-500/20 px-2 py-0.5 text-[8px] font-bold text-red-400 uppercase tracking-wide shrink-0">
+                            ⚠️ Suspect
+                          </span>
+                        )}
                       </div>
-
-                      <h3 className="mt-1 font-bold text-white text-sm truncate">
-                        {req.title}
-                      </h3>
-
-                      <p className="mt-0.5 text-[10px] font-medium text-brand-text-secondary select-none">
-                        Karma rating: <span className="text-brand-accent font-black">{req.requester?.karma ?? 0}</span>
+                      <p className="truncate text-[10px] text-gray-400 mt-1 select-none font-semibold">
+                        {profile.department} • {profile.hall} • <span className="text-[#39FF88] font-black">{profile.karma} Karma</span>
                       </p>
+                    </div>
 
-                      <div className="mt-3.5 flex gap-2">
-                        <PremiumButton
-                          onClick={() => handleHelpNow(req)}
-                          variant="primary"
-                          className="flex-1 py-1.5 px-3 rounded-xl text-[10px] font-bold"
-                          withNeonGlow
-                        >
-                          Help Now
-                        </PremiumButton>
-                        
-                        <PremiumButton
-                          onClick={() => openReportModal(req.requester_id, req.requester?.anonymous_username || "User", req.id)}
-                          variant="danger"
-                          className="py-1.5 px-2.5 rounded-xl text-[10px]"
-                        >
-                          Report
-                        </PremiumButton>
-                      </div>
+                    <div className="rounded-full bg-[#39FF88]/10 border border-[#39FF88]/20 px-2.5 py-1 text-[8px] font-black text-[#39FF88] uppercase tracking-wider shrink-0 select-none">
+                      Online
                     </div>
                   </div>
-                </PremiumCard>
-              ))
-            ) : (
-              <div className="mt-8">
-                <EmptyState
-                  icon="🙌"
-                  title="Feed is clear"
-                  description={`All student requests inside ${profile?.hall || "your hall"} have been solved successfully!`}
-                />
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-2">
+                <PremiumButton
+                  onClick={() => setActiveTab("available")}
+                  variant={activeTab === "available" ? "primary" : "secondary"}
+                  className={cn(
+                    "py-2.5 text-xs font-black rounded-xl uppercase tracking-wider transition-all duration-200",
+                    activeTab === "available" 
+                      ? "bg-[#39FF88] text-black border-transparent hover:shadow-[0_0_12px_rgba(57,255,136,0.2)]" 
+                      : "bg-[#1D2733] border-white/5 text-gray-300 hover:text-white"
+                  )}
+                >
+                  Help Hub
+                </PremiumButton>
+
+                <PremiumButton
+                  onClick={() => router.push("/chat")}
+                  variant="secondary"
+                  className="py-2.5 text-xs font-black rounded-xl uppercase tracking-wider bg-[#1D2733] border-white/5 text-gray-300 hover:text-white"
+                >
+                  My Chats
+                </PremiumButton>
               </div>
-            )}
-          </div>
-        </section>
-      </aside>
+
+              <PremiumButton
+                onClick={() => router.push("/night-owl")}
+                variant="secondary"
+                className="py-2.5 text-xs font-black rounded-xl uppercase tracking-wider flex items-center justify-center gap-1.5 bg-[#1D2733] border-white/5 text-gray-300 hover:text-white hover:border-[#39FF88]/30 transition-all duration-200"
+              >
+                🦉 Night Owl Sanctuary
+              </PremiumButton>
+            </div>
+          </header>
+
+          {/* Sidebar Left available Requests list */}
+          <section className="flex-1 overflow-y-auto px-5 pt-4 pb-24 no-scrollbar">
+            <div className="mb-4 flex items-center justify-between select-none">
+              <div>
+                <h2 className="text-xs font-black uppercase text-white tracking-wider">Open Requests</h2>
+                <p className="text-[9px] text-gray-400 font-semibold mt-0.5">
+                  Needing help in {profile?.hall}
+                </p>
+              </div>
+
+              <span className="rounded-full bg-[#0E1621] px-2.5 py-1 text-[8px] font-black text-[#39FF88] border border-white/[0.08] shadow-inner select-none tracking-widest uppercase">
+                {availableRequests.length} Active
+              </span>
+            </div>
+
+            <div className="space-y-3">
+              {availableRequests.length > 0 ? (
+                availableRequests.map((req) => (
+                  <PremiumCard
+                    key={req.id}
+                    hoverable
+                    className="p-4 space-y-3 border-white/[0.06] bg-[#1D2733]/50 hover:bg-[#1D2733] hover:border-[#39FF88]/20 shadow-md rounded-2xl"
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#0E1621] border border-white/[0.08] text-base font-black text-white relative shadow-inner select-none">
+                        📦
+                        {req.requester?.warning_badge && (
+                          <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-black text-white animate-pulse">
+                            ⚠️
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between gap-2 select-none">
+                          <div className="flex items-center gap-1 min-w-0">
+                            <p className="text-[10px] font-bold text-[#2AABEE] uppercase tracking-wider truncate">
+                              @{req.requester?.anonymous_username}
+                            </p>
+                          </div>
+                          <span className="text-[9px] font-semibold text-gray-500 shrink-0">
+                            {formatTimeAgo(req.created_at)}
+                          </span>
+                        </div>
+
+                        <h3 className="mt-1 font-bold text-white text-sm truncate tracking-tight">
+                          {req.title}
+                        </h3>
+
+                        <p className="mt-0.5 text-[10px] font-semibold text-gray-400 select-none">
+                          Karma: <span className="text-[#39FF88] font-bold">{req.requester?.karma ?? 0}</span>
+                        </p>
+
+                        <div className="mt-3.5 flex gap-2">
+                          <PremiumButton
+                            onClick={() => handleHelpNow(req)}
+                            variant="primary"
+                            className="flex-1 py-2 px-3 rounded-xl text-[10px] font-black uppercase tracking-wider bg-gradient-to-r from-[#39FF88] to-[#7CFF6B] text-black border-transparent hover:shadow-[0_0_10px_rgba(57,255,136,0.15)]"
+                          >
+                            Help Now
+                          </PremiumButton>
+                          
+                          <PremiumButton
+                            onClick={() => openReportModal(req.requester_id, req.requester?.anonymous_username || "User", req.id)}
+                            variant="danger"
+                            className="py-2 px-2.5 rounded-xl text-[10px] font-bold border-transparent hover:border-red-500 transition-all duration-200"
+                          >
+                            Report
+                          </PremiumButton>
+                        </div>
+                      </div>
+                    </div>
+                  </PremiumCard>
+                ))
+              ) : (
+                <div className="mt-8">
+                  <EmptyState
+                    icon="🙌"
+                    title="Feed is clear"
+                    description={`All student requests inside ${profile?.hall || "your hall"} have been solved successfully!`}
+                  />
+                </div>
+              )}
+            </div>
+          </section>
+        </aside>
 
       {/* Main Right panel containing Feeds & Tabs */}
-      <section className="flex flex-1 flex-col bg-brand-primary overflow-x-hidden w-full pb-safe">
-        <div className="absolute top-0 left-0 right-0 h-44 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-brand-accent/8 via-transparent to-transparent pointer-events-none" />
+      <section className="flex flex-1 flex-col bg-[#0E1621]/45 overflow-x-hidden w-full pb-safe relative">
+        <div className="absolute top-0 left-0 right-0 h-44 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#39FF88]/4 via-transparent to-transparent pointer-events-none" />
 
         {/* Dynamic header navbar tabs */}
-        <header className="sticky top-0 z-30 border-b border-brand-border bg-brand-primary/90 backdrop-blur-md px-4 md:px-8 py-5">
+        <header className="sticky top-0 z-30 border-b border-white/[0.08] bg-[#17212B]/90 backdrop-blur-md px-4 md:px-8 py-5">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             
             {/* Filter pills */}
-            <div className="flex gap-1.5 overflow-x-auto no-scrollbar scroll-smooth p-1 bg-brand-surface rounded-2xl border border-brand-border max-w-fit shadow-inner">
+            <div className="flex gap-1.5 overflow-x-auto no-scrollbar scroll-smooth p-1 bg-[#0E1621] rounded-2xl border border-white/[0.08] max-w-fit shadow-inner">
               <button
                 onClick={() => setActiveTab("available")}
-                className={`rounded-xl px-4 py-2 text-xs font-bold transition cursor-pointer select-none ${
-                  activeTab === "available" ? "bg-brand-accent text-brand-primary font-black shadow-md shadow-brand-accent/15" : "text-brand-text-secondary hover:text-white"
+                className={`rounded-xl px-4 py-2.5 text-xs font-black transition cursor-pointer select-none uppercase tracking-wider ${
+                  activeTab === "available" ? "bg-[#39FF88] text-black shadow-md shadow-[#39FF88]/20" : "text-gray-400 hover:text-white"
                 }`}
               >
                 Available Help
@@ -967,8 +976,8 @@ export default function HelpHubDashboardPage() {
 
               <button
                 onClick={() => setActiveTab("my_requests")}
-                className={`rounded-xl px-4 py-2 text-xs font-bold transition cursor-pointer select-none ${
-                  activeTab === "my_requests" ? "bg-brand-accent text-brand-primary font-black shadow-md shadow-brand-accent/15" : "text-brand-text-secondary hover:text-white"
+                className={`rounded-xl px-4 py-2.5 text-xs font-black transition cursor-pointer select-none uppercase tracking-wider ${
+                  activeTab === "my_requests" ? "bg-[#39FF88] text-black shadow-md shadow-[#39FF88]/20" : "text-gray-400 hover:text-white"
                 }`}
               >
                 My Requests ({myRequests.length})
@@ -976,8 +985,8 @@ export default function HelpHubDashboardPage() {
 
               <button
                 onClick={() => setActiveTab("my_helpins")}
-                className={`rounded-xl px-4 py-2 text-xs font-bold transition cursor-pointer select-none ${
-                  activeTab === "my_helpins" ? "bg-brand-accent text-brand-primary font-black shadow-md shadow-brand-accent/15" : "text-brand-text-secondary hover:text-white"
+                className={`rounded-xl px-4 py-2.5 text-xs font-black transition cursor-pointer select-none uppercase tracking-wider ${
+                  activeTab === "my_helpins" ? "bg-[#39FF88] text-black shadow-md shadow-[#39FF88]/20" : "text-gray-400 hover:text-white"
                 }`}
               >
                 My Helpins ({myHelpins.length})
@@ -994,8 +1003,7 @@ export default function HelpHubDashboardPage() {
               }}
               disabled={!featureToggles.help_hub}
               variant="accent"
-              className="py-3 px-4 text-xs font-bold rounded-2xl self-start sm:self-auto shadow-md"
-              withNeonGlow
+              className="py-3 px-5 text-xs font-black uppercase tracking-widest rounded-2xl self-start sm:self-auto bg-gradient-to-r from-[#39FF88] to-[#7CFF6B] text-black border-transparent hover:shadow-[0_0_20px_rgba(57,255,136,0.25)] transition-all duration-200"
             >
               <Plus className="h-3.5 w-3.5 mr-1" />
               Create Help Request
@@ -1004,12 +1012,11 @@ export default function HelpHubDashboardPage() {
         </header>
 
         {/* Scrollable feed panels */}
-        <div className="flex-1 overflow-y-auto p-4 md:p-8 pb-32 md:pb-8">
+        <div className="flex-1 overflow-y-auto p-4 md:p-8 pb-32 md:pb-8 no-scrollbar">
           <div className="mx-auto max-w-3xl">
             <AnimatePresence mode="wait">
               
-              {/* Tab: Available Help Feed */}
-              {activeTab === "available" && (
+                {activeTab === "available" && (
                 <motion.div
                   key="avail-tab"
                   initial={{ opacity: 0, y: 8 }}
@@ -1018,59 +1025,60 @@ export default function HelpHubDashboardPage() {
                   className="space-y-6"
                 >
                   <div className="select-none">
-                    <h2 className="text-2xl font-black text-white/95 flex items-center gap-2">
-                      Help Requests in {profile?.hall} <Flame className="h-5 w-5 text-brand-accent" />
+                    <h2 className="text-2xl font-black text-white tracking-tight uppercase flex items-center gap-2">
+                      Help Requests in {profile?.hall} <Flame className="h-5 w-5 text-[#39FF88] drop-shadow-[0_0_6px_rgba(57,255,136,0.4)]" />
                     </h2>
-                    <p className="mt-1.5 text-brand-text-secondary text-xs leading-relaxed">
-                      Encrypted peer-to-peer assistance feed. Restricted to verified residents in <span className="text-white font-semibold">{profile?.hall}</span> at database level. Sorted automatically byhelper Karma.
+                    <p className="mt-1 text-gray-400 text-xs font-semibold leading-relaxed">
+                      Encrypted peer-to-peer assistance feed. Restricted to verified residents in <span className="text-white font-bold">{profile?.hall}</span> at database level. Sorted automatically by classmate Karma.
                     </p>
                   </div>
 
                   <div className="grid gap-4 sm:grid-cols-2">
                     {availableRequests.length > 0 ? (
                       availableRequests.map((req) => (
-                        <PremiumCard
+                        <div
                           key={req.id}
-                          className="flex flex-col justify-between p-6 border-brand-border bg-brand-surface shadow-xl"
+                          className="flex flex-col justify-between p-5 rounded-[24px] border border-white/[0.08] bg-[#17212B] hover:border-[#39FF88]/20 transition-all duration-300 shadow-lg relative overflow-hidden group"
                         >
-                          <div className="space-y-4">
+                          <div className="absolute inset-0 bg-gradient-to-tr from-white/[0.002] via-transparent to-white/[0.01] pointer-events-none" />
+                          <div className="relative z-10 space-y-4">
                             <div className="flex items-center justify-between select-none">
-                              <span className="rounded-full bg-brand-primary border border-brand-border px-2.5 py-0.5 text-[9px] font-black text-brand-accent tracking-widest uppercase">
-                                I Need help
+                              <span className="rounded-full bg-[#2AABEE]/10 border border-[#2AABEE]/20 px-2.5 py-1 text-[8px] font-black text-[#2AABEE] tracking-widest uppercase shadow-sm">
+                                I Need Help
                               </span>
-                              <span className="text-[10px] font-medium text-brand-text-secondary">{formatTimeAgo(req.created_at)}</span>
+                              <span className="text-[10px] font-semibold text-gray-500">{formatTimeAgo(req.created_at)}</span>
                             </div>
 
                             <div className="space-y-1">
                               <div className="flex items-center gap-1.5 select-none">
-                                <p className="text-[11px] font-bold text-brand-text-secondary truncate">
+                                <p className="text-[11px] font-extrabold text-[#2AABEE] truncate">
                                   Broadcasted by @{req.requester?.anonymous_username}
                                 </p>
                                 {req.requester?.warning_badge && (
-                                  <span className="rounded-full bg-red-500/10 border border-red-500/20 px-1.5 py-0.2 text-[7px] font-black text-red-400 uppercase tracking-wider shrink-0 animate-pulse">
+                                  <span className="rounded-full bg-red-500/10 border border-red-500/20 px-2 py-0.5 text-[7px] font-bold text-red-400 uppercase tracking-wider shrink-0 animate-pulse">
                                     ⚠️ Suspect
                                   </span>
                                 )}
                               </div>
                               
-                              <div className="flex items-center gap-3 select-none text-[10px] text-brand-text-secondary font-medium">
-                                <span>Karma rating: <span className="text-brand-accent font-bold">{req.requester?.karma ?? 0}</span></span>
-                                <span>Dept: <span className="text-white font-semibold">{req.requester?.department}</span></span>
+                              <div className="flex items-center gap-3 select-none text-[10px] text-gray-400 font-semibold">
+                                <span>Karma: <span className="text-[#39FF88] font-bold">{req.requester?.karma ?? 0}</span></span>
+                                <span className="text-white/20 select-none">•</span>
+                                <span>Dept: <span className="text-white font-bold">{req.requester?.department}</span></span>
                               </div>
                             </div>
 
-                            <h3 className="text-lg font-bold text-white">{req.title}</h3>
-                            <p className="text-xs text-brand-text-secondary leading-relaxed">
-                              A verified DIU student residing in <span className="text-white/80 font-medium">{req.hall}</span> requires a {req.title.toLowerCase()} inside campus grounds.
+                            <h3 className="text-base font-black text-white leading-tight tracking-tight group-hover:text-[#39FF88] transition-colors">{req.title}</h3>
+                            <p className="text-xs text-gray-400 leading-relaxed font-semibold">
+                              A verified DIU student residing in <span className="text-white font-bold">{req.hall}</span> requires a {req.title.toLowerCase()} inside campus grounds.
                             </p>
                           </div>
 
-                          <div className="flex gap-2 pt-5">
+                          <div className="flex gap-2.5 pt-5 relative z-10">
                             <PremiumButton
                               onClick={() => handleHelpNow(req)}
                               variant="primary"
-                              className="flex-1 py-2.5 px-4 rounded-xl text-xs font-bold"
-                              withNeonGlow
+                              className="flex-1 py-3 px-4 rounded-2xl text-xs font-black uppercase tracking-wider bg-gradient-to-r from-[#39FF88] to-[#7CFF6B] text-black border-transparent hover:shadow-[0_0_15px_rgba(57,255,136,0.25)] transition-all duration-200"
                             >
                               Help Now
                             </PremiumButton>
@@ -1078,12 +1086,12 @@ export default function HelpHubDashboardPage() {
                             <PremiumButton
                               onClick={() => openReportModal(req.requester_id, req.requester?.anonymous_username || "User", req.id)}
                               variant="danger"
-                              className="py-2.5 px-3 rounded-xl text-xs font-bold"
+                              className="py-3 px-3 rounded-2xl text-xs font-bold border-transparent hover:border-red-500 transition-all duration-200"
                             >
                               Report
                             </PremiumButton>
                           </div>
-                        </PremiumCard>
+                        </div>
                       ))
                     ) : (
                       <div className="col-span-2 mt-4">
@@ -1110,8 +1118,8 @@ export default function HelpHubDashboardPage() {
                   className="space-y-6"
                 >
                   <div className="select-none">
-                    <h2 className="text-2xl font-black text-white/95">My Help Requests</h2>
-                    <p className="mt-1.5 text-brand-text-secondary text-xs">
+                    <h2 className="text-2xl font-black text-white tracking-tight uppercase">My Help Requests</h2>
+                    <p className="mt-1 text-gray-400 text-xs font-semibold">
                       Manage help requests created by you. Cancel open requests if no longer needed, or mark accepted items as solved to reward your helper.
                     </p>
                   </div>
@@ -1119,29 +1127,30 @@ export default function HelpHubDashboardPage() {
                   <div className="space-y-3">
                     {myRequests.length > 0 ? (
                       myRequests.map((req) => (
-                        <PremiumCard
+                        <div
                           key={req.id}
-                          className="p-6 border-brand-border bg-brand-surface shadow-lg flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
+                          className="p-5 border border-white/[0.08] bg-[#17212B] shadow-lg rounded-[24px] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 relative overflow-hidden"
                         >
-                          <div className="space-y-1.5">
+                          <div className="absolute inset-0 bg-gradient-to-tr from-white/[0.002] via-transparent to-white/[0.01] pointer-events-none" />
+                          <div className="space-y-1.5 relative z-10 min-w-0">
                             <div className="flex flex-wrap items-center gap-2">
-                              <h3 className="text-lg font-bold text-white">{req.title}</h3>
+                              <h3 className="text-base font-extrabold text-white tracking-tight">{req.title}</h3>
                               <span className={`rounded-full px-2.5 py-0.5 text-[8px] font-black uppercase tracking-wider select-none ${
                                 req.status === "open" ? "bg-green-500/10 text-green-400 border border-green-500/15" :
-                                req.status === "accepted" ? "bg-brand-accent/15 text-brand-accent border border-brand-accent/15 animate-pulse" :
-                                req.status === "solved" ? "bg-amber-500/10 text-amber-400 border border-amber-500/15" :
-                                "bg-gray-500/10 text-gray-400 border border-brand-border"
+                                req.status === "accepted" ? "bg-[#39FF88]/15 text-[#39FF88] border border-[#39FF88]/15 animate-pulse shadow-[0_0_8px_rgba(57,255,136,0.15)]" :
+                                req.status === "solved" ? "bg-[#2AABEE]/10 text-[#2AABEE] border border-[#2AABEE]/15" :
+                                "bg-gray-500/10 text-gray-400 border border-white/5"
                               }`}>
                                 {req.status}
                               </span>
                             </div>
                             
-                            <p className="text-[10px] font-semibold text-brand-text-secondary uppercase select-none">
+                            <p className="text-[10px] font-bold text-gray-500 uppercase select-none">
                               Created: {new Date(req.created_at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
                             </p>
 
                             {req.status === "accepted" && req.helper && (
-                              <div className="flex items-center gap-1.5 select-none text-[11px] text-green-400 font-bold bg-green-500/5 border border-green-500/10 rounded-lg px-2.5 py-1 max-w-fit">
+                              <div className="flex items-center gap-1.5 select-none text-[11px] text-[#39FF88] font-bold bg-[#39FF88]/5 border border-[#39FF88]/10 rounded-lg px-2.5 py-1 max-w-fit mt-1">
                                 🤝 Helper @{req.helper.anonymous_username} ({req.helper.department})
                                 {req.helper.warning_badge && (
                                   <span className="rounded-full bg-red-500/15 border border-red-500/20 px-1 py-0.2 text-[8px] font-bold text-red-400 uppercase">
@@ -1152,12 +1161,12 @@ export default function HelpHubDashboardPage() {
                             )}
                           </div>
 
-                          <div className="flex gap-2 shrink-0 self-start sm:self-auto">
+                          <div className="flex gap-2.5 shrink-0 self-start sm:self-auto relative z-10">
                             {req.status === "open" && (
                               <PremiumButton
                                 onClick={() => handleCancelRequest(req.id)}
                                 variant="danger"
-                                className="py-2 px-3 text-xs rounded-xl"
+                                className="py-2.5 px-3.5 text-xs rounded-xl font-bold border-transparent hover:border-red-500 transition-all duration-200"
                               >
                                 Cancel Request
                               </PremiumButton>
@@ -1168,14 +1177,14 @@ export default function HelpHubDashboardPage() {
                                 <PremiumButton
                                   onClick={() => router.push(`/chat/${req.conversation_id}`)}
                                   variant="primary"
-                                  className="py-2 px-3 text-xs rounded-xl font-bold"
+                                  className="py-2.5 px-4 text-xs rounded-xl font-bold bg-gradient-to-r from-[#2AABEE]/10 to-[#2AABEE]/20 border-[#2AABEE]/25 text-[#2AABEE] hover:border-[#2AABEE] transition-all duration-200"
                                 >
                                   Open Chat
                                 </PremiumButton>
                                 <PremiumButton
                                   onClick={() => handleMarkSolved(req.id)}
                                   variant="accent"
-                                  className="py-2 px-3 text-xs rounded-xl font-bold"
+                                  className="py-2.5 px-4 text-xs rounded-xl font-black bg-gradient-to-r from-[#39FF88] to-[#7CFF6B] border-transparent text-black hover:shadow-[0_0_12px_rgba(57,255,136,0.2)] transition-all duration-200"
                                 >
                                   Solved
                                 </PremiumButton>
@@ -1183,12 +1192,12 @@ export default function HelpHubDashboardPage() {
                             )}
                             
                             {(req.status === "solved" || req.status === "cancelled") && (
-                              <span className="text-[11px] text-brand-text-secondary italic font-semibold px-3 py-1.5 bg-brand-primary rounded-xl border border-brand-border select-none uppercase tracking-widest shadow-inner">
+                              <span className="text-[10px] text-gray-500 italic font-black px-3.5 py-2 bg-[#0E1621] rounded-xl border border-white/5 select-none uppercase tracking-widest">
                                 Archived
                               </span>
                             )}
                           </div>
-                        </PremiumCard>
+                        </div>
                       ))
                     ) : (
                       <EmptyState
@@ -1213,8 +1222,8 @@ export default function HelpHubDashboardPage() {
                   className="space-y-6"
                 >
                   <div className="select-none">
-                    <h2 className="text-2xl font-black text-white/95">My Helping Actions</h2>
-                    <p className="mt-1.5 text-brand-text-secondary text-xs">
+                    <h2 className="text-2xl font-black text-white tracking-tight uppercase">My Helping Actions</h2>
+                    <p className="mt-1 text-gray-400 text-xs font-semibold">
                       Track campus help requests accepted by you. Keep chats open, friendly, and respectful to guide your classmates safely.
                     </p>
                   </div>
@@ -1222,15 +1231,16 @@ export default function HelpHubDashboardPage() {
                   <div className="space-y-3">
                     {myHelpins.length > 0 ? (
                       myHelpins.map((req) => (
-                        <PremiumCard
+                        <div
                           key={req.id}
-                          className="p-6 border-brand-border bg-brand-surface shadow-lg flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
+                          className="p-5 border border-white/[0.08] bg-[#17212B] shadow-lg rounded-[24px] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 relative overflow-hidden"
                         >
-                          <div className="space-y-1.5">
-                            <h3 className="text-lg font-bold text-white">{req.title}</h3>
+                          <div className="absolute inset-0 bg-gradient-to-tr from-white/[0.002] via-transparent to-white/[0.01] pointer-events-none" />
+                          <div className="space-y-1.5 relative z-10 min-w-0">
+                            <h3 className="text-base font-extrabold text-white tracking-tight">{req.title}</h3>
                             
-                            <div className="flex flex-wrap items-center gap-1.5 select-none text-xs text-brand-text-secondary font-medium">
-                              <span>Requested by: @{req.requester?.anonymous_username} ({req.requester?.department})</span>
+                            <div className="flex flex-wrap items-center gap-1.5 select-none text-xs text-gray-400 font-semibold">
+                              <span>Requested by: <span className="text-[#2AABEE]">@{req.requester?.anonymous_username}</span> ({req.requester?.department})</span>
                               {req.requester?.warning_badge && (
                                 <span className="rounded-full bg-red-500/15 border border-red-500/20 px-1 py-0.2 text-[8px] font-bold text-red-400 uppercase">
                                   ⚠️ Suspect
@@ -1238,35 +1248,35 @@ export default function HelpHubDashboardPage() {
                               )}
                             </div>
                             
-                            <p className="text-[10px] font-bold text-brand-text-secondary uppercase select-none">
-                              Status: <span className="text-white font-black">{req.status}</span>
+                            <p className="text-[10px] font-bold text-gray-500 uppercase select-none mt-1">
+                              Status: <span className="text-[#39FF88] font-black uppercase tracking-wider">{req.status}</span>
                             </p>
                           </div>
 
-                          <div className="flex gap-2 shrink-0 self-start sm:self-auto">
+                          <div className="flex gap-2.5 shrink-0 self-start sm:self-auto relative z-10">
                             {req.status === "accepted" && (
                               <PremiumButton
                                  onClick={() => router.push(`/chat/${req.conversation_id}`)}
                                  variant="primary"
-                                 className="py-2 px-3 text-xs rounded-xl font-bold"
+                                 className="py-2.5 px-4 text-xs rounded-xl font-bold bg-gradient-to-r from-[#2AABEE]/10 to-[#2AABEE]/20 border-[#2AABEE]/25 text-[#2AABEE] hover:border-[#2AABEE] transition-all duration-200"
                               >
                                 Open Chat
                               </PremiumButton>
                             )}
                             
                             {req.status === "solved" && (
-                              <span className="text-[10px] text-green-400 font-bold px-3 py-1.5 flex items-center gap-1 bg-green-500/5 border border-green-500/10 rounded-xl select-none uppercase tracking-wider">
+                              <span className="text-[10px] text-[#39FF88] font-black px-3.5 py-2 flex items-center gap-1 bg-[#39FF88]/5 border border-[#39FF88]/10 rounded-xl select-none uppercase tracking-wider">
                                 ✓ Solved successfully
                               </span>
                             )}
                             
                             {req.status === "cancelled" && (
-                              <span className="text-[10px] text-brand-text-secondary italic px-3 py-1.5 bg-brand-primary rounded-xl border border-brand-border select-none uppercase tracking-wider">
+                              <span className="text-[10px] text-gray-500 italic px-3.5 py-2 bg-[#0E1621] rounded-xl border border-white/5 select-none uppercase tracking-wider">
                                 Cancelled by requester
                               </span>
                             )}
                           </div>
-                        </PremiumCard>
+                        </div>
                       ))
                     ) : (
                       <EmptyState
@@ -1282,8 +1292,9 @@ export default function HelpHubDashboardPage() {
           </div>
         </div>
       </section>
+    </div>
 
-      {/* Floating Bottom Navigation Bar (Mobile only) */}
+    {/* Floating Bottom Navigation Bar (Mobile only) */}
       <FloatingBottomNav items={bottomNavItems} />
 
       {/* Premium Create Request modal */}
@@ -1301,8 +1312,8 @@ export default function HelpHubDashboardPage() {
         description={`File an anonymous, location-bounded help request visible exclusively to verified students inside ${profile?.hall}.`}
       >
         <div className="space-y-4">
-          <div className="rounded-2xl bg-brand-surface p-4 border border-brand-border select-none">
-            <span className="text-[10px] font-bold text-brand-text-secondary uppercase tracking-widest block mb-1">
+          <div className="rounded-2xl bg-[#1D2733] p-4 border border-white/[0.08] select-none">
+            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">
               Required Request Action
             </span>
             <span className="text-base font-black text-white flex items-center gap-1.5">
@@ -1311,7 +1322,7 @@ export default function HelpHubDashboardPage() {
           </div>
 
           <div className="space-y-1.5 flex flex-col relative" ref={itemDropdownRef}>
-            <label className="text-[10px] font-bold text-brand-text-secondary uppercase tracking-widest ml-1 select-none">
+            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1 select-none">
               Select Needed Item
             </label>
             
@@ -1321,28 +1332,28 @@ export default function HelpHubDashboardPage() {
                 type="button"
                 onClick={() => setIsItemDropdownOpen(true)}
                 className={cn(
-                  "flex w-full items-center justify-between rounded-2xl border bg-brand-secondary px-4 py-3.5 text-sm text-brand-text-primary outline-none transition duration-200 select-none cursor-pointer",
-                  "border-brand-border hover:border-brand-accent/30",
-                  selectedItem && "border-brand-accent/30 text-white font-bold"
+                  "flex w-full items-center justify-between rounded-2xl border bg-[#0E1621] px-4 py-3.5 text-sm text-gray-400 outline-none transition duration-200 select-none cursor-pointer",
+                  "border-white/[0.08] hover:border-[#39FF88]/30",
+                  selectedItem && "border-[#39FF88]/30 text-white font-bold"
                 )}
               >
                 <span>{selectedItem ? selectedItem : "Select a campus item..."}</span>
-                <ChevronDown className="h-4 w-4 text-brand-text-secondary transition duration-200" />
+                <ChevronDown className="h-4 w-4 text-gray-400 transition duration-200" />
               </button>
             ) : (
               /* Opened State: Inline Interactive Search Picker */
-              <div className="rounded-2xl border border-brand-border bg-brand-secondary p-3.5 space-y-3 flex flex-col shadow-inner backdrop-blur-md">
+              <div className="rounded-2xl border border-white/[0.08] bg-[#17212B] p-3.5 space-y-3 flex flex-col shadow-inner backdrop-blur-md">
                 
                 {/* Search Header Row */}
                 <div className="flex items-center gap-2">
                   <div className="relative flex-1 flex items-center">
-                    <Search className="absolute left-3.5 h-4 w-4 text-brand-text-secondary pointer-events-none" />
+                    <Search className="absolute left-3.5 h-4 w-4 text-gray-400 pointer-events-none" />
                     <input
                       type="text"
                       value={inputValue}
                       onChange={(e) => setInputValue(e.target.value)}
                       placeholder="Search 500+ campus items..."
-                      className="w-full rounded-xl border border-brand-border bg-brand-secondary pl-10 pr-8 py-2.5 text-sm text-white outline-none transition duration-150 focus:border-brand-accent/35 placeholder:text-brand-text-secondary/40"
+                      className="w-full rounded-xl border border-white/[0.08] bg-[#0E1621] pl-10 pr-8 py-2.5 text-sm text-white outline-none transition duration-150 focus:border-[#39FF88]/35 placeholder:text-gray-500/40"
                       autoFocus
                     />
                     {inputValue && (
@@ -1352,7 +1363,7 @@ export default function HelpHubDashboardPage() {
                           setInputValue("");
                           setDebouncedSearchQuery("");
                         }}
-                        className="absolute right-3 p-1 rounded-full text-brand-text-secondary hover:text-white transition cursor-pointer"
+                        className="absolute right-3 p-1 rounded-full text-gray-400 hover:text-white transition cursor-pointer"
                       >
                         ✕
                       </button>
@@ -1368,7 +1379,7 @@ export default function HelpHubDashboardPage() {
                       setDebouncedSearchQuery("");
                       setExpandedCategory(null);
                     }}
-                    className="h-10 px-3 rounded-xl bg-brand-secondary border border-brand-border hover:border-brand-accent/25 hover:text-white text-xs font-bold text-brand-text-secondary transition cursor-pointer"
+                    className="h-10 px-3 rounded-xl bg-[#0E1621] border border-white/[0.08] hover:border-[#39FF88]/25 hover:text-white text-xs font-bold text-gray-400 transition cursor-pointer"
                   >
                     Back
                   </button>
@@ -1376,7 +1387,7 @@ export default function HelpHubDashboardPage() {
 
                 {/* Match Count Indicator */}
                 {inputValue && (
-                  <div className="px-1 text-[10px] font-bold text-brand-accent uppercase tracking-wider select-none">
+                  <div className="px-1 text-[10px] font-bold text-[#39FF88] uppercase tracking-wider select-none">
                     {totalMatchesCount} {totalMatchesCount === 1 ? "item" : "items"} found
                   </div>
                 )}
@@ -1388,7 +1399,7 @@ export default function HelpHubDashboardPage() {
                     filteredSearchItems && filteredSearchItems.length > 0 ? (
                       filteredSearchItems.map((catGroup) => (
                         <div key={catGroup.category} className="space-y-1">
-                          <div className="px-2 py-1 text-[9px] font-bold text-brand-text-secondary uppercase tracking-widest bg-brand-surface/40 rounded-lg select-none">
+                          <div className="px-2 py-1 text-[9px] font-bold text-gray-400 uppercase tracking-widest bg-[#1D2733]/45 rounded-lg select-none">
                             {catGroup.category}
                           </div>
                           <div className="grid grid-cols-1 gap-0.5 pl-0.5">
@@ -1408,8 +1419,8 @@ export default function HelpHubDashboardPage() {
                                   className={cn(
                                     "flex w-full items-center rounded-xl px-3.5 py-2.5 text-left text-sm transition duration-150 select-none cursor-pointer",
                                     isSelected
-                                      ? "bg-brand-accent text-brand-primary font-black shadow-sm"
-                                      : "text-brand-text-secondary hover:bg-brand-surface/85 hover:text-white"
+                                      ? "bg-[#39FF88] text-black font-black shadow-sm"
+                                      : "text-gray-400 hover:bg-[#1D2733] hover:text-white"
                                   )}
                                 >
                                   {item}
@@ -1420,7 +1431,7 @@ export default function HelpHubDashboardPage() {
                         </div>
                       ))
                     ) : (
-                      <div className="px-4 py-8 text-center text-xs text-brand-text-secondary italic">
+                      <div className="px-4 py-8 text-center text-xs text-gray-400 italic">
                         🔍 No items found for &quot;{inputValue}&quot;
                       </div>
                     )
@@ -1429,7 +1440,7 @@ export default function HelpHubDashboardPage() {
                     expandedCategory === null ? (
                       /* Root Categories */
                       <div className="space-y-1">
-                        <div className="px-2 py-1 text-[9px] font-bold text-brand-text-secondary uppercase tracking-widest select-none">
+                        <div className="px-2 py-1 text-[9px] font-bold text-gray-400 uppercase tracking-widest select-none">
                           Browse by Category
                         </div>
                         {helpRequestCategories.map((cat) => (
@@ -1437,11 +1448,11 @@ export default function HelpHubDashboardPage() {
                             key={cat.category}
                             type="button"
                             onClick={() => setExpandedCategory(cat.category)}
-                            className="flex w-full items-center justify-between rounded-xl px-3.5 py-3 text-left text-sm text-brand-text-secondary hover:bg-brand-surface/85 hover:text-white transition duration-150 select-none cursor-pointer"
+                            className="flex w-full items-center justify-between rounded-xl px-3.5 py-3 text-left text-sm text-gray-400 hover:bg-[#1D2733] hover:text-white transition duration-150 select-none cursor-pointer"
                           >
                             <span className="font-bold text-white/95">{cat.category}</span>
                             <div className="flex items-center gap-1.5">
-                              <span className="text-[10px] bg-brand-secondary/80 border border-brand-border text-brand-text-secondary px-2.5 py-0.5 rounded-full font-bold">
+                              <span className="text-[10px] bg-[#0E1621] border border-white/[0.08] text-gray-400 px-2.5 py-0.5 rounded-full font-bold">
                                 {cat.items.length} items
                               </span>
                               <ChevronDown className="-rotate-90 h-3.5 w-3.5 opacity-60" />
@@ -1455,12 +1466,12 @@ export default function HelpHubDashboardPage() {
                         <button
                           type="button"
                           onClick={() => setExpandedCategory(null)}
-                          className="flex w-full items-center gap-1.5 rounded-lg px-2 py-2 text-left font-bold text-brand-accent hover:bg-brand-surface/50 transition duration-150 cursor-pointer mb-1 select-none text-xs"
+                          className="flex w-full items-center gap-1.5 rounded-lg px-2 py-2 text-left font-bold text-[#39FF88] hover:bg-[#1D2733]/50 transition duration-150 cursor-pointer mb-1 select-none text-xs"
                         >
                           ← Back to Categories
                         </button>
                         
-                        <div className="px-2.5 py-1.5 text-[9px] font-black text-brand-text-secondary uppercase tracking-widest bg-brand-surface/20 rounded-lg select-none mb-1">
+                        <div className="px-2.5 py-1.5 text-[9px] font-black text-gray-400 uppercase tracking-widest bg-[#1D2733]/20 rounded-lg select-none mb-1">
                           {expandedCategory}
                         </div>
                         
@@ -1483,8 +1494,8 @@ export default function HelpHubDashboardPage() {
                                   className={cn(
                                     "flex w-full items-center rounded-xl px-3.5 py-2.5 text-left text-sm transition duration-150 select-none cursor-pointer",
                                     isSelected
-                                      ? "bg-brand-accent text-brand-primary font-black shadow-sm"
-                                      : "text-brand-text-secondary hover:bg-brand-surface/85 hover:text-white"
+                                      ? "bg-[#39FF88] text-black font-black shadow-sm"
+                                      : "text-gray-400 hover:bg-[#1D2733] hover:text-white"
                                   )}
                                 >
                                   {item}
@@ -1504,9 +1515,9 @@ export default function HelpHubDashboardPage() {
             <motion.div
               initial={{ opacity: 0, scale: 0.98 }}
               animate={{ opacity: 1, scale: 1 }}
-              className="rounded-2xl border border-brand-border bg-brand-accent/5 p-4 space-y-1 select-none"
+              className="rounded-2xl border border-[#39FF88]/20 bg-[#39FF88]/5 p-4 space-y-1 select-none"
             >
-              <p className="text-[10px] font-bold text-brand-accent uppercase tracking-widest">
+              <p className="text-[10px] font-bold text-[#39FF88] uppercase tracking-widest">
                 Request Preview Broadcast
               </p>
               <p className="text-xs font-semibold text-white/90 italic leading-relaxed">
@@ -1526,7 +1537,7 @@ export default function HelpHubDashboardPage() {
                 setIsItemDropdownOpen(false);
               }}
               variant="secondary"
-              className="flex-1"
+              className="flex-1 animate-none"
               disabled={submitting}
             >
               Cancel
@@ -1537,7 +1548,6 @@ export default function HelpHubDashboardPage() {
               disabled={submitting || !selectedItem}
               variant="primary"
               className="flex-1 font-bold"
-              withNeonGlow
             >
               {submitting ? "Broadcasting..." : "Publish Broadcast"}
             </PremiumButton>
@@ -1567,7 +1577,7 @@ export default function HelpHubDashboardPage() {
           />
 
           <div className="space-y-1.5 flex flex-col">
-            <label className="text-[10px] font-bold text-brand-text-secondary uppercase tracking-widest ml-1 select-none font-sans">
+            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1 select-none font-sans">
               Provide Context & Audit details
             </label>
             <textarea
@@ -1575,7 +1585,7 @@ export default function HelpHubDashboardPage() {
               onChange={(e) => setReportDetails(e.target.value)}
               placeholder="Provide chat contexts, malicious helper actions, or general details regarding the incident..."
               rows={4}
-              className="w-full rounded-2xl border border-brand-border bg-brand-primary px-4 py-3 text-white outline-none focus:border-red-400 text-sm resize-none"
+              className="w-full rounded-2xl border border-white/[0.08] bg-[#0E1621] px-4 py-3 text-white outline-none focus:border-red-400 text-sm resize-none"
             />
           </div>
 
@@ -1588,7 +1598,7 @@ export default function HelpHubDashboardPage() {
                 setReportRequestId("");
               }}
               variant="secondary"
-              className="flex-1"
+              className="flex-1 animate-none"
               disabled={submittingReport}
             >
               Cancel
@@ -1598,8 +1608,7 @@ export default function HelpHubDashboardPage() {
               onClick={handleSubmitReport}
               disabled={submittingReport || !reportReason}
               variant="danger"
-              className="flex-1"
-              withNeonGlow
+              className="flex-1 font-bold"
             >
               {submittingReport ? "Submitting..." : "Submit Report"}
             </PremiumButton>

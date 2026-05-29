@@ -101,22 +101,25 @@ function LoginContent() {
 
         {/* Branding & Identification */}
         <div className="flex flex-col items-center">
-          <div className="relative flex h-24 w-24 items-center justify-center rounded-[28px] border border-white/[0.08] bg-[#0E1621]/90 shadow-[0_8px_30px_rgba(42,171,238,0.2)]">
+          <div className="relative flex items-center justify-center">
+            {/* Soft blue glowing backdrop aura behind the free-floating logo */}
+            <div className="absolute w-36 h-36 rounded-full bg-gradient-to-r from-[#2AABEE]/15 to-[#2AABEE]/5 filter blur-2xl pointer-events-none" />
+            
             <Image
               src="/logo.png"
               alt="Daffgle Logo"
-              width={86}
-              height={86}
-              className="object-contain"
+              width={160}
+              height={160}
+              className="w-[120px] h-[120px] md:w-[155px] md:h-[155px] object-contain filter drop-shadow-[0_0_20px_rgba(42,171,238,0.3)] select-none z-10"
               priority
             />
           </div>
 
-          <div className="mt-5 text-center">
-            <h1 className="text-3xl font-black tracking-tight text-white uppercase tracking-wider drop-shadow-md">
+          <div className="mt-3 text-center z-10">
+            <h1 className="text-4xl md:text-[2.65rem] font-black tracking-tight text-white uppercase tracking-wider drop-shadow-lg">
               Daffgle
             </h1>
-            <div className="mt-3 space-y-1">
+            <div className="mt-2.5 space-y-1">
               <p className="text-[10px] font-bold text-[#2AABEE] uppercase tracking-[0.22em] select-none">
                 Anonymous Realtime Student Communication
               </p>

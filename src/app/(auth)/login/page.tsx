@@ -100,31 +100,33 @@ function LoginContent() {
         <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-[#2AABEE] to-transparent opacity-85" />
 
         {/* Branding & Identification */}
-        <div className="space-y-5">
-          <div className="relative mx-auto flex h-20 w-20 items-center justify-center rounded-[22px] border border-white/[0.08] bg-[#0E1621]/90 shadow-[0_8px_20px_rgba(0,0,0,0.4)]">
+        <div className="flex flex-col items-center">
+          <div className="relative flex h-24 w-24 items-center justify-center rounded-[28px] border border-white/[0.08] bg-[#0E1621]/90 shadow-[0_8px_25px_rgba(0,0,0,0.5)]">
             <Image
               src="/logo.png"
               alt="Daffgle Logo"
-              width={48}
-              height={48}
+              width={72}
+              height={72}
               className="object-contain"
               priority
             />
-            <div className="absolute -right-2 -bottom-2 flex h-7 min-w-7 items-center justify-center rounded-full bg-[#2AABEE] px-1.5 text-[8px] font-black text-white tracking-wider shadow-lg shadow-[#2AABEE]/20">
+            <div className="absolute -right-2 -bottom-2 flex h-8 w-8 items-center justify-center rounded-full bg-[#2AABEE] text-[9px] font-black text-white tracking-wider shadow-lg shadow-[#2AABEE]/20 border-2 border-[#17212B]">
               DIU
             </div>
           </div>
 
-          <div className="space-y-2">
+          <div className="mt-5 text-center">
             <h1 className="text-3xl font-black tracking-tight text-white uppercase tracking-wider drop-shadow-md">
               Daffgle
             </h1>
-            <p className="text-[10px] font-bold text-[#2AABEE] uppercase tracking-[0.22em] select-none">
-              Anonymous Realtime Student Communication
-            </p>
-            <p className="text-xs text-white/50 font-medium select-none">
-              Verified DIU students only
-            </p>
+            <div className="mt-3 space-y-1">
+              <p className="text-[10px] font-bold text-[#2AABEE] uppercase tracking-[0.22em] select-none">
+                Anonymous Realtime Student Communication
+              </p>
+              <p className="text-xs text-white/50 font-medium select-none">
+                Verified DIU students only
+              </p>
+            </div>
           </div>
         </div>
 

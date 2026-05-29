@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useState, useRef, Suspense } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { supabase } from "@/lib/supabase/client";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import { isEmailAllowed } from "@/lib/validations/auth";
-import { ShieldAlert, LogIn, ArrowRight, ArrowLeft, Check, Sparkles } from "lucide-react";
+import { ShieldAlert, Sparkles, ArrowRight } from "lucide-react";
 
 function LoginContent() {
   const router = useRouter();
@@ -16,12 +16,6 @@ function LoginContent() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [checkingSession, setCheckingSession] = useState(true);
-
-  // UI Flow states
-  const [step, setStep] = useState<"email" | "code" | "success">("email");
-  const [email, setEmail] = useState("");
-  const [code, setCode] = useState(["", "", "", "", "", ""]);
-  const codeInputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   // Session verification on mount
   useEffect(() => {
@@ -75,74 +69,6 @@ function LoginContent() {
     }
   };
 
-  // Handle email submission (Interactive UI validation)
-  const handleEmailSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!email) return;
-
-    // Validate email domain constraint / admin bypass
-    if (isEmailAllowed(email)) {
-      setLoading(true);
-      setMessage("");
-      // Simulate sending visual OTP (premium transition)
-      setTimeout(() => {
-        setLoading(false);
-        setStep("code");
-      }, 1200);
-    } else {
-      setMessage("Access denied: Only @diu.edu.bd university emails are allowed.");
-    }
-  };
-
-  // Focus first input when code screen appears
-  useEffect(() => {
-    if (step === "code") {
-      setTimeout(() => {
-        codeInputRefs.current[0]?.focus();
-      }, 300);
-    }
-  }, [step]);
-
-  // Handle individual code character inputs
-  const handleCodeChange = (index: number, value: string) => {
-    const cleanValue = value.replace(/[^0-9]/g, ""); // Only digits allowed
-    if (cleanValue.length <= 1) {
-      const newCode = [...code];
-      newCode[index] = cleanValue;
-      setCode(newCode);
-
-      // Shift focus to next input
-      if (cleanValue && index < 5) {
-        codeInputRefs.current[index + 1]?.focus();
-      }
-
-      // Check if full code entered (Simulate verification)
-      if (index === 5 && cleanValue) {
-        const isComplete = newCode.every((digit) => digit.length === 1);
-        if (isComplete) {
-          setLoading(true);
-          setTimeout(() => {
-            setLoading(false);
-            setStep("success");
-          }, 1200);
-        }
-      }
-    }
-  };
-
-  // Keyboard accessibility: backspace focus movement
-  const handleKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Backspace" && !code[index] && index > 0) {
-      codeInputRefs.current[index - 1]?.focus();
-    }
-  };
-
-  const handleBackClick = () => {
-    setStep("email");
-    setCode(["", "", "", "", "", ""]);
-    setMessage("");
-  };
-
   // Render initial synchronization state
   if (checkingSession) {
     return (
@@ -163,299 +89,94 @@ function LoginContent() {
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
+      initial={{ opacity: 0, scale: 0.97, y: 15 }}
+      animate={{ opacity: 1, scale: 1, y: 0 }}
       transition={{ type: "spring", stiffness: 100, damping: 15 }}
-      className="w-full max-w-[420px] z-10 px-4"
+      className="w-full max-w-[400px] z-10 px-4"
     >
       {/* Premium Glassmorphic Login Card */}
-      <div className="relative border border-white/[0.08] bg-[#17212B]/75 backdrop-blur-[24px] rounded-[24px] p-8 md:p-10 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.7),_0_0_40px_rgba(42,171,238,0.06)] overflow-hidden">
+      <div className="relative border border-white/[0.08] bg-[#17212B]/75 backdrop-blur-[24px] rounded-[26px] p-8 md:p-10 shadow-[0_30px_70px_-15px_rgba(0,0,0,0.8),_0_0_50px_rgba(42,171,238,0.06)] overflow-hidden text-center">
         {/* Sleek top glowing border bar */}
-        <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-[#2AABEE] to-transparent opacity-80" />
+        <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-[#2AABEE] to-transparent opacity-85" />
 
-        <AnimatePresence mode="wait">
-          {/* STEP 1: EMAIL & OAUTH */}
-          {step === "email" && (
-            <motion.div
-              key="email-step"
-              initial={{ opacity: 0, x: -30 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -30 }}
-              transition={{ duration: 0.35, ease: "easeInOut" }}
-              className="space-y-8"
-            >
-              {/* Branding Section */}
-              <div className="text-center space-y-4">
-                <div className="relative mx-auto flex h-20 w-20 items-center justify-center rounded-[22px] border border-white/[0.08] bg-[#0E1621]/90 shadow-[0_8px_20px_rgba(0,0,0,0.4)]">
-                  <Image
-                    src="/logo.png"
-                    alt="Daffgle Logo"
-                    width={48}
-                    height={48}
-                    className="object-contain"
-                    priority
-                  />
-                  <div className="absolute -right-2 -bottom-2 flex h-7 min-w-7 items-center justify-center rounded-full bg-[#2AABEE] px-1.5 text-[8px] font-black text-white tracking-wider shadow-lg shadow-[#2AABEE]/20">
-                    DIU
+        {/* Branding & Identification */}
+        <div className="space-y-5">
+          <div className="relative mx-auto flex h-20 w-20 items-center justify-center rounded-[22px] border border-white/[0.08] bg-[#0E1621]/90 shadow-[0_8px_20px_rgba(0,0,0,0.4)]">
+            <Image
+              src="/logo.png"
+              alt="Daffgle Logo"
+              width={48}
+              height={48}
+              className="object-contain"
+              priority
+            />
+            <div className="absolute -right-2 -bottom-2 flex h-7 min-w-7 items-center justify-center rounded-full bg-[#2AABEE] px-1.5 text-[8px] font-black text-white tracking-wider shadow-lg shadow-[#2AABEE]/20">
+              DIU
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <h1 className="text-3xl font-black tracking-tight text-white uppercase tracking-wider drop-shadow-md">
+              Daffgle
+            </h1>
+            <p className="text-[10px] font-bold text-[#2AABEE] uppercase tracking-[0.22em] select-none">
+              Anonymous Realtime Student Communication
+            </p>
+            <p className="text-xs text-white/50 font-medium select-none">
+              Verified DIU students only
+            </p>
+          </div>
+        </div>
+
+        {/* Large Premium "Continue with Google" Action Button */}
+        <div className="mt-8 mb-6">
+          <motion.button
+            onClick={handleGoogleLogin}
+            disabled={loading}
+            initial="initial"
+            whileHover="hover"
+            whileTap="tap"
+            className="w-full flex items-center justify-between bg-[#2AABEE] hover:bg-[#2AABEE]/95 text-white rounded-full py-4.5 pl-7 pr-5 text-sm font-bold tracking-wide transition-colors duration-300 shadow-[0_6px_30px_rgba(42,171,238,0.4)] hover:shadow-[0_8px_35px_rgba(42,171,238,0.5)] group cursor-pointer relative overflow-hidden"
+          >
+            {loading ? (
+              <div className="w-full flex items-center justify-center gap-3 py-0.5">
+                <div className="h-4.5 w-4.5 animate-spin rounded-full border-2 border-white/20 border-t-white" />
+                <span className="text-xs uppercase tracking-widest text-white/90 font-black animate-pulse">
+                  Connecting...
+                </span>
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center gap-3">
+                  {/* Google Custom Minimal Logo */}
+                  <div className="flex h-5 w-5 items-center justify-center rounded-full bg-white text-black text-[10px] font-black shrink-0 shadow-sm">
+                    G
                   </div>
+                  <span className="font-bold text-sm tracking-wide">Continue with Google</span>
                 </div>
-
-                <div className="space-y-2">
-                  <h1 className="text-3xl font-black tracking-tight text-white uppercase tracking-wider">
-                    Daffgle
-                  </h1>
-                  <p className="text-[10px] font-bold text-[#2AABEE] uppercase tracking-[0.25em] select-none">
-                    Anonymous Realtime Student Communication
-                  </p>
-                  <p className="text-xs text-white/50 font-medium select-none">
-                    Verified DIU students only
-                  </p>
-                </div>
-              </div>
-
-              {/* Input Forms */}
-              <div className="space-y-5">
-                <form onSubmit={handleEmailSubmit} className="space-y-3">
-                  <div className="relative">
-                    <input
-                      type="email"
-                      placeholder="yourname@diu.edu.bd"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      disabled={loading}
-                      className="w-full bg-[#0F1A24]/90 text-white placeholder-white/20 border border-white/[0.08] rounded-full py-4.5 px-6 text-sm focus:outline-none focus:border-[#2AABEE]/50 focus:ring-1 focus:ring-[#2AABEE]/20 text-center transition-all duration-300 shadow-[inset_0_2px_4px_rgba(0,0,0,0.4)]"
-                      required
-                    />
-                    
-                    {/* Integrated Submit Circle Button */}
-                    <button
-                      type="submit"
-                      disabled={loading || !email}
-                      className={`absolute right-1.5 top-1.5 text-white w-10 h-10 flex items-center justify-center rounded-full transition-all duration-300 group overflow-hidden ${
-                        email 
-                          ? "bg-[#2AABEE] hover:bg-[#2AABEE]/80 cursor-pointer shadow-[0_0_15px_rgba(42,171,238,0.4)]" 
-                          : "bg-white/[0.04] text-white/20 cursor-not-allowed"
-                      }`}
-                    >
-                      {loading ? (
-                        <div className="h-4.5 w-4.5 animate-spin rounded-full border-2 border-white/10 border-t-white" />
-                      ) : (
-                        <span className="relative w-full h-full block overflow-hidden">
-                          <span className="absolute inset-0 flex items-center justify-center transition-transform duration-300 group-hover:translate-x-full">
-                            <ArrowRight className="h-4.5 w-4.5" />
-                          </span>
-                          <span className="absolute inset-0 flex items-center justify-center transition-transform duration-300 -translate-x-full group-hover:translate-x-0">
-                            <ArrowRight className="h-4.5 w-4.5" />
-                          </span>
-                        </span>
-                      )}
-                    </button>
-                  </div>
-                  
-                  <button
-                    type="submit"
-                    disabled={loading || !email}
-                    className={`w-full py-4 px-6 rounded-full font-bold text-xs uppercase tracking-widest text-center transition-all duration-300 ${
-                      email 
-                        ? "bg-[#2AABEE] text-white hover:bg-[#2aabee]/90 cursor-pointer shadow-[0_4px_20px_rgba(42,171,238,0.25)]" 
-                        : "bg-[#0F1A24]/60 text-white/30 border border-white/[0.04] cursor-not-allowed"
-                    }`}
-                  >
-                    {loading ? "Sending Code..." : "Continue"}
-                  </button>
-                </form>
-
-                <div className="flex items-center gap-4 text-xs select-none">
-                  <div className="h-[1px] bg-white/[0.06] flex-1" />
-                  <span className="text-white/20 font-bold uppercase tracking-wider">or</span>
-                  <div className="h-[1px] bg-white/[0.06] flex-1" />
-                </div>
-
-                {/* Primary Google Authentication Button */}
-                <button
-                  onClick={handleGoogleLogin}
-                  disabled={loading}
-                  className="w-full flex items-center justify-center gap-3 bg-[#0F1A24]/90 hover:bg-[#0F1A24] border border-white/[0.08] hover:border-[#2AABEE]/30 text-white rounded-full py-4 px-6 text-sm font-bold tracking-wide transition-all duration-300 shadow-md group cursor-pointer"
-                >
-                  {loading ? (
-                    <div className="h-4.5 w-4.5 animate-spin rounded-full border-2 border-white/10 border-t-[#2AABEE]" />
-                  ) : (
-                    <>
-                      <LogIn className="h-4.5 w-4.5 text-[#2AABEE] transition-transform duration-300 group-hover:scale-110 shrink-0" />
-                      <span>Continue with DIU Google</span>
-                    </>
-                  )}
-                </button>
-
-                {/* Verification Notice */}
-                <div className="flex items-center justify-center gap-2 text-[9px] font-black text-[#2AABEE] uppercase tracking-[0.2em] select-none">
-                  <Sparkles className="h-3 w-3 shrink-0 animate-pulse" />
-                  <span>Only @diu.edu.bd students</span>
-                </div>
-              </div>
-
-              {/* Agreements Footer */}
-              <p className="text-[10px] text-white/30 leading-relaxed text-center font-medium">
-                By entering, you confirm you agree to our policies. Your data is kept absolutely private and campus verification ensures a secure, peer-only environment.
-              </p>
-            </motion.div>
-          )}
-
-          {/* STEP 2: OTP VERIFICATION */}
-          {step === "code" && (
-            <motion.div
-              key="code-step"
-              initial={{ opacity: 0, x: 30 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 30 }}
-              transition={{ duration: 0.35, ease: "easeInOut" }}
-              className="space-y-8"
-            >
-              {/* Header */}
-              <div className="text-center space-y-3">
-                <div className="relative mx-auto flex h-16 w-16 items-center justify-center rounded-[20px] border border-[#2AABEE]/20 bg-[#0E1621]/90 shadow-[0_0_15px_rgba(42,171,238,0.1)] text-xl select-none">
-                  ✉️
-                </div>
-                <div className="space-y-1">
-                  <h1 className="text-2xl font-black text-white uppercase tracking-wider">
-                    Verification Code
-                  </h1>
-                  <p className="text-xs text-white/50 font-medium">
-                    We sent a code to <span className="text-[#2AABEE] font-semibold">{email}</span>
-                  </p>
-                </div>
-              </div>
-
-              {/* OTP Digit Boxes */}
-              <div className="space-y-6">
-                <div className="flex items-center justify-center gap-2">
-                  {code.map((digit, i) => (
-                    <div key={i} className="flex items-center">
-                      <div className="relative">
-                        <input
-                          ref={(el) => {
-                            codeInputRefs.current[i] = el;
-                          }}
-                          type="text"
-                          inputMode="numeric"
-                          pattern="[0-9]*"
-                          maxLength={1}
-                          value={digit}
-                          onChange={(e) => handleCodeChange(i, e.target.value)}
-                          onKeyDown={(e) => handleKeyDown(i, e)}
-                          disabled={loading}
-                          className="w-12 h-14 text-center text-xl font-bold bg-[#0F1A24]/90 text-white border border-white/[0.08] rounded-xl focus:outline-none focus:border-[#2AABEE] focus:ring-1 focus:ring-[#2AABEE]/20 transition-all duration-200 shadow-[inset_0_2px_4px_rgba(0,0,0,0.4)]"
-                          style={{ caretColor: "transparent" }}
-                        />
-                        {!digit && (
-                          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                            <span className="text-xl text-white/10 font-bold">•</span>
-                          </div>
-                        )}
-                      </div>
-                      {i === 2 && <span className="text-white/15 px-1 font-bold text-lg">-</span>}
-                    </div>
-                  ))}
-                </div>
-
-                <div className="text-center">
-                  <button
-                    onClick={() => {
-                      if (!loading) {
-                        setLoading(true);
-                        setTimeout(() => {
-                          setLoading(false);
-                          setMessage("Verification code resent successfully!");
-                        }, 1000);
-                      }
+                
+                {/* Sliding Arrow container */}
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10 shrink-0 group-hover:bg-white/20 transition-all duration-300">
+                  <motion.div
+                    variants={{
+                      hover: { x: 3, scale: 1.05 },
+                      initial: { x: 0, scale: 1 }
                     }}
-                    disabled={loading}
-                    className="text-[#2AABEE] hover:text-[#2AABEE]/80 transition-colors text-xs font-bold uppercase tracking-wider select-none shrink-0"
+                    transition={{ type: "spring", stiffness: 300, damping: 15 }}
                   >
-                    {loading ? "Resending..." : "Resend code"}
-                  </button>
+                    <ArrowRight className="h-4.5 w-4.5" />
+                  </motion.div>
                 </div>
+              </>
+            )}
+          </motion.button>
+        </div>
 
-                {/* Back / Verify Actions */}
-                <div className="flex w-full gap-3">
-                  <button
-                    onClick={handleBackClick}
-                    disabled={loading}
-                    className="w-1/3 flex items-center justify-center gap-1.5 rounded-full bg-[#0F1A24]/60 hover:bg-[#0F1A24] border border-white/[0.06] text-white/80 hover:text-white font-bold text-xs uppercase tracking-wider transition-all duration-300 py-4 cursor-pointer"
-                  >
-                    <ArrowLeft className="h-3.5 w-3.5 shrink-0" />
-                    <span>Back</span>
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      const isComplete = code.every((digit) => digit.length === 1);
-                      if (isComplete) {
-                        setLoading(true);
-                        setTimeout(() => {
-                          setLoading(false);
-                          setStep("success");
-                        }, 1200);
-                      }
-                    }}
-                    disabled={loading || !code.every((d) => d !== "")}
-                    className={`flex-1 rounded-full font-bold text-xs uppercase tracking-wider transition-all duration-300 py-4 ${
-                      code.every((d) => d !== "") && !loading
-                        ? "bg-[#2AABEE] text-white hover:bg-[#2AABEE]/90 shadow-[0_4px_20px_rgba(42,171,238,0.25)] cursor-pointer"
-                        : "bg-[#0F1A24]/40 text-white/20 border border-white/[0.04] cursor-not-allowed"
-                    }`}
-                  >
-                    {loading ? "Verifying..." : "Continue"}
-                  </button>
-                </div>
-              </div>
-            </motion.div>
-          )}
-
-          {/* STEP 3: SUCCESS STEP */}
-          {step === "success" && (
-            <motion.div
-              key="success-step"
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.45, ease: "easeOut" }}
-              className="space-y-8 text-center"
-            >
-              {/* Animated Success Orb */}
-              <div className="relative mx-auto w-20 h-20 rounded-full bg-gradient-to-br from-[#2AABEE] to-[#2AABEE]/70 flex items-center justify-center shadow-[0_0_30px_rgba(42,171,238,0.4)]">
-                <motion.div
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  transition={{ type: "spring", stiffness: 150, delay: 0.2 }}
-                >
-                  <Check className="h-10 w-10 text-white stroke-[3px]" />
-                </motion.div>
-              </div>
-
-              <div className="space-y-2">
-                <h1 className="text-3xl font-black text-white tracking-tight uppercase">
-                  Welcome to Daffgle
-                </h1>
-                <p className="text-sm text-[#2AABEE] font-bold uppercase tracking-wider select-none animate-pulse">
-                  Verification Complete!
-                </p>
-                <p className="text-xs text-white/50 font-medium">
-                  Welcome to the anonymous, real-time campus space.
-                </p>
-              </div>
-
-              <button
-                onClick={() => {
-                  router.push("/dashboard");
-                }}
-                className="w-full rounded-full bg-white text-black hover:bg-white/95 font-bold text-xs uppercase tracking-widest py-4.5 transition-all duration-300 shadow-[0_4px_25px_rgba(255,255,255,0.25)] cursor-pointer"
-              >
-                Continue to Dashboard
-              </button>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        {/* Small Verification & Trust Notice */}
+        <div className="flex items-center justify-center gap-2 text-[9px] font-black text-[#2AABEE] uppercase tracking-[0.2em] select-none py-1">
+          <Sparkles className="h-3 w-3 shrink-0 animate-pulse" />
+          <span>Only @diu.edu.bd emails allowed</span>
+        </div>
 
         {/* Error warnings container */}
         <AnimatePresence>

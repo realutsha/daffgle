@@ -5,21 +5,19 @@ import { supabase } from "@/lib/supabase/client";
 import { setUserOffline } from "@/lib/presence";
 import { isEmailAllowed } from "@/lib/validations/auth";
 import { useRouter } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { fetchProfileSafely, isProfileComplete, clearCachedProfile } from "@/utils/profile";
 import { 
-  PremiumCard, 
   PremiumButton, 
   PremiumInput, 
   PremiumSelect, 
   PremiumDialog, 
   FloatingBottomNav, 
-  Skeleton, 
   premiumSpring 
 } from "@/components/ui/PremiumUI";
 import { useAppSettings } from "@/components/providers/AppSettingsProvider";
-import { ArrowLeft, User, ShieldAlert, Award, Star, Compass, Trash2, Shield, Info, LogOut } from "lucide-react";
+import { ArrowLeft, User, ShieldAlert, Star, Shield, Info, LogOut, BookOpen, Home } from "lucide-react";
 
 type Profile = {
   id: string;
@@ -330,35 +328,38 @@ export default function ProfilePage() {
 
   if (loading) {
     return (
-      <main className="flex h-screen items-center justify-center bg-brand-primary text-white px-4">
+      <main className="flex h-screen items-center justify-center bg-[#0E1621] text-white px-4">
         <div className="flex flex-col items-center gap-4 animate-pulse select-none">
-          <div className="h-10 w-10 animate-spin rounded-full border-4 border-brand-border border-t-brand-accent" />
-          <p className="text-sm text-brand-text-secondary font-medium">Loading Profile...</p>
+          <div className="h-10 w-10 animate-spin rounded-full border-4 border-white/5 border-t-[#39FF88]" />
+          <p className="text-sm text-gray-400 font-medium tracking-wide">Loading Profile...</p>
         </div>
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen bg-brand-primary text-brand-text-primary pb-32 pt-safe">
-      <div className="mx-auto w-full max-w-2xl px-4 pt-8">
+    <main className="min-h-screen bg-[#0E1621] text-white pb-36 pt-safe relative overflow-hidden">
+      {/* Premium Top Glow Orb */}
+      <div className="absolute top-[-250px] left-1/2 -translate-x-1/2 w-[600px] h-[600px] rounded-full bg-[#39FF88]/5 blur-[120px] pointer-events-none" />
+
+      <div className="mx-auto w-full max-w-2xl px-4 pt-8 relative z-10">
         
         {/* Header */}
         <header className="mb-8 flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-black text-white tracking-tight">
+            <h1 className="text-3xl font-black text-white tracking-tight uppercase">
               My Profile
             </h1>
-            <p className="mt-1 text-xs text-brand-text-secondary select-none">
+            <p className="mt-1 text-xs text-gray-400 select-none tracking-wide">
               Manage your anonymous campus statistics
             </p>
           </div>
 
           <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
+            whileHover={{ scale: 1.03, y: -0.5 }}
+            whileTap={{ scale: 0.97 }}
             onClick={() => router.push("/dashboard")}
-            className="rounded-2xl bg-brand-surface border border-brand-border px-4 py-2.5 text-xs font-bold text-brand-accent transition hover:bg-brand-elevated cursor-pointer shadow-sm flex items-center gap-1.5"
+            className="rounded-2xl bg-[#17212B] border border-white/5 px-4.5 py-3 text-xs font-bold text-[#39FF88] transition hover:bg-[#1E293B] hover:border-[#39FF88]/30 cursor-pointer shadow-lg flex items-center gap-1.5"
           >
             <ArrowLeft className="h-3.5 w-3.5" />
             Help Hub
@@ -372,58 +373,88 @@ export default function ProfilePage() {
           transition={premiumSpring}
           className="space-y-6"
         >
-          <PremiumCard className="p-6 border-brand-border bg-brand-surface shadow-xl space-y-6">
+          {/* Main Card Panel */}
+          <div className="rounded-[32px] border border-white/[0.08] bg-[#17212B] p-6 sm:p-8 shadow-[0_20px_50px_rgba(0,0,0,0.5)] backdrop-blur-xl bg-opacity-[0.95] space-y-8 relative overflow-hidden">
+            {/* Internal Gloss Shimmer */}
+            <div className="absolute inset-0 bg-gradient-to-tr from-white/[0.003] via-transparent to-white/[0.012] pointer-events-none" />
             
-            {/* Top Identity details */}
-            <div className="flex items-center gap-4 border-b border-brand-border pb-6">
-              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-brand-elevated border border-brand-border text-2xl font-black text-brand-accent relative select-none">
-                {profile?.anonymous_username?.charAt(0).toUpperCase() || "D"}
+            {/* Top Identity Centered Section */}
+            <div className="flex flex-col items-center text-center pb-6 border-b border-white/[0.08] relative">
+              <motion.div
+                whileHover={{ scale: 1.05, rotate: [0, -1, 1, 0] }}
+                transition={premiumSpring}
+                className="relative flex h-28 w-28 items-center justify-center rounded-[36px] bg-[#0E1621] border-2 border-[#39FF88]/25 text-4xl font-black text-[#39FF88] select-none shadow-[0_0_35px_rgba(57,255,136,0.12)] mb-4 group cursor-pointer"
+              >
+                {/* Subtle Breathing Inner Ring */}
+                <div className="absolute inset-0 rounded-[36px] border border-[#39FF88]/30 animate-pulse-glow opacity-30" />
+                <span className="drop-shadow-[0_0_12px_rgba(57,255,136,0.5)]">
+                  {profile?.anonymous_username?.charAt(0).toUpperCase() || "D"}
+                </span>
+                
                 {profile?.warning_badge && (
-                  <span className="absolute -top-1 -right-1 flex h-4.5 w-4.5 items-center justify-center rounded-full bg-red-500 text-[10px] font-black text-white animate-pulse">
+                  <span className="absolute -top-1.5 -right-1.5 flex h-7 w-7 items-center justify-center rounded-full bg-red-500 text-xs font-black text-white border-2 border-[#17212B] shadow-lg animate-pulse">
                     ⚠️
                   </span>
                 )}
-              </div>
-              <div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h2 className="text-lg font-bold text-white/95">
+              </motion.div>
+
+              <div className="space-y-2">
+                <div className="flex items-center justify-center gap-2 flex-wrap">
+                  <h2 className="text-2xl font-black text-white tracking-tight">
                     {profile?.anonymous_username || "Not set"}
                   </h2>
                   {profile?.warning_badge && (
-                    <span className="rounded-full bg-red-500/10 border border-red-500/20 px-2 py-0.5 text-[8px] font-bold text-red-400 uppercase tracking-wider animate-pulse select-none">
+                    <span className="rounded-full bg-red-500/10 border border-red-500/20 px-2.5 py-0.5 text-[8px] font-black text-red-400 uppercase tracking-wider animate-pulse select-none">
                       ⚠️ {profile.warning_badge}
                     </span>
                   )}
                 </div>
-                <p className="text-xs text-brand-text-secondary mt-0.5">
-                  Verified student with <span className="text-brand-accent font-black">{profile?.karma} Karma point rating</span>
-                </p>
+
+                <div className="flex items-center justify-center gap-1.5 text-xs text-gray-400 font-semibold flex-wrap">
+                  <span className="flex items-center gap-1 bg-[#39FF88]/10 text-[#39FF88] px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border border-[#39FF88]/20 shadow-[0_0_15px_rgba(57,255,136,0.08)]">
+                    <Star className="h-3 w-3 fill-[#39FF88] text-[#39FF88]" />
+                    {profile?.karma || 0} Karma Rating
+                  </span>
+                  <span className="text-white/20 select-none">•</span>
+                  <span className="text-gray-400">Verified Student</span>
+                </div>
               </div>
             </div>
 
             {/* Editing Limit Warning Box */}
             {!isEditing && (
-              <div className="rounded-2xl bg-brand-secondary p-4 border border-brand-border select-none space-y-2.5 shadow-inner">
-                <p className="text-xs text-brand-text-secondary leading-normal flex items-start gap-2">
-                  <Info className="h-4 w-4 text-brand-accent shrink-0 mt-0.5" />
+              <div className="rounded-2xl bg-[#1E293B]/60 p-5 border border-white/[0.06] select-none space-y-4 shadow-inner relative overflow-hidden">
+                <p className="text-xs text-gray-400 leading-relaxed flex items-start gap-3">
+                  <Info className="h-4.5 w-4.5 text-[#39FF88] shrink-0 mt-0.5 drop-shadow-[0_0_6px_rgba(57,255,136,0.4)]" />
                   <span>
-                    <span className="text-white font-semibold">Identity limits:</span> You can edit profile parameters freely 2 times. Starting from the 3rd edit, a strict <span className="text-brand-accent font-black">30-day cooldown lock</span> applies.
+                    <span className="text-white font-bold block mb-0.5">Identity parameters:</span>
+                    You can edit profile parameters freely 2 times. Starting from the 3rd edit, a strict <span className="text-[#39FF88] font-bold">30-day cooldown lock</span> applies to shield the campus identity pool.
                   </span>
                 </p>
-                <div className="flex items-center justify-between border-t border-brand-border pt-2.5">
-                  <span className="text-[9px] font-bold uppercase text-brand-text-secondary tracking-widest">
-                    Total Edits count
-                  </span>
-                  <span className="rounded-full bg-brand-elevated px-2.5 py-0.5 text-[10px] font-black text-brand-accent border border-brand-border">
-                    {profile?.profile_edit_count} used
-                  </span>
+                
+                <div className="border-t border-white/[0.06] pt-3.5 flex flex-col gap-2.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[9px] font-bold uppercase text-gray-400 tracking-widest">
+                      Total Edits count
+                    </span>
+                    <span className="rounded-full bg-[#0E1621] px-3 py-1 text-[10px] font-black text-[#39FF88] border border-white/5">
+                      {profile?.profile_edit_count || 0} / 2 used
+                    </span>
+                  </div>
+                  {/* Elegant progress track */}
+                  <div className="h-1.5 w-full bg-[#0E1621] rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-gradient-to-r from-[#39FF88] to-[#7CFF6B] rounded-full transition-all duration-500 shadow-[0_0_8px_rgba(57,255,136,0.4)]"
+                      style={{ width: `${Math.min(100, ((profile?.profile_edit_count || 0) / 2) * 100)}%` }}
+                    />
+                  </div>
                 </div>
               </div>
             )}
 
             {/* Editing State Form fields */}
             {isEditing ? (
-              <div className="space-y-4">
+              <div className="space-y-5">
                 
                 {/* Active Cooldown Lock Alert */}
                 {cooldownActive && (
@@ -475,13 +506,13 @@ export default function ProfilePage() {
                   disabled={saving || cooldownActive || !editGender}
                 />
 
-                <div className="flex gap-3 pt-2">
+                <div className="flex gap-4 pt-2 flex-col sm:flex-row">
                   <PremiumButton
                     type="button"
                     onClick={() => setIsEditing(false)}
                     disabled={saving}
                     variant="secondary"
-                    className="flex-1"
+                    className="flex-1 py-3 text-xs font-bold rounded-2xl bg-[#0E1621] border-white/5 text-gray-400 hover:text-white"
                   >
                     Cancel
                   </PremiumButton>
@@ -490,7 +521,7 @@ export default function ProfilePage() {
                     onClick={handleSaveProfile}
                     disabled={saving || cooldownActive}
                     variant="primary"
-                    className="flex-1 font-bold shadow-lg"
+                    className="flex-1 py-3 text-xs font-bold rounded-2xl bg-gradient-to-r from-[#39FF88] to-[#7CFF6B] text-black border-transparent hover:shadow-[0_0_20px_rgba(57,255,136,0.25)] font-black uppercase tracking-wider"
                   >
                     {saving ? "Saving..." : "Save Identity"}
                   </PremiumButton>
@@ -499,43 +530,78 @@ export default function ProfilePage() {
             ) : (
               /* Read Only Grid */
               <div className="space-y-6">
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="rounded-2xl border border-brand-border bg-brand-secondary p-4 shadow-inner">
-                    <span className="text-[9px] font-bold text-brand-text-secondary uppercase tracking-widest block mb-1">
-                      DEPARTMENT
-                    </span>
-                    <span className="text-sm font-bold text-white">
-                      {profile?.department || "Not set"}
-                    </span>
-                  </div>
+                <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
+                  {/* Card 1: Department */}
+                  <motion.div
+                    whileHover={{ y: -4, scale: 1.015, borderColor: "rgba(57, 255, 136, 0.2)" }}
+                    className="rounded-2xl border border-white/5 bg-[#0E1621]/60 p-4.5 flex items-center gap-4 transition-all duration-300 shadow-inner group"
+                  >
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-500/10 text-blue-400 group-hover:scale-110 transition-transform">
+                      <BookOpen className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <span className="text-[9px] font-bold text-gray-500 uppercase tracking-widest block mb-0.5">
+                        Department
+                      </span>
+                      <span className="text-sm font-extrabold text-white">
+                        {profile?.department || "Not set"}
+                      </span>
+                    </div>
+                  </motion.div>
 
-                  <div className="rounded-2xl border border-brand-border bg-brand-secondary p-4 shadow-inner">
-                    <span className="text-[9px] font-bold text-brand-text-secondary uppercase tracking-widest block mb-1">
-                      GENDER
-                    </span>
-                    <span className="text-sm font-bold text-white capitalize">
-                      {profile?.gender || "Not set"}
-                    </span>
-                  </div>
+                  {/* Card 2: Gender */}
+                  <motion.div
+                    whileHover={{ y: -4, scale: 1.015, borderColor: "rgba(57, 255, 136, 0.2)" }}
+                    className="rounded-2xl border border-white/5 bg-[#0E1621]/60 p-4.5 flex items-center gap-4 transition-all duration-300 shadow-inner group"
+                  >
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-pink-500/10 text-pink-400 group-hover:scale-110 transition-transform">
+                      <User className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <span className="text-[9px] font-bold text-gray-500 uppercase tracking-widest block mb-0.5">
+                        Gender
+                      </span>
+                      <span className="text-sm font-extrabold text-white capitalize">
+                        {profile?.gender || "Not set"}
+                      </span>
+                    </div>
+                  </motion.div>
 
-                  <div className="rounded-2xl border border-brand-border bg-brand-secondary p-4 shadow-inner">
-                    <span className="text-[9px] font-bold text-brand-text-secondary uppercase tracking-widest block mb-1">
-                      CAMPUS HALL
-                    </span>
-                    <span className="text-sm font-bold text-white">
-                      {profile?.hall || "Not set"}
-                    </span>
-                  </div>
+                  {/* Card 3: Residence Hall */}
+                  <motion.div
+                    whileHover={{ y: -4, scale: 1.015, borderColor: "rgba(57, 255, 136, 0.2)" }}
+                    className="rounded-2xl border border-white/5 bg-[#0E1621]/60 p-4.5 flex items-center gap-4 transition-all duration-300 shadow-inner group"
+                  >
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-purple-500/10 text-purple-400 group-hover:scale-110 transition-transform">
+                      <Home className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <span className="text-[9px] font-bold text-gray-500 uppercase tracking-widest block mb-0.5">
+                        Campus Hall
+                      </span>
+                      <span className="text-sm font-extrabold text-white">
+                        {profile?.hall || "Not set"}
+                      </span>
+                    </div>
+                  </motion.div>
 
-                  <div className="rounded-2xl border border-brand-border bg-brand-secondary p-4 shadow-inner">
-                    <span className="text-[9px] font-bold text-brand-text-secondary uppercase tracking-widest block mb-1">
-                      TRUST REPUTATION
-                    </span>
-                    <span className="text-sm font-black text-brand-accent flex items-center gap-1 select-none">
-                      <Star className="h-4 w-4 text-brand-accent fill-brand-accent" />
-                      {profile?.karma || 0} Karma Points
-                    </span>
-                  </div>
+                  {/* Card 4: Karma Score */}
+                  <motion.div
+                    whileHover={{ y: -4, scale: 1.015, borderColor: "rgba(57, 255, 136, 0.2)" }}
+                    className="rounded-2xl border border-white/5 bg-[#0E1621]/60 p-4.5 flex items-center gap-4 transition-all duration-300 shadow-inner group"
+                  >
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#39FF88]/10 text-[#39FF88] group-hover:scale-110 transition-transform shadow-[0_0_15px_rgba(57,255,136,0.1)]">
+                      <Star className="h-5 w-5 fill-[#39FF88]" />
+                    </div>
+                    <div>
+                      <span className="text-[9px] font-bold text-gray-500 uppercase tracking-widest block mb-0.5">
+                        Trust Reputation
+                      </span>
+                      <span className="text-sm font-extrabold text-[#39FF88] flex items-center gap-1">
+                        {profile?.karma || 0} Karma Points
+                      </span>
+                    </div>
+                  </motion.div>
                 </div>
 
                 <PremiumButton
@@ -548,7 +614,7 @@ export default function ProfilePage() {
                   }}
                   disabled={!featureToggles.profile_editing}
                   variant="accent"
-                  className="w-full font-bold shadow-md"
+                  className="w-full py-4 text-xs font-black uppercase tracking-widest rounded-2xl bg-gradient-to-r from-[#39FF88]/10 to-[#7CFF6B]/10 border border-[#39FF88]/20 text-[#39FF88] hover:border-[#39FF88] hover:shadow-[0_0_20px_rgba(57,255,136,0.15)] transition-all"
                 >
                   Edit Profile Details
                 </PremiumButton>
@@ -556,46 +622,47 @@ export default function ProfilePage() {
             )}
 
             {/* Privacy Shield Info panel */}
-            <div className="rounded-2xl border border-brand-border bg-brand-secondary p-5 select-none space-y-1.5 shadow-inner">
-              <h3 className="text-xs font-bold text-white flex items-center gap-1.5">
-                <Shield className="h-4 w-4 text-brand-accent" />
-                🔒 Privacy Shield active
+            <div className="rounded-2xl border border-[#39FF88]/10 bg-[#1E293B]/40 p-5 select-none space-y-2 shadow-inner backdrop-blur-sm">
+              <h3 className="text-xs font-bold text-white flex items-center gap-2">
+                <Shield className="h-4.5 w-4.5 text-[#39FF88] drop-shadow-[0_0_6px_rgba(57,255,136,0.4)]" />
+                <span>Privacy Shield Active</span>
               </h3>
-              <p className="text-[11px] text-brand-text-secondary leading-relaxed">
+              <p className="text-[11px] text-gray-400 leading-relaxed font-semibold">
                 Your real university registration, email, phone number, and student ID are completely shielded. Only your custom anonymous identity parameters and Karma ratings are broadcasted inside Daffgle chat rooms and assistance feeds.
               </p>
             </div>
 
             {/* Account Purging Dangerous Panel */}
-            <div className="rounded-2xl bg-red-500/5 border border-red-500/10 p-5 space-y-3.5 select-none shadow-inner">
-              <h3 className="text-xs font-bold text-red-400 flex items-center gap-1.5">
-                ⚠️ Permanent Account Deletion
+            <div className="rounded-2xl bg-red-500/[0.02] border border-red-500/10 p-5 space-y-3.5 select-none shadow-inner">
+              <h3 className="text-xs font-bold text-red-400 flex items-center gap-2">
+                <ShieldAlert className="h-4.5 w-4.5 text-red-400 shrink-0" />
+                <span>Permanent Account Deletion</span>
               </h3>
-              <p className="text-[11px] text-red-300/80 leading-relaxed">
+              <p className="text-[11px] text-red-300/80 leading-relaxed font-semibold">
                 Purging your identity is permanent, irreversible, and instantly deletes your profile parameters, active conversation feeds, messages history, help requests, moderation flags, and notification tokens.
               </p>
               <PremiumButton
                 onClick={() => setShowDeleteModal(true)}
                 variant="danger"
-                className="py-2.5 px-4 text-xs font-bold rounded-xl"
+                className="w-full py-3.5 text-xs font-bold rounded-2xl bg-red-500/10 border-red-500/20 text-red-400 hover:bg-red-500/25 hover:border-red-500 transition-all shadow-[0_0_15px_rgba(239,68,68,0.05)]"
               >
                 Purge Account Permanently
               </PremiumButton>
             </div>
 
             {/* Logout actions */}
-            <div className="border-t border-brand-border pt-5">
+            <div className="border-t border-white/[0.08] pt-6">
               <PremiumButton
                 onClick={handleLogout}
                 variant="secondary"
-                className="w-full py-3 text-xs font-bold rounded-xl flex items-center justify-center gap-1.5"
+                className="w-full py-4 text-xs font-bold rounded-2xl border-white/5 bg-[#0E1621] text-gray-400 hover:text-white flex items-center justify-center gap-2"
               >
                 <LogOut className="h-3.5 w-3.5 opacity-75" />
                 Log Out of Daffgle
               </PremiumButton>
             </div>
 
-          </PremiumCard>
+          </div>
         </motion.div>
 
         {/* Floating Mobile Bottom Navigation Bar (Mobile only) */}
@@ -613,7 +680,7 @@ export default function ProfilePage() {
         >
           <div className="space-y-4">
             <div className="space-y-1.5">
-              <label className="text-[9px] font-bold text-brand-text-secondary uppercase tracking-widest block text-center select-none">
+              <label className="text-[9px] font-bold text-gray-400 uppercase tracking-widest block text-center select-none">
                 Type <span className="text-red-400 font-extrabold font-mono">delete my account</span> to confirm
               </label>
               <PremiumInput

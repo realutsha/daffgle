@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -13,7 +14,7 @@ import {
   premiumSpring 
 } from "@/components/ui/PremiumUI";
 import { useAppSettings } from "@/components/providers/AppSettingsProvider";
-import { Search, MessageSquare, Flame, Sparkles } from "lucide-react";
+import { Search } from "lucide-react";
 
 type Conversation = {
   id: string;

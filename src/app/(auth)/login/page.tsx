@@ -101,18 +101,15 @@ function LoginContent() {
 
         {/* Branding & Identification */}
         <div className="flex flex-col items-center">
-          <div className="relative flex h-24 w-24 items-center justify-center rounded-[28px] border border-white/[0.08] bg-[#0E1621]/90 shadow-[0_8px_25px_rgba(0,0,0,0.5)]">
+          <div className="relative flex h-24 w-24 items-center justify-center rounded-[28px] border border-white/[0.08] bg-[#0E1621]/90 shadow-[0_8px_30px_rgba(42,171,238,0.2)]">
             <Image
               src="/logo.png"
               alt="Daffgle Logo"
-              width={72}
-              height={72}
+              width={86}
+              height={86}
               className="object-contain"
               priority
             />
-            <div className="absolute -right-2 -bottom-2 flex h-8 w-8 items-center justify-center rounded-full bg-[#2AABEE] text-[9px] font-black text-white tracking-wider shadow-lg shadow-[#2AABEE]/20 border-2 border-[#17212B]">
-              DIU
-            </div>
           </div>
 
           <div className="mt-5 text-center">
